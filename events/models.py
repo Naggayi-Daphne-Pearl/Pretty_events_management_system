@@ -30,6 +30,12 @@ class Event(TimeStampedModel):
 
     class Meta:
         ordering = ['-event_date']
+        permissions = [
+            (
+                'view_assigned_events_only',
+                'Can view only events they are personally assigned to (row-level restriction)',
+            ),
+        ]
 
     def __str__(self):
         return f'{self.event_type} - {self.customer.name} ({self.event_date})'

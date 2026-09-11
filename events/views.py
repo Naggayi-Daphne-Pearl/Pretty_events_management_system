@@ -3,24 +3,26 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from core.permissions import scope_events_to_assignments
 from customers.models import Customer
 
 from .forms import EventForm
 from .models import Event
 
 
-class FieldStaffScopeMixin:
-    """Restrict Field Staff (non-admin) to only the events they're assigned to."""
+class AssignedEventsScopeMixin:
+    """
+    Restrict the queryset to events the current user is personally assigned
+    to, for any role that has been granted the 'view_assigned_events_only'
+    permission (see core.permissions.restricted_to_own_events).
+    """
 
     def get_queryset(self):
         qs = super().get_queryset()
-        user = self.request.user
-        if user.groups.filter(name='Field Staff').exists() and not user.is_superuser:
-            qs = qs.filter(assignments__staff_member__user=user).distinct()
-        return qs
+        return scope_events_to_assignments(qs, self.request.user)
 
 
-class EventListView(LoginRequiredMixin, PermissionRequiredMixin, FieldStaffScopeMixin, ListView):
+class EventListView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEventsScopeMixin, ListView):
     model = Event
     permission_required = 'events.view_event'
     paginate_by = 25
@@ -44,7 +46,7 @@ class EventListView(LoginRequiredMixin, PermissionRequiredMixin, FieldStaffScope
         return ctx
 
 
-class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, FieldStaffScopeMixin, DetailView):
+class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEventsScopeMixin, DetailView):
     model = Event
     permission_required = 'events.view_event'
     template_name = 'events/event_detail.html'

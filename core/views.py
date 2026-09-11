@@ -8,6 +8,8 @@ from billing.models import Invoice
 from events.models import Event
 from inventory.models import EquipmentItem
 
+from .permissions import scope_events_to_assignments
+
 
 @login_required
 def dashboard(request):
@@ -15,9 +17,7 @@ def dashboard(request):
     week_end = today + timedelta(days=7)
     month_end = today + timedelta(days=30)
 
-    events_qs = Event.objects.select_related('customer')
-    if request.user.groups.filter(name='Field Staff').exists() and not request.user.is_superuser:
-        events_qs = events_qs.filter(assignments__staff_member__user=request.user).distinct()
+    events_qs = scope_events_to_assignments(Event.objects.select_related('customer'), request.user)
 
     upcoming_week = events_qs.filter(
         event_date__gte=today, event_date__lte=week_end,

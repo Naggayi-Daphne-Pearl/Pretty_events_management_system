@@ -22,7 +22,13 @@ def perms_for(model, actions=ALL_ACTIONS):
 
 
 class Command(BaseCommand):
-    help = 'Create the Phase 1 role groups (Admin, Office Staff, Field Staff) and assign permissions.'
+    help = (
+        'Seed three starter role groups (Admin, Office Staff, Field Staff) with sensible '
+        'permission checkboxes ticked. Roles themselves are fully dynamic afterwards — a '
+        'superuser can rename these, delete them, or create entirely new ones (with any '
+        'permission combination) from Django admin under Users > Groups. This command is '
+        'just a convenience so the app isn\'t empty on first setup.'
+    )
 
     def handle(self, *args, **options):
         # Admin/Owner: full access to every model. Superusers already bypass permission
@@ -50,14 +56,21 @@ class Command(BaseCommand):
             office_perms += list(perms_for(model, VIEW_ONLY))
         office_group.permissions.set(office_perms)
 
-        # Field Staff: view-only, scoped further to "their" events in the views themselves
-        # (Django group permissions alone can't express row-level "my assigned events").
+        # Field Staff: view-only, and further scoped to "their" assigned events by the
+        # 'view_assigned_events_only' permission — ticking that same checkbox on ANY group
+        # (not just one literally named "Field Staff") gets the same row-level restriction,
+        # since the views check the permission, not the group name.
         field_group, _ = Group.objects.get_or_create(name='Field Staff')
         field_perms = list(perms_for(Event, VIEW_ONLY)) + list(perms_for(EventAssignment, VIEW_ONLY))
         field_perms += list(perms_for(EquipmentIssue, VIEW_ONLY))
+        field_perms += list(Permission.objects.filter(
+            content_type__app_label='events', codename='view_assigned_events_only',
+        ))
         field_group.permissions.set(field_perms)
 
         self.stdout.write(self.style.SUCCESS(
             'Groups ready: Admin, Office Staff, Field Staff. '
-            'Assign users to a group in Django admin (Users > edit > Groups).'
+            'Assign users to a group in Django admin (Users > edit > Groups). '
+            'To add a new role, create a Group there and tick whichever permissions it needs — '
+            'no code changes required.'
         ))
