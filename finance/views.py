@@ -68,12 +68,28 @@ class ExpenseCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
 @login_required
 @permission_required('finance.view_incomerecord', raise_exception=True)
 def summary(request):
+    """
+    Profit & Loss for a period. Income includes BOTH manually-recorded
+    IncomeRecord entries (source=other) AND invoice payments — a Payment
+    automatically creates a linked IncomeRecord (source=invoice_payment) when
+    it's recorded (see billing.views.invoice_add_payment), so this always
+    reflects real revenue without staff needing to double-enter it.
+    """
     start, end = _period_bounds(request)
     income_qs = IncomeRecord.objects.filter(date__gte=start, date__lte=end)
     expense_qs = ExpenseRecord.objects.filter(date__gte=start, date__lte=end)
 
     total_income = income_qs.aggregate(total=Sum('amount'))['total'] or 0
     total_expenses = expense_qs.aggregate(total=Sum('amount'))['total'] or 0
+
+    income_by_source = (
+        income_qs.values('source')
+        .annotate(total=Sum('amount'))
+        .order_by('-total')
+    )
+    source_labels = dict(IncomeRecord.Source.choices)
+    for row in income_by_source:
+        row['label'] = source_labels.get(row['source'], row['source'])
 
     expenses_by_category = (
         expense_qs.values('category__name')
@@ -87,7 +103,8 @@ def summary(request):
         'total_income': total_income,
         'total_expenses': total_expenses,
         'net': total_income - total_expenses,
+        'income_by_source': income_by_source,
         'expenses_by_category': expenses_by_category,
-        'recent_income': income_qs.order_by('-date')[:15],
-        'recent_expenses': expense_qs.order_by('-date')[:15],
+        'recent_income': income_qs.select_related('event').order_by('-date')[:15],
+        'recent_expenses': expense_qs.select_related('category', 'event').order_by('-date')[:15],
     })

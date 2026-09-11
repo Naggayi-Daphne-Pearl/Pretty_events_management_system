@@ -12,6 +12,7 @@ from django.views.generic import DetailView, ListView
 from core.activity import log_activity, log_model_activity
 from core.utils import amount_in_words
 from events.models import Event
+from finance.models import IncomeRecord
 from inventory.models import EquipmentItem
 
 from .forms import (
@@ -238,6 +239,18 @@ def invoice_add_payment(request, pk):
             payment.received_by = request.user
             payment.save()
             log_model_activity(request, payment, 'created', extra=f'on invoice {invoice.number}')
+            # A payment IS income — record it automatically so Finance/P&L totals are
+            # correct without staff having to separately re-enter every invoice payment
+            # as an income record too (that would just be error-prone double-entry).
+            IncomeRecord.objects.create(
+                amount=payment.amount,
+                source=IncomeRecord.Source.INVOICE_PAYMENT,
+                date=payment.paid_at,
+                event=invoice.event,
+                payment=payment,
+                description=f'Payment on invoice {invoice.number}',
+                recorded_by=request.user,
+            )
             messages.success(request, f'Payment of {payment.amount} recorded. Receipt {payment.receipt.number} generated.')
             return redirect('billing:receipt_detail', pk=payment.receipt.pk)
         # Re-render the invoice page with the bound form so the actual field

@@ -5,6 +5,7 @@
 {% endblock %}
 {% block content %}
 <h3 class="mb-3">New Income Record</h3>
+<p class="text-muted small" style="max-width: 560px;">Use this only for income that <strong>isn't</strong> an invoice payment (e.g. a walk-in cash sale) — invoice payments are recorded here automatically the moment they're captured on an invoice, so entering one manually here would double-count it.</p>
 <div class="card p-4" style="max-width: 560px;">
     <form method="post">
         {% csrf_token %}
