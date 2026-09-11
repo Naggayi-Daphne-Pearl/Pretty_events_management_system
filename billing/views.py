@@ -9,7 +9,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
-from core.activity import log_model_activity
+from core.activity import log_activity, log_model_activity
 from core.utils import amount_in_words
 from events.models import Event
 from inventory.models import EquipmentItem
@@ -128,6 +128,23 @@ def quotation_update(request, pk):
         'form': form, 'formset': formset, 'event': quotation.event, 'object': quotation,
         'equipment_items': equipment_items_json(),
     })
+
+
+@login_required
+@permission_required('billing.delete_quotation', raise_exception=True)
+def quotation_delete(request, pk):
+    quotation = get_object_or_404(Quotation, pk=pk)
+    if quotation.has_invoice:
+        messages.warning(request, f'{quotation.number} already has an invoice and can\'t be deleted — cancel the invoice instead if this booking fell through.')
+        return redirect('billing:quotation_detail', pk=quotation.pk)
+    if request.method == 'POST':
+        event = quotation.event
+        number = quotation.number
+        quotation.delete()
+        log_activity(request, 'quotation.deleted', f'Deleted quotation "{number}" for event "{event}"')
+        messages.success(request, f'Quotation {number} deleted.')
+        return redirect('events:detail', pk=event.pk)
+    return render(request, 'billing/quotation_confirm_delete.html', {'object': quotation})
 
 
 @login_required

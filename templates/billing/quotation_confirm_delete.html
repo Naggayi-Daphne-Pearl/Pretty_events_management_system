@@ -1,0 +1,17 @@
+{% extends "base.html" %}
+{% block title %}Delete Quotation{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'billing:quotation_list' %}">Quotations</a><span class="sep">/</span><a href="{% url 'billing:quotation_detail' object.pk %}">{{ object.number }}</a><span class="sep">/</span><span class="current">Delete</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-3">Delete Quotation</h3>
+<div class="card p-4" style="max-width: 480px;">
+    <p>Are you sure you want to delete <strong>{{ object.number }}</strong> for {{ object.event.customer.name }} ({{ object.event.event_type }} on {{ object.event.event_date }})?</p>
+    <p class="text-muted small">This cannot be undone.</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Delete Quotation</button>
+        <a href="{% url 'billing:quotation_detail' object.pk %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

@@ -34,6 +34,7 @@
     <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Delivery &amp; setup">+ Delivery/Setup</button>
     <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Miscellaneous">+ Miscellaneous</button>
 </div>
+<div id="removed-lines-holder" class="d-none"></div>
 
 <template id="empty-row-template"><tr>
     <td>{{ formset.empty_form.equipment_item }}</td>
@@ -52,6 +53,7 @@
     var addBtn = document.getElementById('add-line-btn');
     var totalForms = document.getElementById('id_line_items-TOTAL_FORMS');
     var templateEl = document.getElementById('empty-row-template');
+    var removedHolder = document.getElementById('removed-lines-holder');
     var dataEl = document.getElementById('equipment-items-data');
     var equipmentMap = dataEl ? JSON.parse(dataEl.textContent) : {};
 
@@ -108,17 +110,17 @@
             var row = btn.closest('tr');
             var idInput = row.querySelector('[name$="-id"]');
             var deleteInput = row.querySelector('[name$="-DELETE"]');
-            if (idInput && idInput.value) {
-                // Already-saved line item — mark it for deletion on save and
-                // hide it now, rather than removing it from the DOM (removing
-                // it would drop the DELETE checkbox too, so it'd never get
-                // deleted server-side).
-                if (deleteInput) deleteInput.checked = true;
-                row.hidden = true;
-            } else {
-                // Not saved yet — just drop it, nothing to tell the server.
-                row.remove();
+            if (idInput && idInput.value && deleteInput) {
+                // Already-saved line item: the DELETE checkbox has to stay in
+                // the submitted form (checked) so the server deletes it on
+                // save, but the row itself doesn't — move the checkbox out to
+                // a holder first, then remove the row outright so it visibly
+                // disappears immediately instead of relying on a `hidden`
+                // attribute the row might not actually collapse under.
+                deleteInput.checked = true;
+                removedHolder.appendChild(deleteInput);
             }
+            row.remove();
         });
         table.addEventListener('change', function (e) {
             var select = e.target;

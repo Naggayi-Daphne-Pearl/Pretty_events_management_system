@@ -11,6 +11,7 @@ urlpatterns = [
     path('quotations/<int:pk>/edit/', views.quotation_update, name='quotation_update'),
     path('quotations/<int:pk>/convert/', views.quotation_convert, name='quotation_convert'),
     path('quotations/<int:pk>/pdf/', views.quotation_pdf, name='quotation_pdf'),
+    path('quotations/<int:pk>/delete/', views.quotation_delete, name='quotation_delete'),
 
     path('invoices/', views.InvoiceListView.as_view(), name='invoice_list'),
     path('invoices/<int:pk>/', views.InvoiceDetailView.as_view(), name='invoice_detail'),

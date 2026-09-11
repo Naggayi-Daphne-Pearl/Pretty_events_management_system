@@ -43,6 +43,7 @@
             --text-2: rgba(20,14,10,0.62);
             --text-3: rgba(20,14,10,0.40);
             --ok: #2f9e6c;
+            --ok-soft: rgba(47,158,108,0.12);
             --warn: #b9852f;
             --danger: #c94f4f;
             --danger-soft: rgba(201,79,79,0.12);
@@ -67,6 +68,7 @@
             --text-2: rgba(255,255,255,0.94);
             --text-3: rgba(255,255,255,0.72);
             --ok: #7FCBA4;
+            --ok-soft: rgba(127,203,164,0.16);
             --warn: #E0B15C;
             --danger: #E28080;
             --danger-soft: rgba(226,128,128,0.16);
@@ -245,7 +247,7 @@
         .form-label { font-size: .82rem; color: var(--text-2); font-weight: 600; }
 
         .alert { border-radius: 12px; border: 1px solid var(--border); background: var(--panel-strong); color: var(--text-1); }
-        .alert-success { border-left: 3px solid var(--ok); }
+        .alert-success { border-left: 3px solid var(--ok); background: var(--ok-soft); color: var(--ok); }
         .alert-danger, .alert-warning {
             border-left: 3px solid var(--danger); background: var(--danger-soft); color: var(--danger);
         }
