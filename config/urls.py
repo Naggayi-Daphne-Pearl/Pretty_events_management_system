@@ -2,7 +2,10 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from core.views import dashboard, role_delete, role_form, role_list
+from core.views import (
+    dashboard, role_delete, role_form, role_list,
+    user_create, user_list, user_set_password, user_update,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -13,6 +16,10 @@ urlpatterns = [
     path('roles/new/', role_form, name='role_create'),
     path('roles/<int:pk>/edit/', role_form, name='role_update'),
     path('roles/<int:pk>/delete/', role_delete, name='role_delete'),
+    path('users/', user_list, name='user_list'),
+    path('users/new/', user_create, name='user_create'),
+    path('users/<int:pk>/edit/', user_update, name='user_update'),
+    path('users/<int:pk>/password/', user_set_password, name='user_set_password'),
     path('customers/', include('customers.urls')),
     path('events/', include('events.urls')),
     path('billing/', include('billing.urls')),

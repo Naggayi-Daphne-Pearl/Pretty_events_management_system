@@ -14,6 +14,7 @@ from billing.models import Invoice
 from events.models import Event
 from inventory.models import EquipmentItem
 
+from .forms import StaffAccountCreationForm, StaffAccountUpdateForm, StaffSetPasswordForm
 from .permissions import grouped_permissions, scope_events_to_assignments
 
 
@@ -135,3 +136,60 @@ def role_delete(request, pk):
         messages.success(request, f'Role "{name}" deleted.')
         return redirect('role_list')
     return render(request, 'core/role_confirm_delete.html', {'role': role})
+
+
+# ---------- Staff Accounts (superuser-only) ----------
+#
+# The only in-app way to create a login: username, a REQUIRED email, and a
+# password the admin sets on the spot (not an email-confirmation sign-up flow —
+# there's no outbound email sending configured for that in Phase 1). Roles are
+# assigned in the same form.
+
+@superuser_required
+def user_list(request):
+    User = get_user_model()
+    users = User.objects.all().prefetch_related('groups').order_by('username')
+    return render(request, 'core/user_list.html', {'staff_users': users})
+
+
+@superuser_required
+def user_create(request):
+    if request.method == 'POST':
+        form = StaffAccountCreationForm(request.POST)
+        if form.is_valid():
+            user = form.save()
+            messages.success(request, f'Staff account "{user.username}" created.')
+            return redirect('user_list')
+    else:
+        form = StaffAccountCreationForm()
+    return render(request, 'core/user_form.html', {'form': form, 'staff_user': None})
+
+
+@superuser_required
+def user_update(request, pk):
+    User = get_user_model()
+    staff_user = get_object_or_404(User, pk=pk)
+    if request.method == 'POST':
+        form = StaffAccountUpdateForm(request.POST, instance=staff_user)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Staff account "{staff_user.username}" updated.')
+            return redirect('user_list')
+    else:
+        form = StaffAccountUpdateForm(instance=staff_user)
+    return render(request, 'core/user_form.html', {'form': form, 'staff_user': staff_user})
+
+
+@superuser_required
+def user_set_password(request, pk):
+    User = get_user_model()
+    staff_user = get_object_or_404(User, pk=pk)
+    if request.method == 'POST':
+        form = StaffSetPasswordForm(staff_user, request.POST)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Password updated for "{staff_user.username}".')
+            return redirect('user_list')
+    else:
+        form = StaffSetPasswordForm(staff_user)
+    return render(request, 'core/user_set_password.html', {'form': form, 'staff_user': staff_user})

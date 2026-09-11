@@ -54,7 +54,7 @@
                 </div>
             </div>
         {% empty %}
-            <p class="text-muted small">No staff accounts yet.</p>
+            <p class="text-muted small">No staff accounts yet. <a href="{% url 'user_create' %}">Create one</a>.</p>
         {% endfor %}
         </div>
     </div>

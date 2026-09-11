@@ -207,6 +207,7 @@
             <li class="nav-item"><a href="{% url 'comms:list' %}" class="nav-link {% if request.resolver_match.app_name == 'comms' %}active{% endif %}"><i class="bi bi-chat-dots me-2"></i>Communication</a></li>
             <li class="nav-item"><a href="{% url 'reports:index' %}" class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"><i class="bi bi-bar-chart me-2"></i>Reports</a></li>
             {% if user.is_superuser %}
+            <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link {% if request.resolver_match.url_name in 'user_list,user_create,user_update,user_set_password' %}active{% endif %}"><i class="bi bi-person-vcard me-2"></i>Staff Accounts</a></li>
             <li class="nav-item"><a href="{% url 'role_list' %}" class="nav-link {% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete' %}active{% endif %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; Permissions</a></li>
             {% endif %}
         </ul>
