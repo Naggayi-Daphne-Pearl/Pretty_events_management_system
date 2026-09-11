@@ -54,8 +54,8 @@
             --gold-soft: rgba(216,178,124,0.16);
             --blush: #E3B7BE;
             --text-1: rgba(255,255,255,0.94);
-            --text-2: rgba(255,255,255,0.62);
-            --text-3: rgba(255,255,255,0.38);
+            --text-2: rgba(255,255,255,0.94);
+            --text-3: rgba(255,255,255,0.72);
             --ok: #7FCBA4;
             --warn: #E0B15C;
             --danger: #E28080;
@@ -134,7 +134,8 @@
             backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
             box-shadow: none;
         }
-        .stat-card { border-left: 3px solid var(--gold); }
+        /* .stat-card intentionally gets no special border — plain .card look, per feedback
+           that the left accent border clashed with the rounded corners. */
 
         table { color: var(--text-1); }
         .table thead th {
