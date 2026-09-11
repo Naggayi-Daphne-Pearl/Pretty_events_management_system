@@ -2,13 +2,17 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from core.views import dashboard
+from core.views import dashboard, role_delete, role_form, role_list
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', dashboard, name='dashboard'),
     path('login/', auth_views.LoginView.as_view(template_name='registration/login.html'), name='login'),
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
+    path('roles/', role_list, name='role_list'),
+    path('roles/new/', role_form, name='role_create'),
+    path('roles/<int:pk>/edit/', role_form, name='role_update'),
+    path('roles/<int:pk>/delete/', role_delete, name='role_delete'),
     path('customers/', include('customers.urls')),
     path('events/', include('events.urls')),
     path('billing/', include('billing.urls')),

@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}{% if role %}Edit Role{% else %}New Role{% endif %}{% endblock %}
+{% block content %}
+<h3 class="mb-3">{% if role %}Edit Role: {{ role.name }}{% else %}New Role{% endif %}</h3>
+
+<form method="post">
+    {% csrf_token %}
+
+    <div class="card p-4 mb-3">
+        <label class="form-label">Role name</label>
+        <input type="text" name="name" class="form-control" style="max-width: 360px;" value="{{ role.name|default:'' }}" required placeholder="e.g. Site Supervisor">
+    </div>
+
+    <div class="card p-4 mb-3">
+        <div class="d-flex justify-content-between align-items-center mb-1">
+            <h6 class="mb-0">Permissions</h6>
+            <span class="text-muted small">Tick everything this role should be able to do</span>
+        </div>
+        {% for group in permission_groups %}
+            <div class="perm-group mt-3 pt-3" {% if not forloop.first %}style="border-top: 1px solid var(--border);"{% endif %}>
+                <div class="d-flex align-items-center gap-2 mb-2">
+                    <input type="checkbox" class="form-check-input perm-group-toggle" data-group="{{ group.app_label }}">
+                    <strong>{{ group.display_name }}</strong>
+                </div>
+                <div class="row">
+                {% for model in group.models %}
+                    <div class="col-md-4 mb-3">
+                        <div class="small text-muted mb-1">{{ model.display_name }}</div>
+                        {% for perm in model.permissions %}
+                            <div class="form-check">
+                                <input type="checkbox" class="form-check-input perm-checkbox perm-group-{{ group.app_label }}"
+                                       name="permissions" value="{{ perm.pk }}" id="perm-{{ perm.pk }}"
+                                       {% if perm.pk|stringformat:"s" in selected_permission_ids %}checked{% endif %}>
+                                <label class="form-check-label small" for="perm-{{ perm.pk }}">{{ perm.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
+                {% endfor %}
+                </div>
+            </div>
+        {% endfor %}
+    </div>
+
+    <div class="card p-4 mb-3">
+        <h6 class="mb-2">Members</h6>
+        <p class="text-muted small">Staff accounts in this role</p>
+        <div class="row">
+        {% for u in all_users %}
+            <div class="col-md-4 mb-2">
+                <div class="form-check">
+                    <input type="checkbox" class="form-check-input" name="members" value="{{ u.pk }}" id="member-{{ u.pk }}"
+                           {% if u.pk|stringformat:"s" in selected_member_ids %}checked{% endif %}>
+                    <label class="form-check-label small" for="member-{{ u.pk }}">{{ u.username }}{% if u.is_superuser %} <span class="text-muted">(superuser)</span>{% endif %}</label>
+                </div>
+            </div>
+        {% empty %}
+            <p class="text-muted small">No staff accounts yet.</p>
+        {% endfor %}
+        </div>
+    </div>
+
+    <button type="submit" class="btn btn-primary">Save Role</button>
+    <a href="{% url 'role_list' %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
+
+<script>
+    document.querySelectorAll('.perm-group-toggle').forEach(function (toggle) {
+        var group = toggle.dataset.group;
+        var boxes = document.querySelectorAll('.perm-group-' + group);
+        toggle.checked = Array.from(boxes).every(function (b) { return b.checked; });
+        toggle.addEventListener('change', function () {
+            boxes.forEach(function (b) { b.checked = toggle.checked; });
+        });
+        boxes.forEach(function (b) {
+            b.addEventListener('change', function () {
+                toggle.checked = Array.from(boxes).every(function (x) { return x.checked; });
+            });
+        });
+    });
+</script>
+{% endblock %}

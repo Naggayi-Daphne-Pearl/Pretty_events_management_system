@@ -1,0 +1,34 @@
+{% extends "base.html" %}
+{% block title %}Roles & Permissions{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="mb-0">Roles &amp; Permissions</h3>
+        <p class="text-muted small mb-0">Create roles and tick the permissions each one should have. Assign staff to a role below or from their user account.</p>
+    </div>
+    <a href="{% url 'role_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Role</a>
+</div>
+
+<div class="card p-3">
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Role</th><th>Members</th><th>Permissions</th><th class="text-end">Actions</th></tr></thead>
+            <tbody>
+            {% for role in roles %}
+                <tr>
+                    <td class="fw-semibold">{{ role.name }}</td>
+                    <td>{{ role.member_count }}</td>
+                    <td>{{ role.permission_count }}</td>
+                    <td class="text-end">
+                        <a href="{% url 'role_update' role.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
+                        <a href="{% url 'role_delete' role.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>
+                    </td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-4">No roles yet — create one to get started.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+</div>
+{% endblock %}

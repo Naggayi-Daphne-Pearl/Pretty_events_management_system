@@ -1,0 +1,14 @@
+{% extends "base.html" %}
+{% block title %}Delete Role{% endblock %}
+{% block content %}
+<h3 class="mb-3">Delete Role</h3>
+<div class="card p-4" style="max-width: 480px;">
+    <p>Are you sure you want to delete the role <strong>{{ role.name }}</strong>?</p>
+    <p class="text-muted small">Any staff currently in this role will lose the access it grants. This cannot be undone.</p>
+    <form method="post">
+        {% csrf_token %}
+        <button type="submit" class="btn btn-danger">Delete Role</button>
+        <a href="{% url 'role_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}
