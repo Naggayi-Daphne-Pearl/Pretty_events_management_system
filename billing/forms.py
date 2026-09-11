@@ -28,7 +28,7 @@ class QuotationLineItemForm(BootstrapModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['equipment_item'].empty_label = '— none (custom item) —'
+        self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
 QuotationLineItemFormSet = inlineformset_factory(
@@ -55,7 +55,7 @@ class InvoiceLineItemForm(BootstrapModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['equipment_item'].empty_label = '— none (custom item) —'
+        self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
 InvoiceLineItemFormSet = inlineformset_factory(

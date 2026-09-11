@@ -24,7 +24,13 @@
         </tbody>
     </table>
 </div>
-<button type="button" id="add-line-btn" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+<div class="d-flex flex-wrap align-items-center gap-2 mt-2">
+    <button type="button" id="add-line-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+    <span class="text-muted small">Quick add (not from inventory):</span>
+    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Labor">+ Labor</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Delivery &amp; setup">+ Delivery/Setup</button>
+    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Miscellaneous">+ Miscellaneous</button>
+</div>
 
 <template id="empty-row-template"><tr>
     <td>{{ formset.empty_form.equipment_item }}</td>
@@ -59,16 +65,36 @@
         }
     }
 
-    if (addBtn && table && totalForms && templateEl) {
-        addBtn.addEventListener('click', function () {
-            var index = parseInt(totalForms.value, 10);
-            var html = templateEl.innerHTML.split('__prefix__').join(index);
-            var wrapper = document.createElement('tbody');
-            wrapper.innerHTML = html;
-            table.querySelector('tbody').appendChild(wrapper.firstElementChild);
-            totalForms.value = index + 1;
-        });
+    function addRow(prefillDescription) {
+        if (!table || !totalForms || !templateEl) return;
+        var index = parseInt(totalForms.value, 10);
+        var html = templateEl.innerHTML.split('__prefix__').join(index);
+        var wrapper = document.createElement('tbody');
+        wrapper.innerHTML = html;
+        var row = wrapper.firstElementChild;
+        if (prefillDescription) {
+            var descInput = row.querySelector('[name$="-description"]');
+            var qtyInput = row.querySelector('[name$="-quantity"]');
+            if (descInput) descInput.value = prefillDescription;
+            if (qtyInput && !qtyInput.value) qtyInput.value = '1';
+        }
+        table.querySelector('tbody').appendChild(row);
+        totalForms.value = index + 1;
+        return row;
     }
+
+    if (addBtn) {
+        addBtn.addEventListener('click', function () { addRow(); });
+    }
+    document.querySelectorAll('.quick-add-btn').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var row = addRow(btn.dataset.desc);
+            if (row) {
+                var priceInput = row.querySelector('[name$="-unit_price"]');
+                if (priceInput) priceInput.focus();
+            }
+        });
+    });
 
     if (table) {
         table.addEventListener('change', function (e) {
