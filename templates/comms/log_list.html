@@ -1,0 +1,24 @@
+{% extends "base.html" %}
+{% block title %}Communication{% endblock %}
+{% block content %}
+<h3 class="mb-3">Client Communication Log</h3>
+<div class="card p-3">
+    <table class="table align-middle">
+        <thead><tr><th>Date</th><th>Customer</th><th>Channel</th><th>Direction</th><th>Message</th></tr></thead>
+        <tbody>
+        {% for log in object_list %}
+            <tr>
+                <td>{{ log.created_at|date:"d M Y H:i" }}</td>
+                <td><a href="{% url 'customers:detail' log.customer.pk %}">{{ log.customer.name }}</a></td>
+                <td>{{ log.get_channel_display }}</td>
+                <td>{{ log.get_direction_display }}</td>
+                <td>{{ log.message|truncatewords:15 }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">Nothing logged yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

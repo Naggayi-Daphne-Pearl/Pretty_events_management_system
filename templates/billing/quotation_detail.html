@@ -1,0 +1,40 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ object.number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="mb-0">Quotation {{ object.number }}</h3>
+        <span class="badge bg-secondary badge-status">{{ object.get_status_display }}</span>
+    </div>
+    <div>
+        {% if perms.billing.change_quotation %}<a href="{% url 'billing:quotation_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
+        <a href="{% url 'billing:quotation_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
+        {% if not object.has_invoice and perms.billing.add_invoice %}
+        <a href="{% url 'billing:quotation_convert' object.pk %}" class="btn btn-primary btn-sm">Convert to Invoice</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card p-4">
+    <p class="text-muted mb-1">For <a href="{% url 'customers:detail' object.event.customer.pk %}">{{ object.event.customer.name }}</a> — <a href="{% url 'events:detail' object.event.pk %}">{{ object.event.event_type }} on {{ object.event.event_date }}</a></p>
+    {% if object.valid_until %}<p class="text-muted small">Valid until {{ object.valid_until }}</p>{% endif %}
+    <table class="table">
+        <thead><tr><th>Description</th><th>Qty</th><th>Unit Price</th><th class="text-end">Total</th></tr></thead>
+        <tbody>
+        {% for item in object.line_items.all %}
+            <tr>
+                <td>{{ item.description }}</td>
+                <td>{{ item.quantity }}</td>
+                <td>{{ CURRENCY }} {{ item.unit_price|floatformat:0|intcomma }}</td>
+                <td class="text-end">{{ CURRENCY }} {{ item.line_total|floatformat:0|intcomma }}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot>
+            <tr><th colspan="3" class="text-end">Total</th><th class="text-end">{{ CURRENCY }} {{ object.total|floatformat:0|intcomma }}</th></tr>
+        </tfoot>
+    </table>
+    {% if object.notes %}<p class="small text-muted">{{ object.notes }}</p>{% endif %}
+</div>
+{% endblock %}

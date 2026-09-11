@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}Event Summary{% endblock %}
+{% block content %}
+<h3 class="mb-3">Event Summary</h3>
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2">
+        <div class="col-auto"><label class="form-label small mb-0">From</label><input type="date" name="start" value="{{ start }}" class="form-control"></div>
+        <div class="col-auto"><label class="form-label small mb-0">To</label><input type="date" name="end" value="{{ end }}" class="form-control"></div>
+        <div class="col-auto d-flex align-items-end"><button class="btn btn-outline-secondary" type="submit">Apply</button></div>
+    </form>
+</div>
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3"><div class="text-muted small">Total events</div><div class="fs-3 fw-semibold">{{ total }}</div></div>
+    </div>
+    {% for row in by_status %}
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3"><div class="text-muted small">{{ row.label }}</div><div class="fs-3 fw-semibold">{{ row.count }}</div></div>
+    </div>
+    {% endfor %}
+</div>
+<div class="card p-3">
+    <table class="table table-sm">
+        <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Status</th></tr></thead>
+        <tbody>
+        {% for event in events %}
+            <tr>
+                <td><a href="{% url 'events:detail' event.pk %}">{{ event.event_date }}</a></td>
+                <td>{{ event.customer.name }}</td>
+                <td>{{ event.event_type }}</td>
+                <td><span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span></td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">No events in this period.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

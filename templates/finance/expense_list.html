@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Expenses{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Expense Records</h3>
+    {% if perms.finance.add_expenserecord %}<a href="{% url 'finance:expense_create' %}" class="btn btn-primary btn-sm">New Expense Record</a>{% endif %}
+</div>
+<div class="card p-3">
+    <table class="table align-middle">
+        <thead><tr><th>Date</th><th>Amount</th><th>Category</th><th>Event</th><th>Description</th></tr></thead>
+        <tbody>
+        {% for r in object_list %}
+            <tr>
+                <td>{{ r.date }}</td>
+                <td>{{ CURRENCY }} {{ r.amount|floatformat:0|intcomma }}</td>
+                <td>{{ r.category }}</td>
+                <td>{% if r.event %}<a href="{% url 'events:detail' r.event.pk %}">{{ r.event }}</a>{% else %}—{% endif %}</td>
+                <td>{{ r.description }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No expense records yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

@@ -1,0 +1,25 @@
+{% extends "base.html" %}
+{% block title %}Staff{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Staff</h3>
+    {% if perms.staffing.add_staffmember %}<a href="{% url 'staffing:create' %}" class="btn btn-primary btn-sm">New Staff Member</a>{% endif %}
+</div>
+<div class="card p-3">
+    <table class="table align-middle">
+        <thead><tr><th>Name</th><th>Title</th><th>Phone</th><th>Active</th></tr></thead>
+        <tbody>
+        {% for s in object_list %}
+            <tr>
+                <td><a href="{% url 'staffing:detail' s.pk %}">{{ s.full_name }}</a></td>
+                <td>{{ s.title|default:"—" }}</td>
+                <td>{{ s.phone|default:"—" }}</td>
+                <td>{% if s.is_active %}<span class="badge bg-success">Active</span>{% else %}<span class="badge bg-secondary">Inactive</span>{% endif %}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">No staff registered yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

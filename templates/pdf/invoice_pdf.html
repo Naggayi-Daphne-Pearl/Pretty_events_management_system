@@ -1,0 +1,35 @@
+{% extends "pdf/_document_base.html" %}
+{% load humanize %}
+{% block doc_type %}Invoice{% endblock %}
+{% block doc_number %}{{ invoice.number }}{% endblock %}
+{% block body %}
+<table class="meta-table">
+    <tr>
+        <td><strong>Billed to:</strong><br>{{ invoice.event.customer.name }}<br>{{ invoice.event.customer.phone }}</td>
+        <td><strong>Event:</strong><br>{{ invoice.event.event_type }}<br>{{ invoice.event.event_date }} — {{ invoice.event.venue }}</td>
+        <td><strong>Issued:</strong> {{ invoice.issue_date }}<br>
+            {% if invoice.due_date %}<strong>Due:</strong> {{ invoice.due_date }}<br>{% endif %}
+            <span class="status-pill">{{ invoice.get_status_display }}</span>
+        </td>
+    </tr>
+</table>
+<table class="items">
+    <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
+    <tbody>
+    {% for item in invoice.line_items.all %}
+        <tr>
+            <td>{{ item.description }}</td>
+            <td class="num">{{ item.quantity }}</td>
+            <td class="num">{{ item.unit_price|floatformat:0|intcomma }}</td>
+            <td class="num">{{ item.line_total|floatformat:0|intcomma }}</td>
+        </tr>
+    {% endfor %}
+    </tbody>
+</table>
+<table class="totals">
+    <tr><td style="text-align:right;">Subtotal (UGX)</td><td class="num" style="text-align:right; width:150px;">{{ invoice.total|floatformat:0|intcomma }}</td></tr>
+    <tr><td style="text-align:right;">Paid (UGX)</td><td class="num" style="text-align:right;">{{ invoice.amount_paid|floatformat:0|intcomma }}</td></tr>
+    <tr class="grand-total"><td style="text-align:right;">Balance due (UGX)</td><td class="num" style="text-align:right;">{{ invoice.balance_due|floatformat:0|intcomma }}</td></tr>
+</table>
+{% if invoice.notes %}<p><strong>Notes:</strong> {{ invoice.notes }}</p>{% endif %}
+{% endblock %}

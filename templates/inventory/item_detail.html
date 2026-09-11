@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}{{ object.name }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">{{ object.name }}</h3>
+    {% if perms.inventory.change_equipmentitem %}
+    <a href="{% url 'inventory:item_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+    {% endif %}
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card p-3">
+            <dl class="row mb-0 small">
+                <dt class="col-6">Category</dt><dd class="col-6">{{ object.category|default:"—" }}</dd>
+                <dt class="col-6">Total owned</dt><dd class="col-6">{{ object.total_quantity }} {{ object.unit }}</dd>
+                <dt class="col-6">Currently issued</dt><dd class="col-6">{{ object.quantity_issued }}</dd>
+                <dt class="col-6">Available</dt><dd class="col-6 fw-semibold">{{ object.available_quantity }}</dd>
+            </dl>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-3">
+            <h6 class="mb-2">Issue history</h6>
+            <table class="table table-sm">
+                <thead><tr><th>Event</th><th>Issued</th><th>Returned</th><th>Outstanding</th></tr></thead>
+                <tbody>
+                {% for issue in issues %}
+                    <tr>
+                        <td><a href="{% url 'events:detail' issue.event.pk %}">{{ issue.event.customer.name }} ({{ issue.event.event_date }})</a></td>
+                        <td>{{ issue.quantity_issued }}</td>
+                        <td>{{ issue.quantity_returned }}</td>
+                        <td>{{ issue.quantity_outstanding }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-3">No issue history yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

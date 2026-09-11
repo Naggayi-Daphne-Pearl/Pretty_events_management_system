@@ -1,0 +1,26 @@
+{% extends "pdf/_document_base.html" %}
+{% load humanize %}
+{% block doc_type %}Receipt{% endblock %}
+{% block doc_number %}{{ receipt.number }}{% endblock %}
+{% block body %}
+<table class="meta-table">
+    <tr>
+        <td><strong>Received from:</strong><br>{{ receipt.payment.invoice.event.customer.name }}</td>
+        <td><strong>For invoice:</strong><br>{{ receipt.payment.invoice.number }}</td>
+        <td><strong>Date:</strong> {{ receipt.issued_at }}</td>
+    </tr>
+</table>
+<table class="items">
+    <thead><tr><th>Description</th><th class="num">Amount</th></tr></thead>
+    <tbody>
+        <tr>
+            <td>Payment via {{ receipt.payment.get_method_display }}{% if receipt.payment.notes %} — {{ receipt.payment.notes }}{% endif %}</td>
+            <td class="num">{{ receipt.payment.amount|floatformat:0|intcomma }}</td>
+        </tr>
+    </tbody>
+</table>
+<table class="totals">
+    <tr class="grand-total"><td style="text-align:right;">Amount received (UGX)</td><td class="num" style="text-align:right; width:150px;">{{ receipt.payment.amount|floatformat:0|intcomma }}</td></tr>
+</table>
+<p>Remaining balance on invoice {{ receipt.payment.invoice.number }}: <strong>UGX {{ receipt.payment.invoice.balance_due|floatformat:0|intcomma }}</strong></p>
+{% endblock %}

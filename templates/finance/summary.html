@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Finance{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Finance</h3>
+    <div>
+        {% if perms.finance.add_incomerecord %}<a href="{% url 'finance:income_create' %}" class="btn btn-sm btn-outline-success">Record Income</a>{% endif %}
+        {% if perms.finance.add_expenserecord %}<a href="{% url 'finance:expense_create' %}" class="btn btn-sm btn-outline-danger">Record Expense</a>{% endif %}
+    </div>
+</div>
+
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2">
+        <div class="col-auto">
+            <label class="form-label small mb-0">From</label>
+            <input type="date" name="start" value="{{ start }}" class="form-control">
+        </div>
+        <div class="col-auto">
+            <label class="form-label small mb-0">To</label>
+            <input type="date" name="end" value="{{ end }}" class="form-control">
+        </div>
+        <div class="col-auto d-flex align-items-end">
+            <button class="btn btn-outline-secondary" type="submit">Apply</button>
+        </div>
+    </form>
+</div>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Total income</div>
+            <div class="fs-4 fw-semibold text-success">{{ CURRENCY }} {{ total_income|floatformat:0|intcomma }}</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Total expenses</div>
+            <div class="fs-4 fw-semibold text-danger">{{ CURRENCY }} {{ total_expenses|floatformat:0|intcomma }}</div>
+        </div>
+    </div>
+    <div class="col-sm-4">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Net</div>
+            <div class="fs-4 fw-semibold">{{ CURRENCY }} {{ net|floatformat:0|intcomma }}</div>
+        </div>
+    </div>
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card p-3">
+            <h6 class="mb-2">Expenses by category</h6>
+            <ul class="list-group list-group-flush">
+            {% for row in expenses_by_category %}
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <span>{{ row.category__name }}</span>
+                    <span>{{ CURRENCY }} {{ row.total|floatformat:0|intcomma }}</span>
+                </li>
+            {% empty %}
+                <li class="list-group-item px-0 text-muted">No expenses in this period.</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-3 mb-3">
+            <h6 class="mb-2">Recent income <a href="{% url 'finance:income_list' %}" class="small">view all</a></h6>
+            <table class="table table-sm">
+                <thead><tr><th>Date</th><th>Source</th><th>Description</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                {% for r in recent_income %}
+                    <tr><td>{{ r.date }}</td><td>{{ r.get_source_display }}</td><td>{{ r.description }}</td><td class="text-end">{{ CURRENCY }} {{ r.amount|floatformat:0|intcomma }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-2">None recorded.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card p-3">
+            <h6 class="mb-2">Recent expenses <a href="{% url 'finance:expense_list' %}" class="small">view all</a></h6>
+            <table class="table table-sm">
+                <thead><tr><th>Date</th><th>Category</th><th>Description</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                {% for r in recent_expenses %}
+                    <tr><td>{{ r.date }}</td><td>{{ r.category }}</td><td>{{ r.description }}</td><td class="text-end">{{ CURRENCY }} {{ r.amount|floatformat:0|intcomma }}</td></tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-2">None recorded.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

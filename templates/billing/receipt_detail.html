@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ object.number }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <h3 class="mb-0">Receipt {{ object.number }}</h3>
+    <a href="{% url 'billing:receipt_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
+</div>
+<div class="card p-4" style="max-width: 560px;">
+    <dl class="row mb-0">
+        <dt class="col-5">Invoice</dt><dd class="col-7"><a href="{% url 'billing:invoice_detail' object.payment.invoice.pk %}">{{ object.payment.invoice.number }}</a></dd>
+        <dt class="col-5">Customer</dt><dd class="col-7">{{ object.payment.invoice.event.customer.name }}</dd>
+        <dt class="col-5">Amount</dt><dd class="col-7">{{ CURRENCY }} {{ object.payment.amount|floatformat:0|intcomma }}</dd>
+        <dt class="col-5">Method</dt><dd class="col-7">{{ object.payment.get_method_display }}</dd>
+        <dt class="col-5">Date</dt><dd class="col-7">{{ object.issued_at }}</dd>
+    </dl>
+</div>
+{% endblock %}

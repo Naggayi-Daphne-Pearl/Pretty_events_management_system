@@ -1,0 +1,30 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Outstanding Payments{% endblock %}
+{% block content %}
+<h3 class="mb-3">Outstanding Payments</h3>
+<div class="card stat-card p-3 mb-3" style="max-width: 320px;">
+    <div class="text-muted small">Total outstanding</div>
+    <div class="fs-3 fw-semibold">{{ CURRENCY }} {{ total_outstanding|floatformat:0|intcomma }}</div>
+</div>
+<div class="card p-3">
+    <table class="table align-middle">
+        <thead><tr><th>Invoice</th><th>Customer</th><th>Due date</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
+        <tbody>
+        {% for inv in invoices %}
+            <tr>
+                <td><a href="{% url 'billing:invoice_detail' inv.pk %}">{{ inv.number }}</a></td>
+                <td>{{ inv.event.customer.name }}</td>
+                <td>{{ inv.due_date|default:"—" }}</td>
+                <td><span class="badge bg-secondary badge-status">{{ inv.get_status_display }}</span></td>
+                <td>{{ CURRENCY }} {{ inv.total|floatformat:0|intcomma }}</td>
+                <td>{{ CURRENCY }} {{ inv.amount_paid|floatformat:0|intcomma }}</td>
+                <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="7" class="text-center text-muted py-4">No outstanding invoices. 🎉</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

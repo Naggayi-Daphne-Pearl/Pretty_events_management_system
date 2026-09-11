@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Quotations{% endblock %}
+{% block content %}
+<h3 class="mb-3">Quotations</h3>
+<div class="card p-3">
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-auto">
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="">All statuses</option>
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Number</th><th>Customer</th><th>Event</th><th>Status</th><th>Total</th></tr></thead>
+            <tbody>
+            {% for q in object_list %}
+                <tr>
+                    <td><a href="{% url 'billing:quotation_detail' q.pk %}">{{ q.number }}</a></td>
+                    <td>{{ q.event.customer.name }}</td>
+                    <td>{{ q.event.event_date }}</td>
+                    <td><span class="badge bg-secondary badge-status">{{ q.get_status_display }}</span></td>
+                    <td>{{ CURRENCY }} {{ q.total|floatformat:0|intcomma }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="5" class="text-center text-muted py-4">No quotations yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

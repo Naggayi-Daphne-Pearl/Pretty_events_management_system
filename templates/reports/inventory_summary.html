@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% block title %}Inventory Summary{% endblock %}
+{% block content %}
+<h3 class="mb-3">Inventory Summary</h3>
+<div class="card p-3">
+    <table class="table align-middle">
+        <thead><tr><th>Item</th><th>Category</th><th>Total owned</th><th>Issued</th><th>Available</th></tr></thead>
+        <tbody>
+        {% for item in items %}
+            <tr>
+                <td><a href="{% url 'inventory:item_detail' item.pk %}">{{ item.name }}</a></td>
+                <td>{{ item.category|default:"—" }}</td>
+                <td>{{ item.total_quantity }} {{ item.unit }}</td>
+                <td>{{ item.quantity_issued }}</td>
+                <td>{{ item.available_quantity }}</td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-4">No equipment registered yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

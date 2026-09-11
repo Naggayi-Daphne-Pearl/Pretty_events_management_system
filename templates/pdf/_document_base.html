@@ -1,0 +1,41 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<style>
+    @page { size: A4; margin: 2cm; }
+    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #2b1d2e; font-size: 12px; }
+    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #d63384; padding-bottom: 12px; margin-bottom: 20px; }
+    .company-name { font-size: 22px; font-weight: bold; color: #d63384; margin: 0; }
+    .company-tagline { color: #6c757d; font-size: 11px; }
+    .doc-title { text-align: right; }
+    .doc-title h2 { margin: 0; text-transform: uppercase; letter-spacing: 1px; }
+    .doc-title .number { color: #6c757d; }
+    .meta-table { width: 100%; margin-bottom: 20px; }
+    .meta-table td { vertical-align: top; padding: 4px 0; }
+    table.items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
+    table.items th { background: #f7f5f8; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; color: #6c757d; }
+    table.items td { padding: 8px; border-bottom: 1px solid #eee; }
+    table.items td.num, table.items th.num { text-align: right; }
+    .totals { width: 100%; margin-top: 10px; }
+    .totals td { padding: 4px 8px; }
+    .totals tr.grand-total td { font-weight: bold; font-size: 14px; border-top: 2px solid #2b1d2e; }
+    .footer { margin-top: 40px; color: #6c757d; font-size: 10px; text-align: center; }
+    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #f0e6f0; color: #d63384; font-size: 10px; text-transform: uppercase; }
+</style>
+</head>
+<body>
+<div class="header">
+    <div>
+        <p class="company-name">🎪 Pretty Events</p>
+        <p class="company-tagline">Tents · Chairs · Tables · Décor &amp; Event Rentals</p>
+    </div>
+    <div class="doc-title">
+        <h2>{% block doc_type %}{% endblock %}</h2>
+        <p class="number">{% block doc_number %}{% endblock %}</p>
+    </div>
+</div>
+{% block body %}{% endblock %}
+<div class="footer">Thank you for choosing Pretty Events.</div>
+</body>
+</html>

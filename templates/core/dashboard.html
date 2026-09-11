@@ -1,0 +1,97 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<h3 class="mb-4">Dashboard</h3>
+
+<div class="row g-3 mb-4">
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Events this week</div>
+            <div class="fs-3 fw-semibold">{{ upcoming_week_count }}</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Events next 30 days</div>
+            <div class="fs-3 fw-semibold">{{ upcoming_month_count }}</div>
+        </div>
+    </div>
+    {% if unpaid_count is not None %}
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Unpaid invoices</div>
+            <div class="fs-3 fw-semibold">{{ unpaid_count }}</div>
+        </div>
+    </div>
+    <div class="col-sm-6 col-lg-3">
+        <div class="card stat-card p-3">
+            <div class="text-muted small">Outstanding balance</div>
+            <div class="fs-3 fw-semibold">{{ CURRENCY }} {{ unpaid_total|floatformat:0|intcomma }}</div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-3">
+            <h6 class="mb-3">Upcoming events (next 7 days)</h6>
+            {% if upcoming_week %}
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Venue</th><th>Status</th></tr></thead>
+                    <tbody>
+                    {% for event in upcoming_week %}
+                        <tr>
+                            <td>{{ event.event_date }}</td>
+                            <td><a href="{% url 'events:detail' event.pk %}">{{ event.customer.name }}</a></td>
+                            <td>{{ event.event_type }}</td>
+                            <td>{{ event.venue }}</td>
+                            <td><span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span></td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% else %}
+                <p class="text-muted mb-0">No events scheduled in the next 7 days.</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-5">
+        {% if unpaid_invoices %}
+        <div class="card p-3 mb-3">
+            <h6 class="mb-3">Outstanding payments</h6>
+            <div class="table-responsive">
+                <table class="table table-sm align-middle">
+                    <thead><tr><th>Invoice</th><th>Customer</th><th>Balance</th></tr></thead>
+                    <tbody>
+                    {% for invoice in unpaid_invoices %}
+                        <tr>
+                            <td><a href="{% url 'billing:invoice_detail' invoice.pk %}">{{ invoice.number }}</a></td>
+                            <td>{{ invoice.event.customer.name }}</td>
+                            <td>{{ CURRENCY }} {{ invoice.balance_due|floatformat:0|intcomma }}</td>
+                        </tr>
+                    {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        {% endif %}
+        {% if low_stock_items %}
+        <div class="card p-3">
+            <h6 class="mb-3">Low stock</h6>
+            <ul class="list-group list-group-flush">
+            {% for item in low_stock_items %}
+                <li class="list-group-item d-flex justify-content-between px-0">
+                    <a href="{% url 'inventory:item_detail' item.pk %}">{{ item.name }}</a>
+                    <span>{{ item.available_quantity }} / {{ item.total_quantity }} available</span>
+                </li>
+            {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}

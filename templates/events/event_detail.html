@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ object }}{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div>
+        <h3 class="mb-0">{{ object.event_type }} — {{ object.customer.name }}</h3>
+        <span class="badge bg-secondary badge-status">{{ object.get_status_display }}</span>
+    </div>
+    {% if perms.events.change_event %}
+    <a href="{% url 'events:update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+    {% endif %}
+</div>
+
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card p-3 mb-3">
+            <h6>Event details</h6>
+            <dl class="row mb-0 small">
+                <dt class="col-5">Date</dt><dd class="col-7">{{ object.event_date }}{% if object.end_date %} – {{ object.end_date }}{% endif %}</dd>
+                <dt class="col-5">Venue</dt><dd class="col-7">{{ object.venue }}</dd>
+                <dt class="col-5">Guests</dt><dd class="col-7">{{ object.guest_count|default:"—" }}</dd>
+                <dt class="col-5">Customer</dt><dd class="col-7"><a href="{% url 'customers:detail' object.customer.pk %}">{{ object.customer.name }}</a></dd>
+            </dl>
+            {% if object.notes %}<hr><p class="small text-muted mb-0">{{ object.notes }}</p>{% endif %}
+        </div>
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Assigned staff</h6>
+                {% if perms.staffing.add_eventassignment %}
+                <a href="{% url 'staffing:assign' object.pk %}" class="btn btn-sm btn-outline-primary">Assign</a>
+                {% endif %}
+            </div>
+            <ul class="list-group list-group-flush">
+            {% for a in assignments %}
+                <li class="list-group-item px-0 small d-flex justify-content-between">
+                    <a href="{% url 'staffing:detail' a.staff_member.pk %}">{{ a.staff_member.full_name }}</a>
+                    <span class="text-muted">{{ a.role_on_event }}</span>
+                </li>
+            {% empty %}
+                <li class="list-group-item px-0 small text-muted">No staff assigned yet.</li>
+            {% endfor %}
+            </ul>
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-3 mb-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Quotations</h6>
+                {% if perms.billing.add_quotation %}
+                <a href="{% url 'billing:quotation_create' object.pk %}" class="btn btn-sm btn-primary">New Quotation</a>
+                {% endif %}
+            </div>
+            <table class="table table-sm">
+                <thead><tr><th>Number</th><th>Status</th><th>Total</th><th></th></tr></thead>
+                <tbody>
+                {% for q in quotations %}
+                    <tr>
+                        <td><a href="{% url 'billing:quotation_detail' q.pk %}">{{ q.number }}</a></td>
+                        <td><span class="badge bg-secondary badge-status">{{ q.get_status_display }}</span></td>
+                        <td>{{ CURRENCY }} {{ q.total|floatformat:0|intcomma }}</td>
+                        <td>{% if not q.has_invoice and perms.billing.add_invoice %}<a href="{% url 'billing:quotation_convert' q.pk %}" class="btn btn-sm btn-outline-primary">Convert to Invoice</a>{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-2">No quotations yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card p-3 mb-3">
+            <h6 class="mb-2">Invoices</h6>
+            <table class="table table-sm">
+                <thead><tr><th>Number</th><th>Status</th><th>Total</th><th>Balance</th></tr></thead>
+                <tbody>
+                {% for inv in invoices %}
+                    <tr>
+                        <td><a href="{% url 'billing:invoice_detail' inv.pk %}">{{ inv.number }}</a></td>
+                        <td><span class="badge bg-secondary badge-status">{{ inv.get_status_display }}</span></td>
+                        <td>{{ CURRENCY }} {{ inv.total|floatformat:0|intcomma }}</td>
+                        <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-2">No invoices yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        <div class="card p-3">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Equipment issued</h6>
+                {% if perms.inventory.add_equipmentissue %}
+                <a href="{% url 'inventory:issue_create' object.pk %}" class="btn btn-sm btn-primary">Issue Equipment</a>
+                {% endif %}
+            </div>
+            <table class="table table-sm">
+                <thead><tr><th>Item</th><th>Issued</th><th>Returned</th><th>Outstanding</th><th></th></tr></thead>
+                <tbody>
+                {% for issue in equipment_issues %}
+                    <tr>
+                        <td>{{ issue.equipment_item.name }}</td>
+                        <td>{{ issue.quantity_issued }}</td>
+                        <td>{{ issue.quantity_returned }}</td>
+                        <td>{{ issue.quantity_outstanding }}</td>
+                        <td>{% if issue.quantity_outstanding > 0 and perms.inventory.add_equipmentreturn %}<a href="{% url 'inventory:return_create' issue.pk %}" class="btn btn-sm btn-outline-secondary">Record Return</a>{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-2">No equipment issued yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

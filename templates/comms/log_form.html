@@ -1,0 +1,20 @@
+{% extends "base.html" %}
+{% block title %}Log Communication{% endblock %}
+{% block content %}
+<h3 class="mb-1">Log Communication</h3>
+<p class="text-muted">With {{ customer.name }}</p>
+<div class="card p-4" style="max-width: 560px;">
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="mb-3">
+                <label class="form-label">{{ field.label }}</label>
+                {{ field }}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% url 'customers:detail' customer.pk %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

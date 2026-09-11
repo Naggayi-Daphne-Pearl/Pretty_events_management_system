@@ -1,0 +1,26 @@
+{% extends "base.html" %}
+{% block title %}Log in{% endblock %}
+{% block auth_content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: var(--pe-dark);">
+    <div class="card p-4 shadow" style="width: 360px;">
+        <h4 class="mb-3 text-center">🎪 {{ COMPANY_NAME }}</h4>
+        <p class="text-muted text-center small mb-4">Staff login</p>
+        {% if form.errors %}
+            <div class="alert alert-danger py-2">Incorrect username or password.</div>
+        {% endif %}
+        <form method="post">
+            {% csrf_token %}
+            <div class="mb-3">
+                <label class="form-label">Username</label>
+                <input type="text" name="username" class="form-control" required autofocus>
+            </div>
+            <div class="mb-3">
+                <label class="form-label">Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <input type="hidden" name="next" value="{{ next }}">
+            <button type="submit" class="btn btn-primary w-100">Log in</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

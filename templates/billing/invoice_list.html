@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Invoices{% endblock %}
+{% block content %}
+<h3 class="mb-3">Invoices</h3>
+<div class="card p-3">
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-auto">
+            <select name="status" class="form-select" onchange="this.form.submit()">
+                <option value="">All statuses</option>
+                {% for value, label in statuses %}
+                    <option value="{{ value }}" {% if value == status %}selected{% endif %}>{{ label }}</option>
+                {% endfor %}
+            </select>
+        </div>
+    </form>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Number</th><th>Customer</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
+            <tbody>
+            {% for inv in object_list %}
+                <tr>
+                    <td><a href="{% url 'billing:invoice_detail' inv.pk %}">{{ inv.number }}</a></td>
+                    <td>{{ inv.event.customer.name }}</td>
+                    <td><span class="badge bg-secondary badge-status">{{ inv.get_status_display }}</span></td>
+                    <td>{{ CURRENCY }} {{ inv.total|floatformat:0|intcomma }}</td>
+                    <td>{{ CURRENCY }} {{ inv.amount_paid|floatformat:0|intcomma }}</td>
+                    <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}</td>
+                </tr>
+            {% empty %}
+                <tr><td colspan="6" class="text-center text-muted py-4">No invoices yet.</td></tr>
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}
