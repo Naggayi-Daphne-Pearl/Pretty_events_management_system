@@ -26,7 +26,13 @@ class LineItemMixin(models.Model):
 
     @property
     def line_total(self):
-        return (self.quantity or Decimal('0')) * (self.unit_price or Decimal('0'))
+        # quantity and unit_price are both 2-decimal-place fields, so their raw product
+        # has up to 4 decimal places (e.g. 20.00 * 15000.00 = 300000.0000) — quantize back
+        # to money precision here, at the source, so it never leaks into anything summed
+        # from it (invoice/quotation totals, balance_due) or fed back into a 2-decimal-
+        # place form field's initial value (that raised "no more than 2 decimal places").
+        total = (self.quantity or Decimal('0')) * (self.unit_price or Decimal('0'))
+        return total.quantize(Decimal('0.01'))
 
 
 class Quotation(TimeStampedModel):
