@@ -21,22 +21,8 @@
     </div>
     <div class="card p-4 mb-3">
         <h6 class="mb-3">Line items</h6>
-        {{ formset.management_form }}
-        <div class="table-responsive">
-            <table class="table align-middle">
-                <thead><tr><th>Description</th><th style="width:120px;">Quantity</th><th style="width:160px;">Unit Price</th><th style="width:60px;">Remove</th></tr></thead>
-                <tbody>
-                {% for lform in formset %}
-                    <tr>
-                        <td>{{ lform.id }}{{ lform.description }}</td>
-                        <td>{{ lform.quantity }}</td>
-                        <td>{{ lform.unit_price }}</td>
-                        <td class="text-center">{% if lform.instance.pk %}{{ lform.DELETE }}{% endif %}</td>
-                    </tr>
-                {% endfor %}
-                </tbody>
-            </table>
-        </div>
+        <p class="text-muted small mb-3">Pick an inventory item to auto-fill its name and rate, or leave it blank for services/fees (delivery, setup, etc.).</p>
+        {% include "partials/_line_items_editor.html" %}
     </div>
     <button type="submit" class="btn btn-primary">Save Invoice</button>
     <a href="{% url 'billing:invoice_detail' object.pk %}" class="btn btn-outline-secondary">Cancel</a>

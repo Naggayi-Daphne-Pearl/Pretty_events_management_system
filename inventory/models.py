@@ -25,6 +25,10 @@ class EquipmentItem(TimeStampedModel):
     )
     total_quantity = models.PositiveIntegerField(default=0)
     unit = models.CharField(max_length=30, default='pieces')
+    default_rate = models.DecimalField(
+        max_digits=14, decimal_places=2, null=True, blank=True,
+        help_text='Default rate per unit when quoting this item — pre-fills a quotation line, still editable per quote.',
+    )
     notes = models.TextField(blank=True)
 
     class Meta:

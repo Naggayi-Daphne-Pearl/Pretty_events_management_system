@@ -8,7 +8,7 @@ from .models import EquipmentIssue, EquipmentItem, EquipmentReturn
 class EquipmentItemForm(BootstrapModelForm):
     class Meta:
         model = EquipmentItem
-        fields = ['name', 'category', 'total_quantity', 'unit', 'notes']
+        fields = ['name', 'category', 'total_quantity', 'unit', 'default_rate', 'notes']
         widgets = {
             'notes': forms.Textarea(attrs={'rows': 2}),
         }

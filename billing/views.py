@@ -11,11 +11,26 @@ from django.views.generic import DetailView, ListView
 
 from core.utils import amount_in_words
 from events.models import Event
+from inventory.models import EquipmentItem
 
 from .forms import (
     InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm, QuotationLineItemFormSet,
 )
 from .models import Invoice, Payment, Quotation, Receipt
+
+
+def equipment_items_json():
+    """Feeds the line-item table's "pick an inventory item" auto-fill JS —
+    see quotation_form.html / invoice_form.html."""
+    return {
+        str(item.pk): {
+            'name': item.name,
+            'rate': str(item.default_rate) if item.default_rate is not None else '',
+            'available': item.available_quantity,
+            'unit': item.unit,
+        }
+        for item in EquipmentItem.objects.all()
+    }
 
 
 def render_pdf(request, template_name, context, filename):
@@ -70,13 +85,13 @@ def quotation_create(request, event_pk):
     quotation = Quotation(event=event, created_by=request.user)
     if request.method == 'POST':
         form = QuotationForm(request.POST, instance=quotation)
-        formset = QuotationLineItemFormSet(request.POST, instance=quotation)
+        formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')
         if form.is_valid():
             quotation = form.save(commit=False)
             quotation.event = event
             quotation.created_by = request.user
             quotation.save()
-            formset = QuotationLineItemFormSet(request.POST, instance=quotation)
+            formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')
             if formset.is_valid():
                 formset.save()
                 if event.advance_status_at_least(Event.Status.QUOTED):
@@ -85,9 +100,9 @@ def quotation_create(request, event_pk):
                 return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
         form = QuotationForm(instance=quotation)
-        formset = QuotationLineItemFormSet(instance=quotation)
+        formset = QuotationLineItemFormSet(instance=quotation, prefix='line_items')
     return render(request, 'billing/quotation_form.html', {
-        'form': form, 'formset': formset, 'event': event,
+        'form': form, 'formset': formset, 'event': event, 'equipment_items': equipment_items_json(),
     })
 
 
@@ -97,7 +112,7 @@ def quotation_update(request, pk):
     quotation = get_object_or_404(Quotation, pk=pk)
     if request.method == 'POST':
         form = QuotationForm(request.POST, instance=quotation)
-        formset = QuotationLineItemFormSet(request.POST, instance=quotation)
+        formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
@@ -105,9 +120,10 @@ def quotation_update(request, pk):
             return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
         form = QuotationForm(instance=quotation)
-        formset = QuotationLineItemFormSet(instance=quotation)
+        formset = QuotationLineItemFormSet(instance=quotation, prefix='line_items')
     return render(request, 'billing/quotation_form.html', {
         'form': form, 'formset': formset, 'event': quotation.event, 'object': quotation,
+        'equipment_items': equipment_items_json(),
     })
 
 
@@ -173,7 +189,7 @@ def invoice_update(request, pk):
     invoice = get_object_or_404(Invoice, pk=pk)
     if request.method == 'POST':
         form = InvoiceForm(request.POST, instance=invoice)
-        formset = InvoiceLineItemFormSet(request.POST, instance=invoice)
+        formset = InvoiceLineItemFormSet(request.POST, instance=invoice, prefix='line_items')
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
@@ -182,9 +198,9 @@ def invoice_update(request, pk):
             return redirect('billing:invoice_detail', pk=invoice.pk)
     else:
         form = InvoiceForm(instance=invoice)
-        formset = InvoiceLineItemFormSet(instance=invoice)
+        formset = InvoiceLineItemFormSet(instance=invoice, prefix='line_items')
     return render(request, 'billing/invoice_form.html', {
-        'form': form, 'formset': formset, 'object': invoice,
+        'form': form, 'formset': formset, 'object': invoice, 'equipment_items': equipment_items_json(),
     })
 
 

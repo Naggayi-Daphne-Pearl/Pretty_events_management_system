@@ -11,7 +11,7 @@ class EquipmentCategoryAdmin(admin.ModelAdmin):
 
 @admin.register(EquipmentItem)
 class EquipmentItemAdmin(admin.ModelAdmin):
-    list_display = ('name', 'category', 'total_quantity', 'available_quantity', 'unit')
+    list_display = ('name', 'category', 'total_quantity', 'available_quantity', 'unit', 'default_rate')
     list_filter = ('category',)
     search_fields = ('name',)
 

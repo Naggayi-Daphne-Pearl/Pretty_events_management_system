@@ -7,10 +7,16 @@ from django.utils import timezone
 
 from core.models import TimeStampedModel
 from events.models import Event
+from inventory.models import EquipmentItem
 
 
 class LineItemMixin(models.Model):
     """Shared fields for quotation/invoice line items."""
+    equipment_item = models.ForeignKey(
+        EquipmentItem, on_delete=models.SET_NULL, null=True, blank=True,
+        help_text='Optional — link this line to an actual inventory item. Leave blank for '
+                   'services/fees (delivery, setup, etc.) that aren\'t physical equipment.',
+    )
     description = models.CharField(max_length=255)
     quantity = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('1'))
     unit_price = models.DecimalField(max_digits=14, decimal_places=2)
@@ -158,6 +164,7 @@ class Invoice(TimeStampedModel):
         for item in quotation.line_items.all():
             InvoiceLineItem.objects.create(
                 invoice=invoice,
+                equipment_item=item.equipment_item,
                 description=item.description,
                 quantity=item.quantity,
                 unit_price=item.unit_price,

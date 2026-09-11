@@ -1,0 +1,72 @@
+{{ formset.management_form }}
+{% if formset.non_form_errors %}<div class="text-danger small mb-2">{{ formset.non_form_errors }}</div>{% endif %}
+<div class="table-responsive">
+    <table class="table align-middle" id="line-items-table">
+        <thead>
+            <tr>
+                <th style="width:220px;">Inventory item</th>
+                <th>Description</th>
+                <th style="width:110px;">Qty</th>
+                <th style="width:160px;">Unit Price</th>
+                <th style="width:50px;">Remove</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for lform in formset %}
+            <tr>
+                <td>{{ lform.id }}{{ lform.equipment_item }}</td>
+                <td>{{ lform.description }}{% if lform.description.errors %}<div class="text-danger small">{{ lform.description.errors }}</div>{% endif %}</td>
+                <td>{{ lform.quantity }}</td>
+                <td>{{ lform.unit_price }}</td>
+                <td class="text-center">{% if lform.instance.pk %}{{ lform.DELETE }}{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+<button type="button" id="add-line-btn" class="btn btn-sm btn-outline-secondary mt-2"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
+
+<template id="empty-row-template"><tr>
+    <td>{{ formset.empty_form.equipment_item }}</td>
+    <td>{{ formset.empty_form.description }}</td>
+    <td>{{ formset.empty_form.quantity }}</td>
+    <td>{{ formset.empty_form.unit_price }}</td>
+    <td class="text-center"></td>
+</tr></template>
+
+{{ equipment_items|json_script:"equipment-items-data" }}
+<script>
+(function () {
+    var table = document.getElementById('line-items-table');
+    var addBtn = document.getElementById('add-line-btn');
+    var totalForms = document.getElementById('id_line_items-TOTAL_FORMS');
+    var templateEl = document.getElementById('empty-row-template');
+
+    if (addBtn && table && totalForms && templateEl) {
+        addBtn.addEventListener('click', function () {
+            var index = parseInt(totalForms.value, 10);
+            var html = templateEl.innerHTML.split('__prefix__').join(index);
+            var wrapper = document.createElement('tbody');
+            wrapper.innerHTML = html;
+            table.querySelector('tbody').appendChild(wrapper.firstElementChild);
+            totalForms.value = index + 1;
+        });
+    }
+
+    var dataEl = document.getElementById('equipment-items-data');
+    if (table && dataEl) {
+        var equipmentMap = JSON.parse(dataEl.textContent);
+        table.addEventListener('change', function (e) {
+            var select = e.target;
+            if (!select.name || select.name.indexOf('equipment_item') === -1) return;
+            var info = equipmentMap[select.value];
+            if (!info) return;
+            var row = select.closest('tr');
+            var descInput = row.querySelector('[name$="-description"]');
+            var priceInput = row.querySelector('[name$="-unit_price"]');
+            if (descInput) descInput.value = info.name;
+            if (info.rate && priceInput) priceInput.value = info.rate;
+        });
+    }
+})();
+</script>

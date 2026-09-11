@@ -23,7 +23,12 @@ class LineItemFormMixin:
 class QuotationLineItemForm(BootstrapModelForm):
     class Meta:
         model = QuotationLineItem
-        fields = ['description', 'quantity', 'unit_price']
+        fields = ['equipment_item', 'description', 'quantity', 'unit_price']
+        labels = {'equipment_item': 'Inventory item'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['equipment_item'].empty_label = '— none (custom item) —'
 
 
 QuotationLineItemFormSet = inlineformset_factory(
@@ -45,7 +50,12 @@ class InvoiceForm(BootstrapModelForm):
 class InvoiceLineItemForm(BootstrapModelForm):
     class Meta:
         model = InvoiceLineItem
-        fields = ['description', 'quantity', 'unit_price']
+        fields = ['equipment_item', 'description', 'quantity', 'unit_price']
+        labels = {'equipment_item': 'Inventory item'}
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['equipment_item'].empty_label = '— none (custom item) —'
 
 
 InvoiceLineItemFormSet = inlineformset_factory(
