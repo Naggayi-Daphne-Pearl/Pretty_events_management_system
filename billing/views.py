@@ -223,7 +223,11 @@ def invoice_add_payment(request, pk):
             log_model_activity(request, payment, 'created', extra=f'on invoice {invoice.number}')
             messages.success(request, f'Payment of {payment.amount} recorded. Receipt {payment.receipt.number} generated.')
             return redirect('billing:receipt_detail', pk=payment.receipt.pk)
-        messages.error(request, 'Could not record payment — check the amount.')
+        # Re-render the invoice page with the bound form so the actual field
+        # errors show up (e.g. "Ensure that there are no more than 2 decimal
+        # places") — a redirect here would silently discard them.
+        messages.error(request, 'Could not record payment — see the error below.')
+        return render(request, 'billing/invoice_detail.html', {'object': invoice, 'payment_form': form})
     return redirect('billing:invoice_detail', pk=pk)
 
 

@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Bad Request{% endblock %}
+{% block content %}
+<div class="card p-4">
+    {% with error_code="400" error_title="Bad request" error_message="That request couldn't be understood — it may have been malformed or sent with unexpected data. If you got here by typing a URL directly, double-check it and try again." %}
+        {% include "partials/_error_body.html" %}
+    {% endwith %}
+</div>
+{% endblock %}
+{% block auth_content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: var(--bg);">
+    <div class="card p-4" style="max-width: 480px; width: 100%;">
+        {% with error_code="400" error_title="Bad request" error_message="That request couldn't be understood — it may have been malformed or sent with unexpected data. If you got here by typing a URL directly, double-check it and try again." %}
+            {% include "partials/_error_body.html" %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}
