@@ -23,6 +23,11 @@
         :root {
             --serif: 'Fraunces', serif;
             --sans: 'Manrope', sans-serif;
+            /* Bootstrap components (badges, buttons, nav, form controls, card titles) read
+               their own font variable rather than always inheriting body's — pin it to ours
+               so nothing silently falls back to Bootstrap's default system font stack. */
+            --bs-body-font-family: var(--sans);
+            --bs-font-sans-serif: var(--sans);
 
             /* light ("white glass") theme */
             --bg: radial-gradient(1200px 600px at 15% -10%, #fdf9f4 0%, #f3ede6 45%, #ece4da 100%);
@@ -71,7 +76,11 @@
             background: var(--bg);
             background-attachment: fixed;
         }
-        h1, h2, h3, h4, h5, h6, .page-title { font-family: var(--serif); font-weight: 500; letter-spacing: 0.1px; }
+        /* Serif is a display accent for real page titles only (h1-h3) — h4-h6 are used
+           throughout as small card/section sub-headings, so they stay in the body font
+           for a uniform look instead of clashing with the surrounding sans-serif text. */
+        h1, h2, h3, .page-title { font-family: var(--serif); font-weight: 500; letter-spacing: 0.1px; }
+        h4, h5, h6 { font-family: var(--sans); font-weight: 700; }
         a { color: var(--gold); }
         /* .small/<small> is a Bootstrap FONT-SIZE utility, not a "de-emphasized" one — most
            detail pages use it just to shrink dense info panels, so it must stay full-brightness
