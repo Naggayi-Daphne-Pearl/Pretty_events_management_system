@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load humanize %}
 {% block title %}Outstanding Payments{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'reports:index' %}">Reports</a><span class="sep">/</span><span class="current">Outstanding Payments</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">Outstanding Payments</h3>
 <div class="card stat-card p-3 mb-3" style="max-width: 320px;">

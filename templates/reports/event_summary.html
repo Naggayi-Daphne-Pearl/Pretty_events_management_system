@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Event Summary{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'reports:index' %}">Reports</a><span class="sep">/</span><span class="current">Event Summary</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">Event Summary</h3>
 <div class="card p-3 mb-3">

@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load humanize %}
 {% block title %}Quotations{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Quotations</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">Quotations</h3>
 <div class="card p-3">

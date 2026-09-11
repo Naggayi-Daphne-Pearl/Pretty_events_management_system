@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Communication{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Communication</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">Client Communication Log</h3>
 <div class="card p-3">

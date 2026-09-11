@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}Log Communication{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'comms:list' %}">Communication</a><span class="sep">/</span><a href="{% url 'customers:detail' customer.pk %}">{{ customer.name }}</a><span class="sep">/</span><span class="current">Log Contact</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-1">Log Communication</h3>
 <p class="text-muted">With {{ customer.name }}</p>

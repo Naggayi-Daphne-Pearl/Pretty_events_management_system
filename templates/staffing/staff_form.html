@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{% if staff_member %}Edit Staff{% else %}New Staff Member{% endif %}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'staffing:list' %}">Staff</a><span class="sep">/</span>{% if staff_member %}<a href="{% url 'staffing:detail' staff_member.pk %}">{{ staff_member.full_name }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New Staff Member</span>{% endif %}</nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">{% if staff_member %}Edit Staff Member{% else %}New Staff Member{% endif %}</h3>
 <form method="post">

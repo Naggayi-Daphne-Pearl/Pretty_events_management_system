@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}New Expense Record{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'finance:summary' %}">Finance</a><span class="sep">/</span><a href="{% url 'finance:expense_list' %}">Expenses</a><span class="sep">/</span><span class="current">New</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">New Expense Record</h3>
 <div class="card p-4" style="max-width: 560px;">

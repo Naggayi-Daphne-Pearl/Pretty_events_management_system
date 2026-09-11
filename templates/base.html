@@ -109,6 +109,15 @@
         }
         .nav-section-label:first-child { padding-top: 4px; }
 
+        .breadcrumb-trail {
+            display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
+            font-size: 12.5px; margin-bottom: 10px;
+        }
+        .breadcrumb-trail a { color: var(--text-2); text-decoration: none; font-weight: 600; }
+        .breadcrumb-trail a:hover { color: var(--gold); text-decoration: underline; }
+        .breadcrumb-trail .sep { color: var(--text-3); }
+        .breadcrumb-trail .current { color: var(--text-3); font-weight: 500; }
+
         .theme-toggle { display: flex; gap: 6px; padding: 4px; border-radius: 10px; background: rgba(127,127,127,0.08); border: 1px solid var(--border); }
         .theme-toggle button {
             flex: 1; border: none; background: transparent; color: var(--text-2); font-family: var(--sans);
@@ -292,6 +301,7 @@
             {% endif %}
             <div class="avatar" title="{{ user.get_full_name|default:user.username }}">{{ user.username|slice:":2"|upper }}</div>
         </div>
+        {% block breadcrumbs %}{% endblock %}
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">

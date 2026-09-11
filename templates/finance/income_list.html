@@ -1,6 +1,9 @@
 {% extends "base.html" %}
 {% load humanize %}
 {% block title %}Income{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'finance:summary' %}">Finance</a><span class="sep">/</span><span class="current">Income</span></nav>
+{% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">Income Records</h3>

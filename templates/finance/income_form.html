@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}New Income Record{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'finance:summary' %}">Finance</a><span class="sep">/</span><a href="{% url 'finance:income_list' %}">Income</a><span class="sep">/</span><span class="current">New</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">New Income Record</h3>
 <div class="card p-4" style="max-width: 560px;">

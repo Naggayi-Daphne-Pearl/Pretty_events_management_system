@@ -1,5 +1,8 @@
 {% extends "base.html" %}
 {% block title %}{% if role %}Edit Role{% else %}New Role{% endif %}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'role_list' %}">Roles &amp; Permissions</a><span class="sep">/</span><span class="current">{% if role %}Edit {{ role.name }}{% else %}New Role{% endif %}</span></nav>
+{% endblock %}
 {% block content %}
 <h3 class="mb-3">{% if role %}Edit Role: {{ role.name }}{% else %}New Role{% endif %}</h3>
 
