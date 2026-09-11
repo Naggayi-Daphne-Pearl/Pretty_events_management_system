@@ -10,7 +10,7 @@
     {% csrf_token %}
 
     <div class="card p-4 mb-3">
-        <label class="form-label">Role name</label>
+        <label class="form-label">Role name <span class="text-danger">*</span></label>
         <input type="text" name="name" class="form-control" style="max-width: 360px;" value="{{ role.name|default:'' }}" required placeholder="e.g. Site Supervisor">
     </div>
 

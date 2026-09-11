@@ -19,7 +19,7 @@
         {% csrf_token %}
         {% for field in form %}
             <div class="mb-3">
-                <label class="form-label">{{ field.label }}</label>
+                <label class="form-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
                 {% if field.name == 'customer' %}
                     <div class="customer-search-wrap">
                         <input type="hidden" name="customer" id="id_customer" value="{{ field.value|default:'' }}">

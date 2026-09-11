@@ -10,8 +10,11 @@
         {% csrf_token %}
         {% for field in form %}
             <div class="mb-3">
-                <label class="form-label">{{ field.label }}</label>
+                <label class="form-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
                 {{ field }}
+                {% if field.name == 'category' and perms.finance.add_expensecategory %}
+                    <div class="form-text small"><a href="{% url 'finance:category_create' %}?next={{ request.path|urlencode }}">+ New category</a></div>
+                {% endif %}
                 {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
             </div>
         {% endfor %}

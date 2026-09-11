@@ -5,12 +5,49 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Sum
 from django.shortcuts import render
-from django.views.generic import CreateView, ListView
+from django.urls import reverse, reverse_lazy
+from django.views.generic import CreateView, ListView, UpdateView
 
 from core.activity import log_model_activity
 
-from .forms import ExpenseRecordForm, IncomeRecordForm
-from .models import ExpenseRecord, IncomeRecord
+from .forms import ExpenseCategoryForm, ExpenseRecordForm, IncomeRecordForm
+from .models import ExpenseCategory, ExpenseRecord, IncomeRecord
+
+
+class ExpenseCategoryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = ExpenseCategory
+    permission_required = 'finance.view_expensecategory'
+    template_name = 'finance/category_list.html'
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related('expenses')
+
+
+class ExpenseCategoryCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    model = ExpenseCategory
+    form_class = ExpenseCategoryForm
+    permission_required = 'finance.add_expensecategory'
+    template_name = 'finance/category_form.html'
+    success_message = 'Category "%(name)s" added.'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['next'] = self.request.GET.get('next', '')
+        return ctx
+
+    def get_success_url(self):
+        # Jump back into the expense form if we got here via its "+ New category" link.
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        return next_url or reverse('finance:category_list')
+
+
+class ExpenseCategoryUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = ExpenseCategory
+    form_class = ExpenseCategoryForm
+    permission_required = 'finance.change_expensecategory'
+    template_name = 'finance/category_form.html'
+    success_message = 'Category "%(name)s" updated.'
+    success_url = reverse_lazy('finance:category_list')
 
 
 def _period_bounds(request):

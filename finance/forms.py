@@ -2,7 +2,13 @@ from django import forms
 
 from core.forms import BootstrapModelForm
 
-from .models import ExpenseRecord, IncomeRecord
+from .models import ExpenseCategory, ExpenseRecord, IncomeRecord
+
+
+class ExpenseCategoryForm(BootstrapModelForm):
+    class Meta:
+        model = ExpenseCategory
+        fields = ['name']
 
 
 class IncomeRecordForm(BootstrapModelForm):
