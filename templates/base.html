@@ -66,13 +66,13 @@
             --blush: #E3B7BE;
             --text-1: rgba(255,255,255,0.94);
             --text-2: rgba(255,255,255,0.94);
-            --text-3: rgba(255,255,255,0.72);
+            --text-3: rgba(255,255,255,0.94);
             --ok: #7FCBA4;
             --ok-soft: rgba(127,203,164,0.16);
             --warn: #E0B15C;
             --danger: #E28080;
             --danger-soft: rgba(226,128,128,0.16);
-            --sidebar-text: rgba(255,255,255,0.72);
+            --sidebar-text: rgba(255,255,255,0.94);
             --sidebar-text-active: var(--gold);
             --menu-bg: #221c2b;
         }
@@ -256,6 +256,9 @@
         /* Force warnings/alerts to read as red — overrides Bootstrap's default amber
            .text-warning (used for the inline "over-quoted" stock warning, etc.). */
         .text-warning, .text-danger { color: var(--danger) !important; }
+        /* Bootstrap's .text-secondary/.text-body-secondary ship their own fixed grey,
+           not tied to our --text vars — override so nothing reads as grey either. */
+        .text-secondary, .text-body-secondary { color: var(--text-1) !important; }
 
         .page-link { background: var(--panel-strong); border-color: var(--border); color: var(--text-1); }
         .page-item.disabled .page-link { background: transparent; color: var(--text-3); }
