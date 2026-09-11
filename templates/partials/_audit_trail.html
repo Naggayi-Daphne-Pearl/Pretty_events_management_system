@@ -1,0 +1,5 @@
+{% load humanize %}
+<p class="text-muted small mb-3">
+    Created {{ object.created_at|naturaltime }}{% if object.created_by %} by {{ object.created_by.username }}{% endif %}
+    {% if object.updated_at and object.updated_at != object.created_at %} · Last updated {{ object.updated_at|naturaltime }}{% endif %}
+</p>

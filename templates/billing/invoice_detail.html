@@ -12,6 +12,7 @@
         <a href="{% url 'billing:invoice_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
     </div>
 </div>
+{% include "partials/_audit_trail.html" %}
 
 <div class="row g-3">
     <div class="col-lg-8">

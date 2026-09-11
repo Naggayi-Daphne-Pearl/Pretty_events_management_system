@@ -110,6 +110,17 @@
         }
         .theme-toggle button.active { background: var(--panel-strong); color: var(--text-1); }
 
+        .role-chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
+        .role-chip {
+            display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px;
+            border-radius: 20px; border: 1px solid var(--border); background: var(--panel-strong);
+            font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer;
+            transition: background .15s ease, color .15s ease, border-color .15s ease;
+        }
+        .role-chip input { accent-color: var(--gold); margin: 0 !important; float: none !important; }
+        .role-chip:hover { border-color: var(--gold); color: var(--text-1); }
+        .role-chip:has(input:checked) { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
+
         .topbar { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-bottom: 18px; }
         .topbar-search {
             display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 11px;
@@ -195,20 +206,36 @@
         </a>
         <ul class="nav nav-pills flex-column mb-auto gap-1">
             <li class="nav-item"><a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
+            {% if perms.customers.view_customer %}
             <li class="nav-item"><a href="{% url 'customers:list' %}" class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}"><i class="bi bi-people me-2"></i>Customers</a></li>
+            {% endif %}
+            {% if perms.events.view_event %}
             <li class="nav-item"><a href="{% url 'events:list' %}" class="nav-link {% if request.resolver_match.app_name == 'events' %}active{% endif %}"><i class="bi bi-calendar-event me-2"></i>Events</a></li>
-            <li class="nav-item"><a href="{% url 'billing:quotation_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' %}active{% endif %}"><i class="bi bi-file-earmark-text me-2"></i>Quotations</a></li>
-            <li class="nav-item"><a href="{% url 'billing:invoice_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' %}active{% endif %}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
+            {% endif %}
+            {% if perms.billing.view_quotation %}
+            <li class="nav-item"><a href="{% url 'billing:quotation_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'quotation' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-file-earmark-text me-2"></i>Quotations</a></li>
+            {% endif %}
+            {% if perms.billing.view_invoice %}
+            <li class="nav-item"><a href="{% url 'billing:invoice_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
+            {% endif %}
+            {% if perms.inventory.view_equipmentitem %}
             <li class="nav-item"><a href="{% url 'inventory:item_list' %}" class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}"><i class="bi bi-box-seam me-2"></i>Inventory</a></li>
+            {% endif %}
             {% if perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
             <li class="nav-item"><a href="{% url 'finance:summary' %}" class="nav-link {% if request.resolver_match.app_name == 'finance' %}active{% endif %}"><i class="bi bi-cash-coin me-2"></i>Finance</a></li>
             {% endif %}
+            {% if perms.staffing.view_staffmember %}
             <li class="nav-item"><a href="{% url 'staffing:list' %}" class="nav-link {% if request.resolver_match.app_name == 'staffing' %}active{% endif %}"><i class="bi bi-person-badge me-2"></i>Staff</a></li>
+            {% endif %}
+            {% if perms.comms.view_communicationlog %}
             <li class="nav-item"><a href="{% url 'comms:list' %}" class="nav-link {% if request.resolver_match.app_name == 'comms' %}active{% endif %}"><i class="bi bi-chat-dots me-2"></i>Communication</a></li>
+            {% endif %}
+            {% if perms.events.view_event or perms.billing.view_invoice or perms.inventory.view_equipmentitem or perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
             <li class="nav-item"><a href="{% url 'reports:index' %}" class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"><i class="bi bi-bar-chart me-2"></i>Reports</a></li>
+            {% endif %}
             {% if user.is_superuser %}
-            <li class="nav-item"><a href="{% url 'user_list' %}" class="nav-link {% if request.resolver_match.url_name in 'user_list,user_create,user_update,user_set_password' %}active{% endif %}"><i class="bi bi-person-vcard me-2"></i>Staff Accounts</a></li>
             <li class="nav-item"><a href="{% url 'role_list' %}" class="nav-link {% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete' %}active{% endif %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; Permissions</a></li>
+            <li class="nav-item"><a href="{% url 'activity_log' %}" class="nav-link {% if request.resolver_match.url_name == 'activity_log' %}active{% endif %}"><i class="bi bi-clock-history me-2"></i>Activity Log</a></li>
             {% endif %}
         </ul>
         <div class="theme-toggle mb-2">

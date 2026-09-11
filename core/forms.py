@@ -13,7 +13,9 @@ class BootstrapFieldsMixin:
         super().__init__(*args, **kwargs)
         for field in self.fields.values():
             widget = field.widget
-            if isinstance(widget, forms.CheckboxInput):
+            if isinstance(widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple, forms.RadioSelect)):
+                # CheckboxSelectMultiple/RadioSelect subclass ChoiceWidget directly (not
+                # Select/SelectMultiple), so they must be checked before that branch below.
                 css_class = 'form-check-input'
             elif isinstance(widget, (forms.Select, forms.SelectMultiple)):
                 css_class = 'form-select'

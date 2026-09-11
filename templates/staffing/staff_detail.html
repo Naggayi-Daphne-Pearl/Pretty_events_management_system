@@ -5,6 +5,7 @@
     <h3 class="mb-0">{{ object.full_name }}</h3>
     {% if perms.staffing.change_staffmember %}<a href="{% url 'staffing:update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
 </div>
+{% include "partials/_audit_trail.html" %}
 <div class="row g-3">
     <div class="col-lg-4">
         <div class="card p-3">
@@ -12,6 +13,9 @@
                 <dt class="col-5">Title</dt><dd class="col-7">{{ object.title|default:"—" }}</dd>
                 <dt class="col-5">Phone</dt><dd class="col-7">{{ object.phone|default:"—" }}</dd>
                 <dt class="col-5">Login account</dt><dd class="col-7">{{ object.user|default:"None" }}</dd>
+                {% if object.user %}
+                <dt class="col-5">Roles</dt><dd class="col-7">{% for g in object.user.groups.all %}<span class="badge bg-secondary badge-status me-1">{{ g.name }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</dd>
+                {% endif %}
                 <dt class="col-5">Status</dt><dd class="col-7">{% if object.is_active %}Active{% else %}Inactive{% endif %}</dd>
             </dl>
         </div>

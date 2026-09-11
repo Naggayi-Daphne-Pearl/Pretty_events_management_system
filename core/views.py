@@ -14,7 +14,9 @@ from billing.models import Invoice
 from events.models import Event
 from inventory.models import EquipmentItem
 
-from .forms import StaffAccountCreationForm, StaffAccountUpdateForm, StaffSetPasswordForm
+from .activity import log_activity
+from .forms import StaffSetPasswordForm
+from .models import ActivityLog
 from .permissions import grouped_permissions, scope_events_to_assignments
 
 
@@ -41,20 +43,19 @@ def dashboard(request):
     week_end = today + timedelta(days=7)
     month_end = today + timedelta(days=30)
 
-    events_qs = scope_events_to_assignments(Event.objects.select_related('customer'), request.user)
+    context = {}
 
-    upcoming_week = events_qs.filter(
-        event_date__gte=today, event_date__lte=week_end,
-    ).exclude(status__in=[Event.Status.COMPLETED, Event.Status.CANCELLED])
-    upcoming_month = events_qs.filter(
-        event_date__gte=today, event_date__lte=month_end,
-    ).exclude(status__in=[Event.Status.COMPLETED, Event.Status.CANCELLED])
-
-    context = {
-        'upcoming_week': upcoming_week.order_by('event_date')[:10],
-        'upcoming_week_count': upcoming_week.count(),
-        'upcoming_month_count': upcoming_month.count(),
-    }
+    if request.user.has_perm('events.view_event'):
+        events_qs = scope_events_to_assignments(Event.objects.select_related('customer'), request.user)
+        upcoming_week = events_qs.filter(
+            event_date__gte=today, event_date__lte=week_end,
+        ).exclude(status__in=[Event.Status.COMPLETED, Event.Status.CANCELLED])
+        upcoming_month = events_qs.filter(
+            event_date__gte=today, event_date__lte=month_end,
+        ).exclude(status__in=[Event.Status.COMPLETED, Event.Status.CANCELLED])
+        context['upcoming_week'] = upcoming_week.order_by('event_date')[:10]
+        context['upcoming_week_count'] = upcoming_week.count()
+        context['upcoming_month_count'] = upcoming_month.count()
 
     if request.user.has_perm('billing.view_invoice'):
         unpaid_invoices = Invoice.objects.exclude(
@@ -90,13 +91,11 @@ def role_list(request):
 @superuser_required
 def role_form(request, pk=None):
     role = get_object_or_404(Group, pk=pk) if pk else None
-    User = get_user_model()
-    all_users = User.objects.filter(is_active=True).order_by('username')
+    is_new = role is None
 
     if request.method == 'POST':
         name = request.POST.get('name', '').strip()
         permission_ids = request.POST.getlist('permissions')
-        member_ids = request.POST.getlist('members')
 
         if not name:
             messages.error(request, 'Role name is required.')
@@ -107,23 +106,21 @@ def role_form(request, pk=None):
                 role.name = name
             role.save()
             role.permissions.set(Permission.objects.filter(pk__in=permission_ids))
-            role.user_set.set(User.objects.filter(pk__in=member_ids))
+            log_activity(
+                request, 'role.created' if is_new else 'role.updated',
+                f'{"Created" if is_new else "Updated"} role "{role.name}" ({len(permission_ids)} permissions)',
+            )
             messages.success(request, f'Role "{role.name}" saved.')
             return redirect('role_list')
 
     selected_permission_ids = set(
         str(pk) for pk in (role.permissions.values_list('pk', flat=True) if role else [])
     )
-    selected_member_ids = set(
-        str(pk) for pk in (role.user_set.values_list('pk', flat=True) if role else [])
-    )
 
     return render(request, 'core/role_form.html', {
         'role': role,
         'permission_groups': grouped_permissions(),
         'selected_permission_ids': selected_permission_ids,
-        'all_users': all_users,
-        'selected_member_ids': selected_member_ids,
     })
 
 
@@ -133,52 +130,16 @@ def role_delete(request, pk):
     if request.method == 'POST':
         name = role.name
         role.delete()
+        log_activity(request, 'role.deleted', f'Deleted role "{name}"')
         messages.success(request, f'Role "{name}" deleted.')
         return redirect('role_list')
     return render(request, 'core/role_confirm_delete.html', {'role': role})
 
 
-# ---------- Staff Accounts (superuser-only) ----------
-#
-# The only in-app way to create a login: username, a REQUIRED email, and a
-# password the admin sets on the spot (not an email-confirmation sign-up flow —
-# there's no outbound email sending configured for that in Phase 1). Roles are
-# assigned in the same form.
-
-@superuser_required
-def user_list(request):
-    User = get_user_model()
-    users = User.objects.all().prefetch_related('groups').order_by('username')
-    return render(request, 'core/user_list.html', {'staff_users': users})
-
-
-@superuser_required
-def user_create(request):
-    if request.method == 'POST':
-        form = StaffAccountCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            messages.success(request, f'Staff account "{user.username}" created.')
-            return redirect('user_list')
-    else:
-        form = StaffAccountCreationForm()
-    return render(request, 'core/user_form.html', {'form': form, 'staff_user': None})
-
-
-@superuser_required
-def user_update(request, pk):
-    User = get_user_model()
-    staff_user = get_object_or_404(User, pk=pk)
-    if request.method == 'POST':
-        form = StaffAccountUpdateForm(request.POST, instance=staff_user)
-        if form.is_valid():
-            form.save()
-            messages.success(request, f'Staff account "{staff_user.username}" updated.')
-            return redirect('user_list')
-    else:
-        form = StaffAccountUpdateForm(instance=staff_user)
-    return render(request, 'core/user_form.html', {'form': form, 'staff_user': staff_user})
-
+# ---------- Password reset for a staff login (superuser-only) ----------
+# Creating/editing a login itself now happens on the Staff page (see
+# staffing/views.py) alongside that person's business record — this is just
+# the focused "set a new password" action, reachable from there.
 
 @superuser_required
 def user_set_password(request, pk):
@@ -188,8 +149,19 @@ def user_set_password(request, pk):
         form = StaffSetPasswordForm(staff_user, request.POST)
         if form.is_valid():
             form.save()
+            log_activity(request, 'staff_account.password_reset', f'Reset password for "{staff_user.username}"')
             messages.success(request, f'Password updated for "{staff_user.username}".')
-            return redirect('user_list')
+            if hasattr(staff_user, 'staff_profile'):
+                return redirect('staffing:detail', pk=staff_user.staff_profile.pk)
+            return redirect('dashboard')
     else:
         form = StaffSetPasswordForm(staff_user)
     return render(request, 'core/user_set_password.html', {'form': form, 'staff_user': staff_user})
+
+
+# ---------- Activity Log (superuser-only) ----------
+
+@superuser_required
+def activity_log(request):
+    entries = ActivityLog.objects.select_related('actor').all()[:200]
+    return render(request, 'core/activity_log.html', {'entries': entries})

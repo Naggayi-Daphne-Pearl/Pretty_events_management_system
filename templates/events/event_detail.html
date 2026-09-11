@@ -11,6 +11,7 @@
     <a href="{% url 'events:update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
     {% endif %}
 </div>
+{% include "partials/_audit_trail.html" %}
 
 <div class="row g-3">
     <div class="col-lg-4">

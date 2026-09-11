@@ -4,7 +4,9 @@
 {% block content %}
 <h3 class="mb-4">Dashboard</h3>
 
+{% if perms.events.view_event or unpaid_count is not None %}
 <div class="row g-3 mb-4">
+    {% if perms.events.view_event %}
     <div class="col-sm-6 col-lg-3">
         <div class="card stat-card p-3">
             <div class="text-muted small">Events this week</div>
@@ -17,6 +19,7 @@
             <div class="fs-3 fw-semibold">{{ upcoming_month_count }}</div>
         </div>
     </div>
+    {% endif %}
     {% if unpaid_count is not None %}
     <div class="col-sm-6 col-lg-3">
         <div class="card stat-card p-3">
@@ -32,9 +35,12 @@
     </div>
     {% endif %}
 </div>
+{% endif %}
 
+{% if perms.events.view_event or unpaid_invoices is not None or low_stock_items is not None %}
 <div class="row g-3">
-    <div class="col-lg-7">
+    {% if perms.events.view_event %}
+    <div class="{% if unpaid_invoices is not None or low_stock_items is not None %}col-lg-7{% else %}col-12{% endif %}">
         <div class="card p-3">
             <h6 class="mb-3">Upcoming events (next 7 days)</h6>
             {% if upcoming_week %}
@@ -59,10 +65,13 @@
             {% endif %}
         </div>
     </div>
-    <div class="col-lg-5">
-        {% if unpaid_invoices %}
+    {% endif %}
+    {% if unpaid_invoices is not None or low_stock_items is not None %}
+    <div class="{% if perms.events.view_event %}col-lg-5{% else %}col-12{% endif %}">
+        {% if unpaid_invoices is not None %}
         <div class="card p-3 mb-3">
             <h6 class="mb-3">Outstanding payments</h6>
+            {% if unpaid_invoices %}
             <div class="table-responsive">
                 <table class="table table-sm align-middle">
                     <thead><tr><th>Invoice</th><th>Customer</th><th>Balance</th></tr></thead>
@@ -77,11 +86,15 @@
                     </tbody>
                 </table>
             </div>
+            {% else %}
+                <p class="text-muted mb-0">No outstanding invoices.</p>
+            {% endif %}
         </div>
         {% endif %}
-        {% if low_stock_items %}
+        {% if low_stock_items is not None %}
         <div class="card p-3">
             <h6 class="mb-3">Low stock</h6>
+            {% if low_stock_items %}
             <ul class="list-group list-group-flush">
             {% for item in low_stock_items %}
                 <li class="list-group-item d-flex justify-content-between px-0">
@@ -90,8 +103,17 @@
                 </li>
             {% endfor %}
             </ul>
+            {% else %}
+                <p class="text-muted mb-0">Nothing low on stock.</p>
+            {% endif %}
         </div>
         {% endif %}
     </div>
+    {% endif %}
 </div>
+{% else %}
+<div class="card p-4 text-center text-muted">
+    Nothing to show here yet for your role. Ask an admin if you think you should see more.
+</div>
+{% endif %}
 {% endblock %}

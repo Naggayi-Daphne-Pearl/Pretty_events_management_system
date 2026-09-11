@@ -15,6 +15,7 @@
         {% endif %}
     </div>
 </div>
+{% include "partials/_audit_trail.html" %}
 
 <div class="card p-4">
     <p class="text-muted mb-1">For <a href="{% url 'customers:detail' object.event.customer.pk %}">{{ object.event.customer.name }}</a> — <a href="{% url 'events:detail' object.event.pk %}">{{ object.event.event_type }} on {{ object.event.event_date }}</a></p>

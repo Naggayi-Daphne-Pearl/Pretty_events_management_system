@@ -1,10 +1,12 @@
 {% extends "base.html" %}
-{% block title %}{% if object %}Edit Staff{% else %}New Staff Member{% endif %}{% endblock %}
+{% block title %}{% if staff_member %}Edit Staff{% else %}New Staff Member{% endif %}{% endblock %}
 {% block content %}
-<h3 class="mb-3">{% if object %}Edit Staff Member{% else %}New Staff Member{% endif %}</h3>
-<div class="card p-4" style="max-width: 560px;">
-    <form method="post">
-        {% csrf_token %}
+<h3 class="mb-3">{% if staff_member %}Edit Staff Member{% else %}New Staff Member{% endif %}</h3>
+<form method="post">
+    {% csrf_token %}
+
+    <div class="card p-4 mb-3" style="max-width: 560px;">
+        <h6 class="mb-3">Staff details</h6>
         {% for field in form %}
             <div class="mb-3">
                 <label class="form-label">{{ field.label }}</label>
@@ -12,8 +14,65 @@
                 {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
             </div>
         {% endfor %}
-        <button type="submit" class="btn btn-primary">Save</button>
-        <a href="{% url 'staffing:list' %}" class="btn btn-outline-secondary">Cancel</a>
-    </form>
-</div>
+    </div>
+
+    {% if can_manage_login %}
+    <div class="card p-4 mb-3" style="max-width: 560px;">
+        <h6 class="mb-1">System login</h6>
+        {% if linked_user %}
+            <p class="text-muted small mb-3">
+                Username: <strong>{{ linked_user.username }}</strong> ·
+                <a href="{% url 'user_set_password' linked_user.pk %}">Reset password</a>
+            </p>
+            {% for field in login_form %}
+                <div class="mb-3">
+                    <label class="form-label">{{ field.label }}</label>
+                    {% if field.name == 'roles' %}
+                        <div class="role-chip-group">
+                        {% for checkbox in field %}
+                            <label class="role-chip">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>
+                        {% empty %}
+                            <span class="text-muted small">No roles yet — <a href="{% url 'role_create' %}">create one</a> first.</span>
+                        {% endfor %}
+                        </div>
+                    {% else %}
+                        {{ field }}
+                    {% endif %}
+                    {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                </div>
+            {% endfor %}
+        {% else %}
+            <p class="text-muted small mb-3">Not every staff member needs to log in — only tick this if they need system access.</p>
+            <div class="form-check mb-3">
+                <input type="checkbox" class="form-check-input" name="create_login" id="create_login" value="1"
+                       {% if wants_login %}checked{% endif %} onchange="document.getElementById('login-fields').hidden = !this.checked;">
+                <label class="form-check-label" for="create_login">Give this person a login to the system</label>
+            </div>
+            <div id="login-fields" {% if not wants_login %}hidden{% endif %}>
+                {% for field in login_form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}{% if field.field.required %} *{% endif %}</label>
+                        {% if field.name == 'roles' %}
+                            <div class="role-chip-group">
+                            {% for checkbox in field %}
+                                <label class="role-chip">{{ checkbox.tag }}<span>{{ checkbox.choice_label }}</span></label>
+                            {% empty %}
+                                <span class="text-muted small">No roles yet — <a href="{% url 'role_create' %}">create one</a> first.</span>
+                            {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ field }}
+                        {% endif %}
+                        {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+                        {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                    </div>
+                {% endfor %}
+            </div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <button type="submit" class="btn btn-primary">Save</button>
+    <a href="{% if staff_member %}{% url 'staffing:detail' staff_member.pk %}{% else %}{% url 'staffing:list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
+</form>
 {% endblock %}
