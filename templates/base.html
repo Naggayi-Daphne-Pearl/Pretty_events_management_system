@@ -105,9 +105,18 @@
         .sidebar-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
         .nav-section-label {
             font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-            color: var(--text-3); padding: 14px .7rem 4px;
+            color: var(--text-3);
         }
-        .nav-section-label:first-child { padding-top: 4px; }
+        .nav-section-toggle {
+            width: 100%; display: flex; align-items: center; justify-content: space-between;
+            background: none; border: none; padding: 14px .7rem 4px; cursor: pointer;
+            transition: color .15s ease;
+        }
+        .nav-section:first-of-type .nav-section-toggle { padding-top: 4px; }
+        .nav-section-toggle:hover .nav-section-label { color: var(--text-2); }
+        .nav-section-chevron { font-size: 10px; color: var(--text-3); transition: transform .15s ease; }
+        .nav-section-chevron.collapsed { transform: rotate(-90deg); }
+        .nav-section-items { margin-top: 2px; }
 
         .breadcrumb-trail {
             display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
@@ -225,60 +234,85 @@
         </ul>
 
         {% if perms.customers.view_customer or perms.events.view_event or perms.comms.view_communicationlog %}
-        <div class="nav-section-label">Clients &amp; Events</div>
-        <ul class="nav nav-pills flex-column gap-1">
-            {% if perms.customers.view_customer %}
-            <li class="nav-item"><a href="{% url 'customers:list' %}" class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}"><i class="bi bi-people me-2"></i>Customers</a></li>
-            {% endif %}
-            {% if perms.events.view_event %}
-            <li class="nav-item"><a href="{% url 'events:list' %}" class="nav-link {% if request.resolver_match.app_name == 'events' %}active{% endif %}"><i class="bi bi-calendar-event me-2"></i>Events</a></li>
-            {% endif %}
-            {% if perms.comms.view_communicationlog %}
-            <li class="nav-item"><a href="{% url 'comms:list' %}" class="nav-link {% if request.resolver_match.app_name == 'comms' %}active{% endif %}"><i class="bi bi-chat-dots me-2"></i>Communication</a></li>
-            {% endif %}
-        </ul>
+        <div class="nav-section" data-section="clients-events" data-default-open="{% if request.resolver_match.app_name == 'customers' or request.resolver_match.app_name == 'events' or request.resolver_match.app_name == 'comms' %}true{% else %}false{% endif %}">
+            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
+                <span class="nav-section-label">Clients &amp; Events</span>
+                <i class="bi bi-chevron-down nav-section-chevron"></i>
+            </button>
+            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
+                {% if perms.customers.view_customer %}
+                <li class="nav-item"><a href="{% url 'customers:list' %}" class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}"><i class="bi bi-people me-2"></i>Customers</a></li>
+                {% endif %}
+                {% if perms.events.view_event %}
+                <li class="nav-item"><a href="{% url 'events:list' %}" class="nav-link {% if request.resolver_match.app_name == 'events' %}active{% endif %}"><i class="bi bi-calendar-event me-2"></i>Events</a></li>
+                {% endif %}
+                {% if perms.comms.view_communicationlog %}
+                <li class="nav-item"><a href="{% url 'comms:list' %}" class="nav-link {% if request.resolver_match.app_name == 'comms' %}active{% endif %}"><i class="bi bi-chat-dots me-2"></i>Communication</a></li>
+                {% endif %}
+            </ul>
+        </div>
         {% endif %}
 
         {% if perms.billing.view_quotation or perms.billing.view_invoice or perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
-        <div class="nav-section-label">Billing</div>
-        <ul class="nav nav-pills flex-column gap-1">
-            {% if perms.billing.view_quotation %}
-            <li class="nav-item"><a href="{% url 'billing:quotation_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'quotation' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-file-earmark-text me-2"></i>Quotations</a></li>
-            {% endif %}
-            {% if perms.billing.view_invoice %}
-            <li class="nav-item"><a href="{% url 'billing:invoice_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
-            {% endif %}
-            {% if perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
-            <li class="nav-item"><a href="{% url 'finance:summary' %}" class="nav-link {% if request.resolver_match.app_name == 'finance' %}active{% endif %}"><i class="bi bi-cash-coin me-2"></i>Finance</a></li>
-            {% endif %}
-        </ul>
+        <div class="nav-section" data-section="billing" data-default-open="{% if request.resolver_match.app_name == 'billing' or request.resolver_match.app_name == 'finance' %}true{% else %}false{% endif %}">
+            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
+                <span class="nav-section-label">Billing</span>
+                <i class="bi bi-chevron-down nav-section-chevron"></i>
+            </button>
+            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
+                {% if perms.billing.view_quotation %}
+                <li class="nav-item"><a href="{% url 'billing:quotation_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'quotation' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-file-earmark-text me-2"></i>Quotations</a></li>
+                {% endif %}
+                {% if perms.billing.view_invoice %}
+                <li class="nav-item"><a href="{% url 'billing:invoice_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
+                {% endif %}
+                {% if perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
+                <li class="nav-item"><a href="{% url 'finance:summary' %}" class="nav-link {% if request.resolver_match.app_name == 'finance' %}active{% endif %}"><i class="bi bi-cash-coin me-2"></i>Finance</a></li>
+                {% endif %}
+            </ul>
+        </div>
         {% endif %}
 
         {% if perms.inventory.view_equipmentitem or perms.staffing.view_staffmember %}
-        <div class="nav-section-label">Operations</div>
-        <ul class="nav nav-pills flex-column gap-1">
-            {% if perms.inventory.view_equipmentitem %}
-            <li class="nav-item"><a href="{% url 'inventory:item_list' %}" class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}"><i class="bi bi-box-seam me-2"></i>Inventory</a></li>
-            {% endif %}
-            {% if perms.staffing.view_staffmember %}
-            <li class="nav-item"><a href="{% url 'staffing:list' %}" class="nav-link {% if request.resolver_match.app_name == 'staffing' %}active{% endif %}"><i class="bi bi-person-badge me-2"></i>Staff</a></li>
-            {% endif %}
-        </ul>
+        <div class="nav-section" data-section="operations" data-default-open="{% if request.resolver_match.app_name == 'inventory' or request.resolver_match.app_name == 'staffing' %}true{% else %}false{% endif %}">
+            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
+                <span class="nav-section-label">Operations</span>
+                <i class="bi bi-chevron-down nav-section-chevron"></i>
+            </button>
+            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
+                {% if perms.inventory.view_equipmentitem %}
+                <li class="nav-item"><a href="{% url 'inventory:item_list' %}" class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}"><i class="bi bi-box-seam me-2"></i>Inventory</a></li>
+                {% endif %}
+                {% if perms.staffing.view_staffmember %}
+                <li class="nav-item"><a href="{% url 'staffing:list' %}" class="nav-link {% if request.resolver_match.app_name == 'staffing' %}active{% endif %}"><i class="bi bi-person-badge me-2"></i>Staff</a></li>
+                {% endif %}
+            </ul>
+        </div>
         {% endif %}
 
         {% if perms.events.view_event or perms.billing.view_invoice or perms.inventory.view_equipmentitem or perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
-        <div class="nav-section-label">Insights</div>
-        <ul class="nav nav-pills flex-column gap-1">
-            <li class="nav-item"><a href="{% url 'reports:index' %}" class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"><i class="bi bi-bar-chart me-2"></i>Reports</a></li>
-        </ul>
+        <div class="nav-section" data-section="insights" data-default-open="{% if request.resolver_match.app_name == 'reports' %}true{% else %}false{% endif %}">
+            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
+                <span class="nav-section-label">Insights</span>
+                <i class="bi bi-chevron-down nav-section-chevron"></i>
+            </button>
+            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
+                <li class="nav-item"><a href="{% url 'reports:index' %}" class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"><i class="bi bi-bar-chart me-2"></i>Reports</a></li>
+            </ul>
+        </div>
         {% endif %}
 
         {% if user.is_superuser %}
-        <div class="nav-section-label">Administration</div>
-        <ul class="nav nav-pills flex-column gap-1">
-            <li class="nav-item"><a href="{% url 'role_list' %}" class="nav-link {% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete' %}active{% endif %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; Permissions</a></li>
-            <li class="nav-item"><a href="{% url 'activity_log' %}" class="nav-link {% if request.resolver_match.url_name == 'activity_log' %}active{% endif %}"><i class="bi bi-clock-history me-2"></i>Activity Log</a></li>
-        </ul>
+        <div class="nav-section" data-section="administration" data-default-open="{% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete,activity_log' %}true{% else %}false{% endif %}">
+            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
+                <span class="nav-section-label">Administration</span>
+                <i class="bi bi-chevron-down nav-section-chevron"></i>
+            </button>
+            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
+                <li class="nav-item"><a href="{% url 'role_list' %}" class="nav-link {% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete' %}active{% endif %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; Permissions</a></li>
+                <li class="nav-item"><a href="{% url 'activity_log' %}" class="nav-link {% if request.resolver_match.url_name == 'activity_log' %}active{% endif %}"><i class="bi bi-clock-history me-2"></i>Activity Log</a></li>
+            </ul>
+        </div>
         {% endif %}
         </div>
         <div class="theme-toggle mb-2">
@@ -333,6 +367,27 @@
         }
     }
     peSyncThemeButtons();
+
+    function peToggleSection(btn) {
+        var section = btn.closest('.nav-section');
+        var items = section.querySelector('.nav-section-items');
+        var chevron = section.querySelector('.nav-section-chevron');
+        var willOpen = items.hidden;
+        items.hidden = !willOpen;
+        chevron.classList.toggle('collapsed', !willOpen);
+        try { localStorage.setItem('pe-nav-' + section.dataset.section, willOpen ? '1' : '0'); } catch (e) {}
+    }
+    (function peInitSections() {
+        document.querySelectorAll('.nav-section').forEach(function (section) {
+            var items = section.querySelector('.nav-section-items');
+            var chevron = section.querySelector('.nav-section-chevron');
+            var saved = null;
+            try { saved = localStorage.getItem('pe-nav-' + section.dataset.section); } catch (e) {}
+            var open = saved !== null ? saved === '1' : section.dataset.defaultOpen === 'true';
+            items.hidden = !open;
+            chevron.classList.toggle('collapsed', !open);
+        });
+    })();
 </script>
 {% block extra_js %}{% endblock %}
 </body>
