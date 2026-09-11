@@ -47,6 +47,10 @@
             --danger: #c94f4f;
             --sidebar-text: rgba(20,14,10,0.72);
             --sidebar-text-active: #8a611f;
+            /* Solid (not glass-translucent) surface for things that float over arbitrary
+               page content — dropdowns, popovers — where legibility matters more than the
+               frosted look, and there's no guarantee of a plain background behind them. */
+            --menu-bg: #ffffff;
         }
 
         :root[data-theme="dark"] {
@@ -66,6 +70,7 @@
             --danger: #E28080;
             --sidebar-text: rgba(255,255,255,0.72);
             --sidebar-text-active: var(--gold);
+            --menu-bg: #221c2b;
         }
 
         * { box-sizing: border-box; }
@@ -136,10 +141,10 @@
         .breadcrumb-trail .sep { color: var(--text-3); }
         .breadcrumb-trail .current { color: var(--text-3); font-weight: 500; }
 
-        .theme-toggle { display: flex; gap: 6px; padding: 4px; border-radius: 10px; background: rgba(127,127,127,0.08); border: 1px solid var(--border); }
+        .theme-toggle { display: flex; gap: 6px; padding: 4px; border-radius: 999px; background: rgba(127,127,127,0.08); border: 1px solid var(--border); }
         .theme-toggle button {
             flex: 1; border: none; background: transparent; color: var(--text-2); font-family: var(--sans);
-            font-size: 12px; font-weight: 600; padding: 7px 0; border-radius: 7px; cursor: pointer;
+            font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 999px; cursor: pointer;
         }
         .theme-toggle button.active { background: var(--panel-strong); color: var(--text-1); }
 
@@ -174,8 +179,8 @@
         }
 
         .dropdown-menu {
-            background: var(--panel-strong); border: 1px solid var(--border); border-radius: 12px;
-            padding: 6px; min-width: 220px;
+            background: var(--menu-bg); border: 1px solid var(--border); border-radius: 12px;
+            padding: 6px; min-width: 220px; box-shadow: 0 12px 32px rgba(0,0,0,0.18);
         }
         .dropdown-header { color: var(--text-2); padding: 8px 10px 4px; }
         .dropdown-divider { border-color: var(--border); margin: 6px 0; }
