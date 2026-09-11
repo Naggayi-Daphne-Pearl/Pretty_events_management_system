@@ -18,7 +18,10 @@
                 <td>{{ lform.description }}{% if lform.description.errors %}<div class="text-danger small">{{ lform.description.errors }}</div>{% endif %}</td>
                 <td>{{ lform.quantity }}<div class="text-warning small stock-warning" hidden></div></td>
                 <td>{{ lform.unit_price }}</td>
-                <td class="text-center">{% if lform.instance.pk %}{{ lform.DELETE }}{% endif %}</td>
+                <td class="text-center">
+                    <span class="d-none">{{ lform.DELETE }}</span>
+                    <button type="button" class="btn btn-sm btn-outline-danger remove-line-btn" title="Remove this line"><i class="bi bi-trash"></i></button>
+                </td>
             </tr>
         {% endfor %}
         </tbody>
@@ -37,7 +40,9 @@
     <td>{{ formset.empty_form.description }}</td>
     <td>{{ formset.empty_form.quantity }}<div class="text-warning small stock-warning" hidden></div></td>
     <td>{{ formset.empty_form.unit_price }}</td>
-    <td class="text-center"></td>
+    <td class="text-center">
+        <button type="button" class="btn btn-sm btn-outline-danger remove-line-btn" title="Remove this line"><i class="bi bi-trash"></i></button>
+    </td>
 </tr></template>
 
 {{ equipment_items|json_script:"equipment-items-data" }}
@@ -97,6 +102,24 @@
     });
 
     if (table) {
+        table.addEventListener('click', function (e) {
+            var btn = e.target.closest('.remove-line-btn');
+            if (!btn) return;
+            var row = btn.closest('tr');
+            var idInput = row.querySelector('[name$="-id"]');
+            var deleteInput = row.querySelector('[name$="-DELETE"]');
+            if (idInput && idInput.value) {
+                // Already-saved line item — mark it for deletion on save and
+                // hide it now, rather than removing it from the DOM (removing
+                // it would drop the DELETE checkbox too, so it'd never get
+                // deleted server-side).
+                if (deleteInput) deleteInput.checked = true;
+                row.hidden = true;
+            } else {
+                // Not saved yet — just drop it, nothing to tell the server.
+                row.remove();
+            }
+        });
         table.addEventListener('change', function (e) {
             var select = e.target;
             if (!select.name || select.name.indexOf('equipment_item') === -1) return;
