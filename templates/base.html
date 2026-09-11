@@ -70,7 +70,10 @@
         }
         h1, h2, h3, h4, h5, h6, .page-title { font-family: var(--serif); font-weight: 500; letter-spacing: 0.1px; }
         a { color: var(--gold); }
-        small, .text-muted { color: var(--text-2) !important; }
+        /* .small/<small> is a Bootstrap FONT-SIZE utility, not a "de-emphasized" one — most
+           detail pages use it just to shrink dense info panels, so it must stay full-brightness
+           text (var(--text-1)), inherited by default. Only .text-muted means "secondary text". */
+        .text-muted { color: var(--text-2) !important; }
 
         .sidebar {
             min-height: 100vh;
@@ -104,6 +107,17 @@
         .theme-toggle button.active { background: var(--panel-strong); color: var(--text-1); }
 
         .topbar { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-bottom: 18px; }
+        .topbar-search {
+            display: flex; align-items: center; gap: 8px; padding: 9px 14px; border-radius: 11px;
+            background: var(--panel); border: 1px solid var(--border); width: 280px;
+            backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
+        }
+        .topbar-search i { color: var(--text-3); font-size: 16px; }
+        .topbar-search input {
+            background: none; border: none; outline: none; color: var(--text-1);
+            font-family: var(--sans); font-size: 13.5px; width: 100%;
+        }
+        .topbar-search input::placeholder { color: var(--text-3); }
         .avatar {
             width: 36px; height: 36px; border-radius: 50%;
             background: linear-gradient(150deg, var(--blush), #8a5560);
@@ -203,7 +217,13 @@
     </nav>
     <main class="flex-grow-1 p-3 p-md-4">
         <div class="topbar">
-            <div class="avatar">{{ user.username|slice:":2"|upper }}</div>
+            {% if perms.customers.view_customer %}
+            <form action="{% url 'customers:list' %}" method="get" class="topbar-search">
+                <i class="bi bi-search"></i>
+                <input type="text" name="q" placeholder="Search customers…">
+            </form>
+            {% endif %}
+            <div class="avatar" title="{{ user.get_full_name|default:user.username }}">{{ user.username|slice:":2"|upper }}</div>
         </div>
         {% if messages %}
             {% for message in messages %}
