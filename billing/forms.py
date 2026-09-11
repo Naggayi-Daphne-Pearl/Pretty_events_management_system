@@ -56,9 +56,11 @@ InvoiceLineItemFormSet = inlineformset_factory(
 class PaymentForm(BootstrapModelForm):
     class Meta:
         model = Payment
-        fields = ['amount', 'method', 'paid_at', 'notes']
+        fields = ['amount', 'method', 'paid_at', 'reference_number', 'notes']
         widgets = {
             'paid_at': forms.DateInput(attrs={'type': 'date'}),
+            'notes': forms.TextInput(attrs={'placeholder': 'What this payment is for, e.g. "2 parasols 5x5"'}),
+            'reference_number': forms.TextInput(attrs={'placeholder': 'Cheque no. / mobile money ref (optional)'}),
         }
 
     def clean_amount(self):

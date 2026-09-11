@@ -88,6 +88,9 @@ USE_TZ = True
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
 STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Brand assets (logo, etc.) live under assets/ at the repo root; expose them to
+# {% static %} without duplicating the files into a separate static/ folder.
+STATICFILES_DIRS = [BASE_DIR / 'assets']
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
@@ -100,5 +103,19 @@ LOGOUT_REDIRECT_URL = 'login'
 
 # Single currency for Phase 1 (confirmed default: UGX only, no multi-currency).
 CURRENCY = 'UGX'
+
+# Real business details, as printed on Pretty Events' physical receipt book —
+# used on the branded quotation/invoice/receipt PDFs and in the app header.
+# NOTE: transcribed from a photo of the receipt book; double-check the TIN and
+# phone numbers against the original before relying on these for anything official.
+COMPANY_LEGAL_NAME = 'PRETTY EVENTS LTD.'
+COMPANY_TAGLINE = 'EVENTS MANAGEMENT & TENT HIRE'
+COMPANY_MOTTO = 'Your Happiness Is Our Passion'
+COMPANY_ADDRESS_LINES = ['Kiwatule Stage &', 'Kira Bulindo Road']
+COMPANY_TIN = '1004479551'
+COMPANY_PHONES = ['+256 393 254 159', '+256 772 682 448', '+256 703 492 505']
+COMPANY_EMAIL = 'prettyevents5@gmail.com'
+COMPANY_WEBSITE_EMAIL = 'info@prettyeventslimited.co.ug'
+COMPANY_LOGO_STATIC_PATH = 'branding/pretty-events-logo.png'
 
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')

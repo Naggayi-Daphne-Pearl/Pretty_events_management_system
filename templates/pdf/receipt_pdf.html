@@ -1,26 +1,42 @@
 {% extends "pdf/_document_base.html" %}
 {% load humanize %}
 {% block doc_type %}Receipt{% endblock %}
-{% block doc_number %}{{ receipt.number }}{% endblock %}
+{% block doc_number %}No. {{ receipt.number }}{% endblock %}
 {% block body %}
-<table class="meta-table">
-    <tr>
-        <td><strong>Received from:</strong><br>{{ receipt.payment.invoice.event.customer.name }}</td>
-        <td><strong>For invoice:</strong><br>{{ receipt.payment.invoice.number }}</td>
-        <td><strong>Date:</strong> {{ receipt.issued_at }}</td>
-    </tr>
-</table>
-<table class="items">
-    <thead><tr><th>Description</th><th class="num">Amount</th></tr></thead>
-    <tbody>
-        <tr>
-            <td>Payment via {{ receipt.payment.get_method_display }}{% if receipt.payment.notes %} — {{ receipt.payment.notes }}{% endif %}</td>
-            <td class="num">{{ receipt.payment.amount|floatformat:0|intcomma }}</td>
-        </tr>
-    </tbody>
-</table>
-<table class="totals">
-    <tr class="grand-total"><td style="text-align:right;">Amount received (UGX)</td><td class="num" style="text-align:right; width:150px;">{{ receipt.payment.amount|floatformat:0|intcomma }}</td></tr>
-</table>
-<p>Remaining balance on invoice {{ receipt.payment.invoice.number }}: <strong>UGX {{ receipt.payment.invoice.balance_due|floatformat:0|intcomma }}</strong></p>
+<style>
+    .form-line { display: flex; align-items: baseline; gap: 6px; margin-bottom: 16px; }
+    .form-line .label { white-space: nowrap; font-weight: bold; }
+    .form-line .value { flex: 1; border-bottom: 1px dotted #999; padding-bottom: 2px; min-height: 14px; }
+    .form-row { display: flex; gap: 24px; }
+    .form-row .form-line { flex: 1; }
+    .amount-box {
+        display: inline-block; border: 2px solid #241d3d; border-radius: 4px;
+        padding: 10px 18px; font-size: 18px; font-weight: bold; margin-top: 6px;
+    }
+    .amount-box .prefix { font-size: 12px; color: #6c757d; margin-right: 8px; }
+    .sign-row { display: flex; justify-content: space-between; margin-top: 40px; }
+    .sign-row .form-line { width: 45%; }
+</style>
+
+<div class="form-line"><span class="label">Date:</span><span class="value">{{ receipt.issued_at|date:"d/m/Y" }}</span></div>
+
+<div class="form-line"><span class="label">RECEIVED with thanks from</span><span class="value">{{ receipt.payment.invoice.event.customer.name }}</span></div>
+
+<div class="form-line"><span class="label">The sum of shillings</span><span class="value">{{ amount_in_words }}</span></div>
+
+<div class="form-line"><span class="label">Being payment of</span><span class="value">{{ receipt.payment.notes|default:receipt.payment.invoice.number }}</span></div>
+
+<div class="form-row">
+    <div class="form-line"><span class="label">Date of function</span><span class="value">{{ receipt.payment.invoice.event.event_date|date:"d/m/Y" }}</span></div>
+    <div class="form-line"><span class="label">By Cash/Cheque No.</span><span class="value">{{ receipt.payment.get_method_display }}{% if receipt.payment.reference_number %} — {{ receipt.payment.reference_number }}{% endif %}</span></div>
+</div>
+
+<div class="form-line"><span class="label">Balance:</span><span class="value">{{ CURRENCY }} {{ receipt.payment.invoice.balance_due|floatformat:0|intcomma }}</span></div>
+
+<div class="amount-box"><span class="prefix">Shs.</span>{{ receipt.payment.amount|floatformat:0|intcomma }}</div>
+
+<div class="sign-row">
+    <div class="form-line"><span class="label">Signature:</span><span class="value">&nbsp;</span></div>
+    <div class="form-line"><span class="label">Invoice ref:</span><span class="value">{{ receipt.payment.invoice.number }}</span></div>
+</div>
 {% endblock %}

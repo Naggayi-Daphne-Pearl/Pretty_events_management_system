@@ -1,3 +1,4 @@
+from django.conf import settings
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib import messages
@@ -8,6 +9,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
+from core.utils import amount_in_words
 from events.models import Event
 
 from .forms import (
@@ -17,10 +19,13 @@ from .models import Invoice, Payment, Quotation, Receipt
 
 
 def render_pdf(request, template_name, context, filename):
-    html_string = render_to_string(template_name, context)
+    # Render context processors (branding, currency, etc.) into the PDF template too.
+    html_string = render_to_string(template_name, context, request=request)
     try:
         from weasyprint import HTML
-        pdf_bytes = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
+        # Resolve relative asset paths (e.g. the logo) straight off disk rather than
+        # over HTTP — avoids a request-fetching-itself deadlock on the dev server.
+        pdf_bytes = HTML(string=html_string, base_url=f'file://{settings.BASE_DIR}/').write_pdf()
     except (ImportError, OSError):
         # WeasyPrint's native deps (pango/cairo) aren't installed on this machine —
         # fall back to plain HTML so the document is still viewable/printable.
@@ -215,4 +220,8 @@ class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView)
 @permission_required('billing.view_receipt', raise_exception=True)
 def receipt_pdf(request, pk):
     receipt = get_object_or_404(Receipt, pk=pk)
-    return render_pdf(request, 'pdf/receipt_pdf.html', {'receipt': receipt}, f'{receipt.number}.pdf')
+    context = {
+        'receipt': receipt,
+        'amount_in_words': amount_in_words(receipt.payment.amount),
+    }
+    return render_pdf(request, 'pdf/receipt_pdf.html', context, f'{receipt.number}.pdf')

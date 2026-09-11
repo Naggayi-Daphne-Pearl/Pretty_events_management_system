@@ -33,9 +33,9 @@ class InvoiceAdmin(admin.ModelAdmin):
 
 @admin.register(Payment)
 class PaymentAdmin(admin.ModelAdmin):
-    list_display = ('invoice', 'amount', 'method', 'paid_at', 'received_by')
+    list_display = ('invoice', 'amount', 'method', 'reference_number', 'paid_at', 'received_by')
     list_filter = ('method', 'paid_at')
-    search_fields = ('invoice__number',)
+    search_fields = ('invoice__number', 'reference_number')
 
 
 @admin.register(Receipt)

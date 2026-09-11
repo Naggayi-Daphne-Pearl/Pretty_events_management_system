@@ -184,7 +184,14 @@ class Payment(TimeStampedModel):
     amount = models.DecimalField(max_digits=14, decimal_places=2)
     method = models.CharField(max_length=20, choices=Method.choices, default=Method.CASH)
     paid_at = models.DateField(default=timezone.localdate)
-    notes = models.CharField(max_length=255, blank=True)
+    reference_number = models.CharField(
+        max_length=50, blank=True,
+        help_text='Cheque number, mobile money transaction ID, etc. — printed on the receipt as "Cash/Cheque No."',
+    )
+    notes = models.CharField(
+        max_length=255, blank=True,
+        help_text='What this payment is for, e.g. "2 parasols 5x5" — printed on the receipt as "Being payment of".',
+    )
     received_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True,
         related_name='payments_received',

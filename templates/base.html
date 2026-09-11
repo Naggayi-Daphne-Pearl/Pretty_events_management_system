@@ -1,9 +1,12 @@
+{% load static %}
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ COMPANY_NAME }}{% endblock %} · {{ COMPANY_NAME }}</title>
+    <link rel="icon" type="image/png" href="{% static COMPANY_LOGO_STATIC_PATH %}">
+    <link rel="apple-touch-icon" href="{% static COMPANY_LOGO_STATIC_PATH %}">
     <script>
         (function () {
             var saved = null;
@@ -90,6 +93,7 @@
             flex-shrink: 0;
         }
         .sidebar-brand-name { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--text-1); }
+        .sidebar-brand-logo { height: 44px; width: auto; }
         .sidebar-brand-sub { font-size: 11px; color: var(--text-3); }
         .sidebar .nav-link {
             color: var(--sidebar-text); font-weight: 500; font-size: 14px;
@@ -185,11 +189,8 @@
 <div class="d-flex">
     <nav class="sidebar d-none d-md-flex flex-column p-3" style="width: 240px;">
         <a href="{% url 'dashboard' %}" class="text-decoration-none d-flex align-items-center gap-2 mb-4 px-1">
-            <div class="sidebar-brand-mark">PE</div>
-            <div>
-                <div class="sidebar-brand-name">{{ COMPANY_NAME }}</div>
-                <div class="sidebar-brand-sub">operations</div>
-            </div>
+            <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo">
+            <div class="sidebar-brand-sub">operations</div>
         </a>
         <ul class="nav nav-pills flex-column mb-auto gap-1">
             <li class="nav-item"><a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>

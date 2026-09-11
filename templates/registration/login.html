@@ -1,11 +1,11 @@
 {% extends "base.html" %}
+{% load static %}
 {% block title %}Log in{% endblock %}
 {% block auth_content %}
 <div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: var(--bg);">
     <div class="card p-4" style="width: 360px;">
-        <div class="d-flex align-items-center gap-2 justify-content-center mb-1">
-            <div class="sidebar-brand-mark">PE</div>
-            <div class="sidebar-brand-name fs-5">{{ COMPANY_NAME }}</div>
+        <div class="d-flex justify-content-center mb-1">
+            <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" style="height: 72px; width: auto;">
         </div>
         <p class="text-muted text-center small mb-4">Staff login</p>
         {% if form.errors %}
