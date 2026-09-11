@@ -10,13 +10,13 @@
     <div class="col-sm-6 col-lg-3">
         <div class="card stat-card p-3">
             <div class="text-muted small">Events this week</div>
-            <div class="fs-3 fw-semibold">{{ upcoming_week_count }}</div>
+            <div class="fs-3 fw-semibold">{{ upcoming_week_count|intcomma }}</div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
         <div class="card stat-card p-3">
             <div class="text-muted small">Events next 30 days</div>
-            <div class="fs-3 fw-semibold">{{ upcoming_month_count }}</div>
+            <div class="fs-3 fw-semibold">{{ upcoming_month_count|intcomma }}</div>
         </div>
     </div>
     {% endif %}
@@ -24,7 +24,7 @@
     <div class="col-sm-6 col-lg-3">
         <div class="card stat-card p-3">
             <div class="text-muted small">Unpaid invoices</div>
-            <div class="fs-3 fw-semibold">{{ unpaid_count }}</div>
+            <div class="fs-3 fw-semibold">{{ unpaid_count|intcomma }}</div>
         </div>
     </div>
     <div class="col-sm-6 col-lg-3">
@@ -99,7 +99,7 @@
             {% for item in low_stock_items %}
                 <li class="list-group-item d-flex justify-content-between px-0">
                     <a href="{% url 'inventory:item_detail' item.pk %}">{{ item.name }}</a>
-                    <span>{{ item.available_quantity }} / {{ item.total_quantity }} available</span>
+                    <span>{{ item.available_quantity|intcomma }} / {{ item.total_quantity|intcomma }} available</span>
                 </li>
             {% endfor %}
             </ul>

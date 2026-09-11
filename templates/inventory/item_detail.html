@@ -16,9 +16,9 @@
         <div class="card p-3">
             <dl class="row mb-0 small">
                 <dt class="col-6">Category</dt><dd class="col-6">{{ object.category|default:"—" }}</dd>
-                <dt class="col-6">Total owned</dt><dd class="col-6">{{ object.total_quantity }} {{ object.unit }}</dd>
-                <dt class="col-6">Currently issued</dt><dd class="col-6">{{ object.quantity_issued }}</dd>
-                <dt class="col-6">Available</dt><dd class="col-6 fw-semibold">{{ object.available_quantity }}</dd>
+                <dt class="col-6">Total owned</dt><dd class="col-6">{{ object.total_quantity|intcomma }} {{ object.unit }}</dd>
+                <dt class="col-6">Currently issued</dt><dd class="col-6">{{ object.quantity_issued|intcomma }}</dd>
+                <dt class="col-6">Available</dt><dd class="col-6 fw-semibold">{{ object.available_quantity|intcomma }}</dd>
                 <dt class="col-6">Quotation rate</dt><dd class="col-6">{% if object.default_rate %}{{ CURRENCY }} {{ object.default_rate|floatformat:0|intcomma }}{% else %}—{% endif %}</dd>
             </dl>
         </div>
@@ -32,9 +32,9 @@
                 {% for issue in issues %}
                     <tr>
                         <td><a href="{% url 'events:detail' issue.event.pk %}">{{ issue.event.customer.name }} ({{ issue.event.event_date }})</a></td>
-                        <td>{{ issue.quantity_issued }}</td>
-                        <td>{{ issue.quantity_returned }}</td>
-                        <td>{{ issue.quantity_outstanding }}</td>
+                        <td>{{ issue.quantity_issued|intcomma }}</td>
+                        <td>{{ issue.quantity_returned|intcomma }}</td>
+                        <td>{{ issue.quantity_outstanding|intcomma }}</td>
                     </tr>
                 {% empty %}
                     <tr><td colspan="4" class="text-center text-muted py-3">No issue history yet.</td></tr>

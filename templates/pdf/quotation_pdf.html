@@ -19,7 +19,7 @@
     {% for item in quotation.line_items.all %}
         <tr>
             <td>{{ item.description }}</td>
-            <td class="num">{{ item.quantity }}</td>
+            <td class="num">{{ item.quantity|intcomma }}</td>
             <td class="num">{{ item.unit_price|floatformat:0|intcomma }}</td>
             <td class="num">{{ item.line_total|floatformat:0|intcomma }}</td>
         </tr>

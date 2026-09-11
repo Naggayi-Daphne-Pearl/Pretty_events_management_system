@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Event Summary{% endblock %}
+{% load humanize %}
 {% block breadcrumbs %}
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'reports:index' %}">Reports</a><span class="sep">/</span><span class="current">Event Summary</span></nav>
 {% endblock %}
@@ -14,11 +15,11 @@
 </div>
 <div class="row g-3 mb-4">
     <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card p-3"><div class="text-muted small">Total events</div><div class="fs-3 fw-semibold">{{ total }}</div></div>
+        <div class="card stat-card p-3"><div class="text-muted small">Total events</div><div class="fs-3 fw-semibold">{{ total|intcomma }}</div></div>
     </div>
     {% for row in by_status %}
     <div class="col-sm-6 col-lg-3">
-        <div class="card stat-card p-3"><div class="text-muted small">{{ row.label }}</div><div class="fs-3 fw-semibold">{{ row.count }}</div></div>
+        <div class="card stat-card p-3"><div class="text-muted small">{{ row.label }}</div><div class="fs-3 fw-semibold">{{ row.count|intcomma }}</div></div>
     </div>
     {% endfor %}
 </div>

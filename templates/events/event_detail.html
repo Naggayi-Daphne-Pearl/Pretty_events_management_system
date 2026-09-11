@@ -23,7 +23,7 @@
             <dl class="row mb-0 small">
                 <dt class="col-5">Date</dt><dd class="col-7">{{ object.event_date }}{% if object.end_date %} – {{ object.end_date }}{% endif %}</dd>
                 <dt class="col-5">Venue</dt><dd class="col-7">{{ object.venue }}</dd>
-                <dt class="col-5">Guests</dt><dd class="col-7">{{ object.guest_count|default:"—" }}</dd>
+                <dt class="col-5">Guests</dt><dd class="col-7">{{ object.guest_count|default:"—"|intcomma }}</dd>
                 <dt class="col-5">Customer</dt><dd class="col-7"><a href="{% url 'customers:detail' object.customer.pk %}">{{ object.customer.name }}</a></dd>
             </dl>
             {% if object.notes %}<hr><p class="small text-muted mb-0">{{ object.notes }}</p>{% endif %}
@@ -102,9 +102,9 @@
                 {% for issue in equipment_issues %}
                     <tr>
                         <td>{{ issue.equipment_item.name }}</td>
-                        <td>{{ issue.quantity_issued }}</td>
-                        <td>{{ issue.quantity_returned }}</td>
-                        <td>{{ issue.quantity_outstanding }}</td>
+                        <td>{{ issue.quantity_issued|intcomma }}</td>
+                        <td>{{ issue.quantity_returned|intcomma }}</td>
+                        <td>{{ issue.quantity_outstanding|intcomma }}</td>
                         <td>{% if issue.quantity_outstanding > 0 and perms.inventory.add_equipmentreturn %}<a href="{% url 'inventory:return_create' issue.pk %}" class="btn btn-sm btn-outline-secondary">Record Return</a>{% endif %}</td>
                     </tr>
                 {% empty %}

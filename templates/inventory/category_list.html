@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Equipment Categories{% endblock %}
+{% load humanize %}
 {% block breadcrumbs %}
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'inventory:item_list' %}">Inventory</a><span class="sep">/</span><span class="current">Categories</span></nav>
 {% endblock %}
@@ -19,7 +20,7 @@
             {% for category in object_list %}
                 <tr>
                     <td>{{ category.name }}</td>
-                    <td>{{ category.items.count }}</td>
+                    <td>{{ category.items.count|intcomma }}</td>
                     <td class="text-end">
                         {% if perms.inventory.change_equipmentcategory %}
                         <a href="{% url 'inventory:category_update' category.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>

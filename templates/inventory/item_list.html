@@ -25,11 +25,11 @@
                 <tr>
                     <td><a href="{% url 'inventory:item_detail' item.pk %}">{{ item.name }}</a></td>
                     <td>{{ item.category|default:"—" }}</td>
-                    <td>{{ item.total_quantity }} {{ item.unit }}</td>
-                    <td>{{ item.quantity_issued }}</td>
+                    <td>{{ item.total_quantity|intcomma }} {{ item.unit }}</td>
+                    <td>{{ item.quantity_issued|intcomma }}</td>
                     <td>
                         {% if item.available_quantity <= 5 %}<span class="text-danger fw-semibold">{% endif %}
-                        {{ item.available_quantity }}
+                        {{ item.available_quantity|intcomma }}
                         {% if item.available_quantity <= 5 %}</span>{% endif %}
                     </td>
                     <td>{% if item.default_rate %}{{ CURRENCY }} {{ item.default_rate|floatformat:0|intcomma }}{% else %}—{% endif %}</td>

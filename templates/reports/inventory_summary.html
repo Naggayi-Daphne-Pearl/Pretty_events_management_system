@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Inventory Summary{% endblock %}
+{% load humanize %}
 {% block breadcrumbs %}
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'reports:index' %}">Reports</a><span class="sep">/</span><span class="current">Inventory Summary</span></nav>
 {% endblock %}
@@ -13,9 +14,9 @@
             <tr>
                 <td><a href="{% url 'inventory:item_detail' item.pk %}">{{ item.name }}</a></td>
                 <td>{{ item.category|default:"—" }}</td>
-                <td>{{ item.total_quantity }} {{ item.unit }}</td>
-                <td>{{ item.quantity_issued }}</td>
-                <td>{{ item.available_quantity }}</td>
+                <td>{{ item.total_quantity|intcomma }} {{ item.unit }}</td>
+                <td>{{ item.quantity_issued|intcomma }}</td>
+                <td>{{ item.available_quantity|intcomma }}</td>
             </tr>
         {% empty %}
             <tr><td colspan="5" class="text-center text-muted py-4">No equipment registered yet.</td></tr>

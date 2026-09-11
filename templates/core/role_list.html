@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Roles & Permissions{% endblock %}
+{% load humanize %}
 {% block breadcrumbs %}
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Roles &amp; Permissions</span></nav>
 {% endblock %}
@@ -20,8 +21,8 @@
             {% for role in roles %}
                 <tr>
                     <td class="fw-semibold">{{ role.name }}</td>
-                    <td>{{ role.member_count }}</td>
-                    <td>{{ role.permission_count }}</td>
+                    <td>{{ role.member_count|intcomma }}</td>
+                    <td>{{ role.permission_count|intcomma }}</td>
                     <td class="text-end">
                         <a href="{% url 'role_update' role.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>
                         <a href="{% url 'role_delete' role.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>

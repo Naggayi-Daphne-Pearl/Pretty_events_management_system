@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% block title %}Customers{% endblock %}
+{% load humanize %}
 {% block breadcrumbs %}
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Customers</span></nav>
 {% endblock %}
@@ -29,7 +30,7 @@
                     <td><a href="{% url 'customers:detail' customer.pk %}">{{ customer.name }}</a></td>
                     <td>{{ customer.phone }}</td>
                     <td>{{ customer.email|default:"—" }}</td>
-                    <td>{{ customer.events.count }}</td>
+                    <td>{{ customer.events.count|intcomma }}</td>
                     <td class="text-end"><a href="{% url 'customers:update' customer.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a></td>
                 </tr>
             {% empty %}

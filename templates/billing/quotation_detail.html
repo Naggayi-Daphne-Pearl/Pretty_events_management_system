@@ -32,7 +32,7 @@
                     {{ item.description }}
                     {% if item.equipment_item %}<br><a href="{% url 'inventory:item_detail' item.equipment_item.pk %}" class="small">{{ item.equipment_item.name }}</a>{% endif %}
                 </td>
-                <td>{{ item.quantity }}</td>
+                <td>{{ item.quantity|intcomma }}</td>
                 <td>{{ CURRENCY }} {{ item.unit_price|floatformat:0|intcomma }}</td>
                 <td class="text-end">{{ CURRENCY }} {{ item.line_total|floatformat:0|intcomma }}</td>
             </tr>
