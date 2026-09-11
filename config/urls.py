@@ -2,7 +2,9 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
-from core.views import activity_log, dashboard, profile, role_delete, role_form, role_list, user_set_password
+from core.views import (
+    activity_log, activity_log_export, dashboard, profile, role_delete, role_form, role_list, user_set_password,
+)
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -16,6 +18,7 @@ urlpatterns = [
     path('roles/<int:pk>/delete/', role_delete, name='role_delete'),
     path('accounts/<int:pk>/password/', user_set_password, name='user_set_password'),
     path('activity/', activity_log, name='activity_log'),
+    path('activity/export/', activity_log_export, name='activity_log_export'),
     path('customers/', include('customers.urls')),
     path('events/', include('events.urls')),
     path('billing/', include('billing.urls')),

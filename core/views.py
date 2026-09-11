@@ -1,3 +1,4 @@
+import csv
 from datetime import timedelta
 from functools import wraps
 
@@ -7,7 +8,9 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
+from django.core.paginator import Paginator
 from django.db.models import Count
+from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
@@ -162,10 +165,47 @@ def user_set_password(request, pk):
 
 # ---------- Activity Log (superuser-only) ----------
 
+def _filtered_activity_log(request):
+    entries = ActivityLog.objects.select_related('actor').all()
+    start = request.GET.get('start', '')
+    end = request.GET.get('end', '')
+    if start:
+        entries = entries.filter(created_at__date__gte=start)
+    if end:
+        entries = entries.filter(created_at__date__lte=end)
+    return entries, start, end
+
+
 @superuser_required
 def activity_log(request):
-    entries = ActivityLog.objects.select_related('actor').all()[:200]
-    return render(request, 'core/activity_log.html', {'entries': entries})
+    entries, start, end = _filtered_activity_log(request)
+    paginator = Paginator(entries, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+    return render(request, 'core/activity_log.html', {
+        'page_obj': page_obj,
+        'entries': page_obj.object_list,
+        'start': start,
+        'end': end,
+    })
+
+
+@superuser_required
+def activity_log_export(request):
+    entries, _, _ = _filtered_activity_log(request)
+    response = HttpResponse(content_type='text/csv')
+    response['Content-Disposition'] = 'attachment; filename="activity_log.csv"'
+    writer = csv.writer(response)
+    writer.writerow(['Date', 'Time', 'User', 'Action', 'Description'])
+    for entry in entries:
+        local_dt = timezone.localtime(entry.created_at)
+        writer.writerow([
+            local_dt.date().isoformat(),
+            local_dt.time().strftime('%H:%M:%S'),
+            entry.actor.username if entry.actor else 'system',
+            entry.action,
+            entry.description,
+        ])
+    return response
 
 
 # ---------- My Profile (any logged-in user) ----------
