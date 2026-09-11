@@ -4,14 +4,34 @@
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">Events</a><span class="sep">/</span>{% if object %}<a href="{% url 'events:detail' object.pk %}">{{ object.event_type }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New Event</span>{% endif %}</nav>
 {% endblock %}
 {% block content %}
-<h3 class="mb-3">{% if object %}Edit Event{% else %}New Event{% endif %}</h3>
+{% if prefill_customer %}
+    <h3 class="mb-1">New event for {{ prefill_customer.name }}</h3>
+    <p class="text-muted mb-3">
+        Not booking an event for them right now?
+        <a href="{% url 'customers:detail' prefill_customer.pk %}">Skip — just save the customer</a>.
+    </p>
+{% else %}
+    <h3 class="mb-3">{% if object %}Edit Event{% else %}New Event{% endif %}</h3>
+{% endif %}
+
 <div class="card p-4" style="max-width: 640px;">
     <form method="post">
         {% csrf_token %}
         {% for field in form %}
             <div class="mb-3">
                 <label class="form-label">{{ field.label }}</label>
-                {{ field }}
+                {% if field.name == 'customer' %}
+                    <div class="customer-search-wrap">
+                        <input type="hidden" name="customer" id="id_customer" value="{{ field.value|default:'' }}">
+                        <input type="text" class="form-control" id="customer-search" autocomplete="off"
+                               placeholder="Search customers by name or phone…"
+                               value="{% if prefill_customer %}{{ prefill_customer.name }}{% elif object %}{{ object.customer.name }}{% endif %}">
+                        <div id="customer-results" class="customer-search-results" hidden></div>
+                    </div>
+                    <div class="form-text small">Customer not listed? <a href="{% url 'customers:create' %}">Create one</a> first.</div>
+                {% else %}
+                    {{ field }}
+                {% endif %}
                 {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
             </div>
         {% endfor %}
@@ -19,4 +39,49 @@
         <a href="{% if object %}{% url 'events:detail' object.pk %}{% else %}{% url 'events:list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
     </form>
 </div>
+
+{{ customers|json_script:"customers-data" }}
+<script>
+(function () {
+    var dataEl = document.getElementById('customers-data');
+    var input = document.getElementById('customer-search');
+    if (!dataEl || !input) return;
+    var customers = JSON.parse(dataEl.textContent);
+    var hidden = document.getElementById('id_customer');
+    var results = document.getElementById('customer-results');
+
+    function render(list) {
+        results.innerHTML = '';
+        if (!list.length) { results.hidden = true; return; }
+        list.slice(0, 8).forEach(function (c) {
+            var row = document.createElement('div');
+            row.className = 'customer-search-result';
+            row.textContent = c.name + (c.phone ? ' — ' + c.phone : '');
+            row.addEventListener('mousedown', function (e) {
+                e.preventDefault();
+                hidden.value = c.id;
+                input.value = c.name;
+                results.hidden = true;
+            });
+            results.appendChild(row);
+        });
+        results.hidden = false;
+    }
+
+    input.addEventListener('input', function () {
+        hidden.value = '';
+        var q = input.value.trim().toLowerCase();
+        if (!q) { results.hidden = true; return; }
+        render(customers.filter(function (c) {
+            return c.name.toLowerCase().indexOf(q) !== -1 || (c.phone || '').indexOf(q) !== -1;
+        }));
+    });
+    input.addEventListener('focus', function () {
+        if (input.value.trim()) input.dispatchEvent(new Event('input'));
+    });
+    input.addEventListener('blur', function () {
+        setTimeout(function () { results.hidden = true; }, 150);
+    });
+})();
+</script>
 {% endblock %}

@@ -60,26 +60,49 @@ class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEvent
         return ctx
 
 
-class EventCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+class CustomerSearchDataMixin:
+    """Feeds the event form's JS-driven customer search box — see event_form.html.
+    A plain <select> is fine for a handful of customers, painful for hundreds."""
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['customers'] = list(Customer.objects.order_by('name').values('id', 'name', 'phone'))
+        return ctx
+
+
+class EventCreateView(
+    LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CustomerSearchDataMixin, CreateView,
+):
     model = Event
     form_class = EventForm
     permission_required = 'events.add_event'
     template_name = 'events/event_form.html'
     success_message = 'Event created.'
 
+    def get_prefill_customer(self):
+        customer_id = self.request.GET.get('customer')
+        return Customer.objects.filter(pk=customer_id).first() if customer_id else None
+
     def get_initial(self):
         initial = super().get_initial()
-        customer_id = self.request.GET.get('customer')
-        if customer_id:
-            initial['customer'] = Customer.objects.filter(pk=customer_id).first()
+        prefill_customer = self.get_prefill_customer()
+        if prefill_customer:
+            initial['customer'] = prefill_customer
         return initial
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['prefill_customer'] = self.get_prefill_customer()
+        return ctx
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         return super().form_valid(form)
 
 
-class EventUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+class EventUpdateView(
+    LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CustomerSearchDataMixin, UpdateView,
+):
     model = Event
     form_class = EventForm
     permission_required = 'events.change_event'

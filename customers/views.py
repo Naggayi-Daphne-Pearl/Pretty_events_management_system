@@ -1,7 +1,7 @@
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db.models import Q
-from django.urls import reverse_lazy
+from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from .forms import CustomerForm
@@ -49,6 +49,15 @@ class CustomerCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
     def form_valid(self, form):
         form.instance.created_by = self.request.user
         return super().form_valid(form)
+
+    def get_success_url(self):
+        # The common case is "new inquiry": capture the customer, then immediately
+        # capture the event they're calling about. Send straight into a pre-filled
+        # New Event form rather than the customer detail page — that form offers a
+        # "skip for now" link back to the detail page for the walk-in-contact-only case.
+        if self.request.user.has_perm('events.add_event'):
+            return reverse('events:create') + f'?customer={self.object.pk}'
+        return self.object.get_absolute_url()
 
 
 class CustomerUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):

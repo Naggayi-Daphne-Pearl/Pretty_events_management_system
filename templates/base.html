@@ -190,6 +190,15 @@
         .dropdown-item:hover, .dropdown-item:focus { background: var(--gold-soft); color: var(--text-1); }
         .dropdown-item-text { padding: 4px 10px; }
 
+        .customer-search-wrap { position: relative; }
+        .customer-search-results {
+            position: absolute; top: 100%; left: 0; right: 0; z-index: 20; margin-top: 4px;
+            background: var(--menu-bg); border: 1px solid var(--border); border-radius: 10px;
+            max-height: 220px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.18);
+        }
+        .customer-search-result { padding: 8px 12px; cursor: pointer; font-size: 13.5px; color: var(--text-1); }
+        .customer-search-result:hover { background: var(--gold-soft); }
+
         .card {
             background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
             backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));

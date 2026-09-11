@@ -79,6 +79,8 @@ def quotation_create(request, event_pk):
             formset = QuotationLineItemFormSet(request.POST, instance=quotation)
             if formset.is_valid():
                 formset.save()
+                if event.advance_status_at_least(Event.Status.QUOTED):
+                    messages.info(request, f'Event status advanced to "{event.get_status_display()}".')
                 messages.success(request, f'Quotation {quotation.number} created.')
                 return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
@@ -119,6 +121,8 @@ def quotation_convert(request, pk):
     invoice = Invoice.create_from_quotation(quotation, created_by=request.user)
     quotation.status = Quotation.Status.APPROVED
     quotation.save(update_fields=['status'])
+    if quotation.event.advance_status_at_least(Event.Status.CONFIRMED):
+        messages.info(request, f'Event status advanced to "{quotation.event.get_status_display()}".')
     messages.success(request, f'Invoice {invoice.number} created from {quotation.number}.')
     return redirect('billing:invoice_detail', pk=invoice.pk)
 

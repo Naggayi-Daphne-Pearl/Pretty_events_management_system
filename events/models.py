@@ -49,3 +49,27 @@ class Event(TimeStampedModel):
         return self.event_date >= timezone.localdate() and self.status not in (
             self.Status.COMPLETED, self.Status.CANCELLED,
         )
+
+    # Pipeline order for advance_status_at_least — deliberately excludes CANCELLED,
+    # which is a terminal, out-of-band state a status.index() lookup should never touch.
+    STATUS_PIPELINE = [Status.INQUIRY, Status.QUOTED, Status.CONFIRMED, Status.IN_PROGRESS, Status.COMPLETED]
+
+    def advance_status_at_least(self, target):
+        """
+        Move status forward to `target` if it's currently earlier in the pipeline
+        (e.g. creating a quotation nudges Inquiry -> Quoted). Never moves backward
+        and never touches a cancelled event. Staff can still override the status
+        manually at any time via the event edit form. Returns True if it changed.
+        """
+        if self.status == self.Status.CANCELLED:
+            return False
+        try:
+            current_index = self.STATUS_PIPELINE.index(self.status)
+            target_index = self.STATUS_PIPELINE.index(target)
+        except ValueError:
+            return False
+        if target_index > current_index:
+            self.status = target
+            self.save(update_fields=['status'])
+            return True
+        return False
