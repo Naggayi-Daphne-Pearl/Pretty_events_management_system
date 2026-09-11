@@ -3,12 +3,49 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from events.models import Event
 
-from .forms import EquipmentIssueForm, EquipmentItemForm, EquipmentReturnForm
-from .models import EquipmentIssue, EquipmentItem
+from .forms import EquipmentCategoryForm, EquipmentIssueForm, EquipmentItemForm, EquipmentReturnForm
+from .models import EquipmentCategory, EquipmentIssue, EquipmentItem
+
+
+class EquipmentCategoryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = EquipmentCategory
+    permission_required = 'inventory.view_equipmentcategory'
+    template_name = 'inventory/category_list.html'
+
+    def get_queryset(self):
+        return super().get_queryset().prefetch_related('items')
+
+
+class EquipmentCategoryCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, CreateView):
+    model = EquipmentCategory
+    form_class = EquipmentCategoryForm
+    permission_required = 'inventory.add_equipmentcategory'
+    template_name = 'inventory/category_form.html'
+    success_message = 'Category "%(name)s" added.'
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['next'] = self.request.GET.get('next', '')
+        return ctx
+
+    def get_success_url(self):
+        # Jump back into the item form if we got here via its "+ New category" link.
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        return next_url or reverse('inventory:category_list')
+
+
+class EquipmentCategoryUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
+    model = EquipmentCategory
+    form_class = EquipmentCategoryForm
+    permission_required = 'inventory.change_equipmentcategory'
+    template_name = 'inventory/category_form.html'
+    success_message = 'Category "%(name)s" updated.'
+    success_url = reverse_lazy('inventory:category_list')
 
 
 class EquipmentItemListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):

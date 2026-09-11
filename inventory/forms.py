@@ -2,7 +2,13 @@ from django import forms
 
 from core.forms import BootstrapModelForm
 
-from .models import EquipmentIssue, EquipmentItem, EquipmentReturn
+from .models import EquipmentCategory, EquipmentIssue, EquipmentItem, EquipmentReturn
+
+
+class EquipmentCategoryForm(BootstrapModelForm):
+    class Meta:
+        model = EquipmentCategory
+        fields = ['name']
 
 
 class EquipmentItemForm(BootstrapModelForm):
