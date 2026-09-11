@@ -3,6 +3,7 @@ from django.contrib.messages.views import SuccessMessageMixin
 from django.urls import reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from core.activity import log_model_activity
 from core.permissions import scope_events_to_assignments
 from customers.models import Customer
 
@@ -97,7 +98,9 @@ class EventCreateView(
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'created')
+        return response
 
 
 class EventUpdateView(
@@ -108,3 +111,8 @@ class EventUpdateView(
     permission_required = 'events.change_event'
     template_name = 'events/event_form.html'
     success_message = 'Event updated.'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'updated')
+        return response

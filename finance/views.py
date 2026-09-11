@@ -7,6 +7,8 @@ from django.db.models import Sum
 from django.shortcuts import render
 from django.views.generic import CreateView, ListView
 
+from core.activity import log_model_activity
+
 from .forms import ExpenseRecordForm, IncomeRecordForm
 from .models import ExpenseRecord, IncomeRecord
 
@@ -36,7 +38,9 @@ class IncomeCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessa
 
     def form_valid(self, form):
         form.instance.recorded_by = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'created')
+        return response
 
 
 class ExpenseListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -56,7 +60,9 @@ class ExpenseCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMess
 
     def form_valid(self, form):
         form.instance.recorded_by = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'created')
+        return response
 
 
 @login_required

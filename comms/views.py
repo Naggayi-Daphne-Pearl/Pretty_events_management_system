@@ -4,6 +4,7 @@ from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMix
 from django.shortcuts import get_object_or_404, redirect, render
 from django.views.generic import ListView
 
+from core.activity import log_model_activity
 from customers.models import Customer
 
 from .forms import CommunicationLogForm
@@ -31,6 +32,7 @@ def log_create(request, customer_pk):
             log.customer = customer
             log.logged_by = request.user
             log.save()
+            log_model_activity(request, log, 'created', extra=f'with customer "{customer}"')
             messages.success(request, 'Communication logged.')
             return redirect('customers:detail', pk=customer.pk)
     else:

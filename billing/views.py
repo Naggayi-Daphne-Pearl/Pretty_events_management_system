@@ -9,6 +9,7 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
+from core.activity import log_model_activity
 from core.utils import amount_in_words
 from events.models import Event
 from inventory.models import EquipmentItem
@@ -94,6 +95,7 @@ def quotation_create(request, event_pk):
             formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')
             if formset.is_valid():
                 formset.save()
+                log_model_activity(request, quotation, 'created', extra=f'for event "{event}"')
                 if event.advance_status_at_least(Event.Status.QUOTED):
                     messages.info(request, f'Event status advanced to "{event.get_status_display()}".')
                 messages.success(request, f'Quotation {quotation.number} created.')
@@ -116,6 +118,7 @@ def quotation_update(request, pk):
         if form.is_valid() and formset.is_valid():
             form.save()
             formset.save()
+            log_model_activity(request, quotation, 'updated')
             messages.success(request, f'Quotation {quotation.number} updated.')
             return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
@@ -137,6 +140,7 @@ def quotation_convert(request, pk):
     invoice = Invoice.create_from_quotation(quotation, created_by=request.user)
     quotation.status = Quotation.Status.APPROVED
     quotation.save(update_fields=['status'])
+    log_model_activity(request, invoice, 'created', extra=f'from quotation {quotation.number}')
     if quotation.event.advance_status_at_least(Event.Status.CONFIRMED):
         messages.info(request, f'Event status advanced to "{quotation.event.get_status_display()}".')
     messages.success(request, f'Invoice {invoice.number} created from {quotation.number}.')
@@ -194,6 +198,7 @@ def invoice_update(request, pk):
             form.save()
             formset.save()
             invoice.refresh_status()
+            log_model_activity(request, invoice, 'updated')
             messages.success(request, f'Invoice {invoice.number} updated.')
             return redirect('billing:invoice_detail', pk=invoice.pk)
     else:
@@ -215,6 +220,7 @@ def invoice_add_payment(request, pk):
             payment.invoice = invoice
             payment.received_by = request.user
             payment.save()
+            log_model_activity(request, payment, 'created', extra=f'on invoice {invoice.number}')
             messages.success(request, f'Payment of {payment.amount} recorded. Receipt {payment.receipt.number} generated.')
             return redirect('billing:receipt_detail', pk=payment.receipt.pk)
         messages.error(request, 'Could not record payment — check the amount.')

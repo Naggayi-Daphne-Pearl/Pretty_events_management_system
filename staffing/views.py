@@ -125,6 +125,10 @@ def assign_staff(request, event_pk):
             assignment = form.save(commit=False)
             assignment.event = event
             assignment.save()
+            log_activity(
+                request, 'event_assignment.created',
+                f'Assigned "{assignment.staff_member}" to event "{event}"',
+            )
             messages.success(request, f'{assignment.staff_member} assigned to this event.')
             return redirect('events:detail', pk=event.pk)
     else:

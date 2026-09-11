@@ -4,6 +4,8 @@ from django.db.models import Q
 from django.urls import reverse
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from core.activity import log_model_activity
+
 from .forms import CustomerForm
 from .models import Customer
 
@@ -48,7 +50,9 @@ class CustomerCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
-        return super().form_valid(form)
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'created')
+        return response
 
     def get_success_url(self):
         # The common case is "new inquiry": capture the customer, then immediately
@@ -66,3 +70,8 @@ class CustomerUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
     permission_required = 'customers.change_customer'
     template_name = 'customers/customer_form.html'
     success_message = 'Customer "%(name)s" updated.'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'updated')
+        return response

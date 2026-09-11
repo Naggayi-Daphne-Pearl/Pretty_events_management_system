@@ -12,11 +12,13 @@ class TimeStampedModel(models.Model):
 
 class ActivityLog(models.Model):
     """
-    A simple audit trail — who did what, when — for access-control-sensitive
-    actions (roles/permissions, staff accounts, password resets). Business
-    records already carry their own created_at/updated_at/created_by, so this
-    is deliberately scoped to actions that aren't otherwise traceable, rather
-    than logging every click across the whole app.
+    A simple audit trail — who did what, when. Covers both access-control
+    actions (roles/permissions, staff accounts, password resets) and business
+    record changes (customers, events, quotations, invoices, payments,
+    inventory, staff assignments, communication logs created/updated) — see
+    core.activity.log_model_activity(), called from each app's create/update
+    views. Business records also carry their own created_at/updated_at/
+    created_by for a per-record view; this is the cross-cutting timeline.
     """
     created_at = models.DateTimeField(auto_now_add=True)
     actor = models.ForeignKey(

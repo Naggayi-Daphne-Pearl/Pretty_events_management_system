@@ -6,6 +6,7 @@ from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
+from core.activity import log_model_activity
 from events.models import Event
 
 from .forms import EquipmentCategoryForm, EquipmentIssueForm, EquipmentItemForm, EquipmentReturnForm
@@ -33,6 +34,11 @@ class EquipmentCategoryCreateView(LoginRequiredMixin, PermissionRequiredMixin, S
         ctx['next'] = self.request.GET.get('next', '')
         return ctx
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'created')
+        return response
+
     def get_success_url(self):
         # Jump back into the item form if we got here via its "+ New category" link.
         next_url = self.request.POST.get('next') or self.request.GET.get('next')
@@ -46,6 +52,11 @@ class EquipmentCategoryUpdateView(LoginRequiredMixin, PermissionRequiredMixin, S
     template_name = 'inventory/category_form.html'
     success_message = 'Category "%(name)s" updated.'
     success_url = reverse_lazy('inventory:category_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'updated')
+        return response
 
 
 class EquipmentItemListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -75,6 +86,11 @@ class EquipmentItemCreateView(LoginRequiredMixin, PermissionRequiredMixin, Succe
     template_name = 'inventory/item_form.html'
     success_message = 'Equipment item "%(name)s" added.'
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'created')
+        return response
+
 
 class EquipmentItemUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin, UpdateView):
     model = EquipmentItem
@@ -82,6 +98,11 @@ class EquipmentItemUpdateView(LoginRequiredMixin, PermissionRequiredMixin, Succe
     permission_required = 'inventory.change_equipmentitem'
     template_name = 'inventory/item_form.html'
     success_message = 'Equipment item "%(name)s" updated.'
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'updated')
+        return response
 
 
 @login_required
@@ -95,6 +116,7 @@ def issue_create(request, event_pk):
             issue.event = event
             issue.issued_by = request.user
             issue.save()
+            log_model_activity(request, issue, 'created', extra=f'to event "{event}"')
             messages.success(request, f'{issue.quantity_issued} x {issue.equipment_item.name} issued to this event.')
             return redirect('events:detail', pk=event.pk)
     else:
@@ -113,6 +135,7 @@ def return_create(request, issue_pk):
             equipment_return.issue = issue
             equipment_return.received_by = request.user
             equipment_return.save()
+            log_model_activity(request, equipment_return, 'created', extra=f'for "{issue.event}"')
             messages.success(request, 'Return recorded.')
             return redirect('events:detail', pk=issue.event.pk)
     else:
