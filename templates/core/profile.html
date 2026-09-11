@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}My Profile{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">My Profile</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-3">My Profile</h3>
+
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h6 class="mb-3">Account</h6>
+            <dl class="row mb-0 small">
+                <dt class="col-5">Username</dt><dd class="col-7">{{ user.username }}</dd>
+                <dt class="col-5">Email</dt><dd class="col-7">{{ user.email|default:"—" }}</dd>
+                <dt class="col-5">Roles</dt>
+                <dd class="col-7">
+                    {% if user.is_superuser %}<span class="badge bg-secondary badge-status me-1">Superuser</span>{% endif %}
+                    {% for g in user.groups.all %}<span class="badge bg-secondary badge-status me-1">{{ g.name }}</span>{% empty %}{% if not user.is_superuser %}<span class="text-muted">—</span>{% endif %}{% endfor %}
+                </dd>
+            </dl>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h6 class="mb-3">Change password</h6>
+            <form method="post">
+                {% csrf_token %}
+                {% if form.non_field_errors %}<div class="alert alert-danger">{{ form.non_field_errors }}</div>{% endif %}
+                {% for field in form %}
+                    <div class="mb-3">
+                        <label class="form-label">{{ field.label }}</label>
+                        {{ field }}
+                        {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+                    </div>
+                {% endfor %}
+                <button type="submit" class="btn btn-primary">Change Password</button>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}

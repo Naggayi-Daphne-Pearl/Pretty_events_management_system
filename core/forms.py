@@ -1,6 +1,6 @@
 from django import forms
 from django.contrib.auth import get_user_model
-from django.contrib.auth.forms import AdminPasswordChangeForm, UserCreationForm
+from django.contrib.auth.forms import AdminPasswordChangeForm, PasswordChangeForm, UserCreationForm
 from django.contrib.auth.models import Group
 
 User = get_user_model()
@@ -76,3 +76,9 @@ class StaffAccountUpdateForm(BootstrapFieldsMixin, forms.ModelForm):
 class StaffSetPasswordForm(BootstrapFieldsMixin, AdminPasswordChangeForm):
     """Lets a superuser set a new password for a staff account directly —
     no old password required, no email-based reset flow needed for this MVP."""
+
+
+class SelfPasswordChangeForm(BootstrapFieldsMixin, PasswordChangeForm):
+    """Self-service password change — unlike StaffSetPasswordForm, this requires
+    the user's own current password (it's for changing your own, not resetting
+    someone else's)."""

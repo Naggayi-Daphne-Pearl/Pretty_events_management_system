@@ -2,8 +2,9 @@ from datetime import timedelta
 from functools import wraps
 
 from django.contrib import messages
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, update_session_auth_hash
 from django.contrib.auth.decorators import login_required
+from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count
@@ -15,7 +16,7 @@ from events.models import Event
 from inventory.models import EquipmentItem
 
 from .activity import log_activity
-from .forms import StaffSetPasswordForm
+from .forms import SelfPasswordChangeForm, StaffSetPasswordForm
 from .models import ActivityLog
 from .permissions import grouped_permissions, scope_events_to_assignments
 
@@ -165,3 +166,19 @@ def user_set_password(request, pk):
 def activity_log(request):
     entries = ActivityLog.objects.select_related('actor').all()[:200]
     return render(request, 'core/activity_log.html', {'entries': entries})
+
+
+# ---------- My Profile (any logged-in user) ----------
+
+@login_required
+def profile(request):
+    if request.method == 'POST':
+        form = SelfPasswordChangeForm(request.user, request.POST)
+        if form.is_valid():
+            user = form.save()
+            update_session_auth_hash(request, user)  # keep them logged in after changing their own password
+            messages.success(request, 'Password changed.')
+            return redirect('profile')
+    else:
+        form = SelfPasswordChangeForm(request.user)
+    return render(request, 'core/profile.html', {'form': form})
