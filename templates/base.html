@@ -45,6 +45,7 @@
             --ok: #2f9e6c;
             --warn: #b9852f;
             --danger: #c94f4f;
+            --danger-soft: rgba(201,79,79,0.12);
             --sidebar-text: rgba(20,14,10,0.72);
             --sidebar-text-active: #8a611f;
             /* Solid (not glass-translucent) surface for things that float over arbitrary
@@ -68,6 +69,7 @@
             --ok: #7FCBA4;
             --warn: #E0B15C;
             --danger: #E28080;
+            --danger-soft: rgba(226,128,128,0.16);
             --sidebar-text: rgba(255,255,255,0.72);
             --sidebar-text-active: var(--gold);
             --menu-bg: #221c2b;
@@ -244,8 +246,14 @@
 
         .alert { border-radius: 12px; border: 1px solid var(--border); background: var(--panel-strong); color: var(--text-1); }
         .alert-success { border-left: 3px solid var(--ok); }
-        .alert-danger, .alert-warning { border-left: 3px solid var(--danger); }
+        .alert-danger, .alert-warning {
+            border-left: 3px solid var(--danger); background: var(--danger-soft); color: var(--danger);
+        }
         .alert-info { border-left: 3px solid var(--gold); }
+
+        /* Force warnings/alerts to read as red — overrides Bootstrap's default amber
+           .text-warning (used for the inline "over-quoted" stock warning, etc.). */
+        .text-warning, .text-danger { color: var(--danger) !important; }
 
         .page-link { background: var(--panel-strong); border-color: var(--border); color: var(--text-1); }
         .page-item.disabled .page-link { background: transparent; color: var(--text-3); }
