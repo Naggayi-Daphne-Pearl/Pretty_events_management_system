@@ -32,7 +32,7 @@ class QuotationLineItemForm(BootstrapModelForm):
 
 
 QuotationLineItemFormSet = inlineformset_factory(
-    Quotation, QuotationLineItem, form=QuotationLineItemForm, extra=1, can_delete=True,
+    Quotation, QuotationLineItem, form=QuotationLineItemForm, extra=0, can_delete=True,
     min_num=1, validate_min=True,
 )
 
@@ -60,7 +60,7 @@ class InvoiceLineItemForm(BootstrapModelForm):
 
 
 InvoiceLineItemFormSet = inlineformset_factory(
-    Invoice, InvoiceLineItem, form=InvoiceLineItemForm, extra=1, can_delete=True,
+    Invoice, InvoiceLineItem, form=InvoiceLineItemForm, extra=0, can_delete=True,
     min_num=1, validate_min=True,
 )
 
