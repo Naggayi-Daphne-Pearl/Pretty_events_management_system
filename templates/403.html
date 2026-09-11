@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block title %}Access Denied{% endblock %}
+{% block content %}
+<div class="card p-4">
+    {% with error_code="403" error_title="Access denied" error_message="You don't have permission to view this page. If you think this is a mistake, ask an administrator to check your role's permissions." %}
+        {% include "partials/_error_body.html" %}
+    {% endwith %}
+</div>
+{% endblock %}
+{% block auth_content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: var(--bg);">
+    <div class="card p-4" style="max-width: 480px; width: 100%;">
+        {% with error_code="403" error_title="Access denied" error_message="You don't have permission to view this page. If you think this is a mistake, ask an administrator to check your role's permissions." %}
+            {% include "partials/_error_body.html" %}
+        {% endwith %}
+    </div>
+</div>
+{% endblock %}
