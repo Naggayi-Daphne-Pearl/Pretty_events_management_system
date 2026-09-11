@@ -16,7 +16,7 @@
             <tr>
                 <td>{{ lform.id }}{{ lform.equipment_item }}</td>
                 <td>{{ lform.description }}{% if lform.description.errors %}<div class="text-danger small">{{ lform.description.errors }}</div>{% endif %}</td>
-                <td>{{ lform.quantity }}</td>
+                <td>{{ lform.quantity }}<div class="text-warning small stock-warning" hidden></div></td>
                 <td>{{ lform.unit_price }}</td>
                 <td class="text-center">{% if lform.instance.pk %}{{ lform.DELETE }}{% endif %}</td>
             </tr>
@@ -29,7 +29,7 @@
 <template id="empty-row-template"><tr>
     <td>{{ formset.empty_form.equipment_item }}</td>
     <td>{{ formset.empty_form.description }}</td>
-    <td>{{ formset.empty_form.quantity }}</td>
+    <td>{{ formset.empty_form.quantity }}<div class="text-warning small stock-warning" hidden></div></td>
     <td>{{ formset.empty_form.unit_price }}</td>
     <td class="text-center"></td>
 </tr></template>
@@ -41,6 +41,23 @@
     var addBtn = document.getElementById('add-line-btn');
     var totalForms = document.getElementById('id_line_items-TOTAL_FORMS');
     var templateEl = document.getElementById('empty-row-template');
+    var dataEl = document.getElementById('equipment-items-data');
+    var equipmentMap = dataEl ? JSON.parse(dataEl.textContent) : {};
+
+    function checkStock(row) {
+        var select = row.querySelector('[name$="-equipment_item"]');
+        var qtyInput = row.querySelector('[name$="-quantity"]');
+        var warning = row.querySelector('.stock-warning');
+        if (!select || !qtyInput || !warning) return;
+        var info = equipmentMap[select.value];
+        var qty = parseFloat(qtyInput.value);
+        if (info && !isNaN(qty) && qty > info.available) {
+            warning.textContent = 'Only ' + info.available + ' ' + info.unit + ' available right now';
+            warning.hidden = false;
+        } else {
+            warning.hidden = true;
+        }
+    }
 
     if (addBtn && table && totalForms && templateEl) {
         addBtn.addEventListener('click', function () {
@@ -53,20 +70,28 @@
         });
     }
 
-    var dataEl = document.getElementById('equipment-items-data');
-    if (table && dataEl) {
-        var equipmentMap = JSON.parse(dataEl.textContent);
+    if (table) {
         table.addEventListener('change', function (e) {
             var select = e.target;
             if (!select.name || select.name.indexOf('equipment_item') === -1) return;
             var info = equipmentMap[select.value];
-            if (!info) return;
             var row = select.closest('tr');
-            var descInput = row.querySelector('[name$="-description"]');
-            var priceInput = row.querySelector('[name$="-unit_price"]');
-            if (descInput) descInput.value = info.name;
-            if (info.rate && priceInput) priceInput.value = info.rate;
+            if (info) {
+                var descInput = row.querySelector('[name$="-description"]');
+                var priceInput = row.querySelector('[name$="-unit_price"]');
+                if (descInput) descInput.value = info.name;
+                if (info.rate && priceInput) priceInput.value = info.rate;
+            }
+            checkStock(row);
         });
+        table.addEventListener('input', function (e) {
+            if (e.target.name && e.target.name.indexOf('quantity') !== -1) {
+                checkStock(e.target.closest('tr'));
+            }
+        });
+        // Re-check every existing row on load (editing a quotation that already
+        // has equipment + quantities filled in).
+        table.querySelectorAll('tbody tr').forEach(checkStock);
     }
 })();
 </script>
