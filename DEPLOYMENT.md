@@ -12,7 +12,10 @@ Two supported deployment routes, using the same Dockerfile either way:
 ## Option A: Railway (current production setup)
 
 Project name on Railway: **stellar-appreciation**, environment **production**.
-Live URL: `https://prettyeventsmanagementsystem-production.up.railway.app`
+Live URL: `https://management.prettyeventslimited.co.ug` (custom domain, CNAME to Railway).
+The service has `ALLOWED_HOSTS=management.prettyeventslimited.co.ug` and
+`CSRF_TRUSTED_ORIGINS=https://management.prettyeventslimited.co.ug` set explicitly, so the old
+`…up.railway.app` address deliberately answers 400.
 
 ### 1. Create the project and connect the repo
 

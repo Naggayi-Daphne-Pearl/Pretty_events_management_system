@@ -1,0 +1,28 @@
+# Runs on every push and pull request. In Railway, turn on
+# Settings -> Deploy -> "Wait for CI" so a push only deploys once these pass;
+# a failing push then never reaches production.
+name: Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'  # same as the Dockerfile
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Django system check
+        run: python manage.py check
+      - name: No missing migrations
+        run: python manage.py makemigrations --check --dry-run
+      - name: Run tests
+        run: python manage.py test

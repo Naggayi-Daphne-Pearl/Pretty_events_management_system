@@ -19,3 +19,14 @@ RAILWAY_PUBLIC_DOMAIN = env('RAILWAY_PUBLIC_DOMAIN', default='')
 if RAILWAY_PUBLIC_DOMAIN:
     ALLOWED_HOSTS.append(RAILWAY_PUBLIC_DOMAIN)
     CSRF_TRUSTED_ORIGINS.append(f'https://{RAILWAY_PUBLIC_DOMAIN}')
+
+# If neither is set, Django answers every request with "400 Bad Request". Say so loudly
+# in the deploy log instead of leaving it to be discovered from a broken site.
+if not RAILWAY_PUBLIC_DOMAIN and set(ALLOWED_HOSTS) <= {'localhost', '127.0.0.1'}:
+    import sys
+    print(
+        'WARNING: no public hostname configured (RAILWAY_PUBLIC_DOMAIN / ALLOWED_HOSTS are empty), '
+        'so every web request will get 400 Bad Request. Set ALLOWED_HOSTS and CSRF_TRUSTED_ORIGINS '
+        'on the Railway service, or redeploy after generating the domain.',
+        file=sys.stderr,
+    )
