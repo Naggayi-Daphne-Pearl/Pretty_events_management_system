@@ -20,7 +20,10 @@ urlpatterns = [
     path('invoices/<int:pk>/pay/', views.invoice_add_payment, name='invoice_add_payment'),
     path('invoices/<int:pk>/pdf/', views.invoice_pdf, name='invoice_pdf'),
     path('invoices/<int:pk>/email/', views.invoice_email, name='invoice_email'),
+    path('invoices/<int:pk>/delete/', views.invoice_delete, name='invoice_delete'),
 
+    path('receipts/', views.ReceiptListView.as_view(), name='receipt_list'),
     path('receipts/<int:pk>/', views.ReceiptDetailView.as_view(), name='receipt_detail'),
+    path('receipts/<int:pk>/email/', views.receipt_email, name='receipt_email'),
     path('receipts/<int:pk>/pdf/', views.receipt_pdf, name='receipt_pdf'),
 ]

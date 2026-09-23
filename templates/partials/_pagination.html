@@ -1,13 +1,42 @@
-{% if is_paginated %}
-<nav class="mt-3">
-    <ul class="pagination pagination-sm mb-0">
-        {% if page_obj.has_previous %}
-            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.previous_page_number }}">Previous</a></li>
+{% load humanize listing %}{% has_filters as filtered %}
+{% comment %}
+Shared pagination footer. Expects page_obj (and is_paginated from ListView, or it's
+derived). Optional: page_param (default "page") so several paginated lists can sit
+on one page; per_page_options + per_page to offer a rows-per-page picker.
+{% endcomment %}
+{% with param=page_param|default:"page" %}
+{% if page_obj and page_obj.paginator.count %}
+<div class="d-flex justify-content-between align-items-center flex-wrap gap-2 mt-3">
+    <span class="small text-muted">
+        Showing {{ page_obj.start_index|intcomma }}–{{ page_obj.end_index|intcomma }} of {{ page_obj.paginator.count|intcomma }}
+        {% if filtered and not page_param %}· <span class="badge bg-secondary">Filtered</span> <a href="{{ request.path }}">Clear filters</a>{% endif %}
+    </span>
+    <div class="d-flex align-items-center gap-2 flex-wrap">
+        {% if per_page_options %}
+        {% per_page_query_fields param as keep_fields %}
+        <form method="get" class="d-flex align-items-center gap-1">
+            {% for key, value in keep_fields %}<input type="hidden" name="{{ key }}" value="{{ value }}">{% endfor %}
+            <label class="small text-muted text-nowrap" for="per-page-{{ param }}">Rows</label>
+            <select id="per-page-{{ param }}" name="per_page" class="form-select form-select-sm" style="width: auto;" onchange="this.form.submit()">
+                {% for n in per_page_options %}<option value="{{ n }}"{% if n == per_page %} selected{% endif %}>{{ n }}</option>{% endfor %}
+            </select>
+        </form>
         {% endif %}
-        <li class="page-item disabled"><span class="page-link">Page {{ page_obj.number }} of {{ page_obj.paginator.num_pages }}</span></li>
-        {% if page_obj.has_next %}
-            <li class="page-item"><a class="page-link" href="?{% if q %}q={{ q }}&{% endif %}page={{ page_obj.next_page_number }}">Next</a></li>
+        {% if page_obj.paginator.num_pages > 1 %}
+        {% page_links page_obj param as nav %}
+        <nav aria-label="Pagination">
+            <ul class="pagination pagination-sm mb-0 flex-wrap">
+                <li class="page-item{% if not nav.previous_url %} disabled{% endif %}"><a class="page-link" href="{{ nav.previous_url|default:'#' }}" aria-label="Previous">&laquo;</a></li>
+                {% for link in nav.links %}
+                    {% if link.gap %}<li class="page-item disabled"><span class="page-link">…</span></li>
+                    {% elif link.current %}<li class="page-item active" aria-current="page"><span class="page-link">{{ link.number }}</span></li>
+                    {% else %}<li class="page-item"><a class="page-link" href="{{ link.url }}">{{ link.number }}</a></li>{% endif %}
+                {% endfor %}
+                <li class="page-item{% if not nav.next_url %} disabled{% endif %}"><a class="page-link" href="{{ nav.next_url|default:'#' }}" aria-label="Next">&raquo;</a></li>
+            </ul>
+        </nav>
         {% endif %}
-    </ul>
-</nav>
+    </div>
+</div>
 {% endif %}
+{% endwith %}

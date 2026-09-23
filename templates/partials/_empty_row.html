@@ -1,0 +1,18 @@
+{% load listing %}{% has_filters as filtered %}
+{% comment %}
+Table body row for an empty list. Tells "no data yet" apart from "filters matched
+nothing" so an empty filtered view never looks like lost data.
+Expects: colspan, noun (plural, e.g. "invoices"). Optional: empty_text (why it's
+empty / how records get here), action_url + action_label (the one obvious next step).
+{% endcomment %}
+<tr><td colspan="{{ colspan }}" class="text-center py-5">
+{% if filtered %}
+    <div class="fw-semibold mb-1">No {{ noun }} match your filters</div>
+    <div class="text-muted small mb-3">Try a different search or filter, or clear them to see everything.</div>
+    <a href="{{ request.path }}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-x-circle me-1"></i>Clear filters</a>
+{% else %}
+    <div class="fw-semibold mb-1">No {{ noun }} yet</div>
+    {% if empty_text %}<div class="text-muted small mb-3">{{ empty_text }}</div>{% endif %}
+    {% if action_url %}<a href="{{ action_url }}" class="btn btn-sm btn-primary"><i class="bi bi-plus-lg me-1"></i>{{ action_label }}</a>{% endif %}
+{% endif %}
+</td></tr>

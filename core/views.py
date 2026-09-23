@@ -8,19 +8,20 @@ from django.contrib.auth.decorators import login_required
 from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
-from django.core.paginator import Paginator
-from django.db.models import Count
+from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 
 from billing.models import Invoice
 from events.models import Event
+from events.services import sync_event_statuses
 from inventory.models import EquipmentItem
 
 from .activity import log_activity
 from .forms import SelfPasswordChangeForm, StaffSetPasswordForm
 from .models import ActivityLog
+from .pagination import PER_PAGE_OPTIONS, paginate, per_page_from
 from .permissions import grouped_permissions, scope_events_to_assignments
 
 
@@ -50,6 +51,7 @@ def dashboard(request):
     context = {}
 
     if request.user.has_perm('events.view_event'):
+        sync_event_statuses(today)
         events_qs = scope_events_to_assignments(Event.objects.select_related('customer'), request.user)
         upcoming_week = events_qs.filter(
             event_date__gte=today, event_date__lte=week_end,
@@ -169,23 +171,29 @@ def _filtered_activity_log(request):
     entries = ActivityLog.objects.select_related('actor').all()
     start = request.GET.get('start', '')
     end = request.GET.get('end', '')
+    q = (request.GET.get('q') or '').strip()
     if start:
         entries = entries.filter(created_at__date__gte=start)
     if end:
         entries = entries.filter(created_at__date__lte=end)
+    if q:
+        entries = entries.filter(Q(description__icontains=q) | Q(actor__username__icontains=q) | Q(action__icontains=q))
     return entries, start, end
 
 
 @superuser_required
 def activity_log(request):
     entries, start, end = _filtered_activity_log(request)
-    paginator = Paginator(entries, 50)
-    page_obj = paginator.get_page(request.GET.get('page'))
+    per_page = per_page_from(request, default=50)
+    page_obj = paginate(request, entries, per_page)
     return render(request, 'core/activity_log.html', {
         'page_obj': page_obj,
         'entries': page_obj.object_list,
         'start': start,
         'end': end,
+        'q': request.GET.get('q', ''),
+        'per_page': per_page,
+        'per_page_options': PER_PAGE_OPTIONS,
     })
 
 

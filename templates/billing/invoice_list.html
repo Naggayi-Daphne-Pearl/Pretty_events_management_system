@@ -5,6 +5,7 @@
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Invoices</span></nav>
 {% endblock %}
 {% block content %}
+{% if perms.billing.view_quotation %}{% url 'billing:quotation_list' as quotes_url %}{% endif %}
 <h3 class="mb-3">Invoices</h3>
 <div class="card p-3">
     <form method="get" class="row g-2 mb-3">
@@ -31,7 +32,7 @@
                     <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}</td>
                 </tr>
             {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No invoices yet.</td></tr>
+                {% include "partials/_empty_row.html" with colspan=6 noun="invoices" empty_text="Invoices are created by converting an accepted quotation." action_url=quotes_url action_label="Go to quotations" %}
             {% endfor %}
             </tbody>
         </table>

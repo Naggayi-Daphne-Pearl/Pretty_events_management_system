@@ -12,6 +12,7 @@ urlpatterns = [
     path('categories/<int:pk>/edit/', views.EquipmentCategoryUpdateView.as_view(), name='category_update'),
     path('<int:pk>/', views.EquipmentItemDetailView.as_view(), name='item_detail'),
     path('<int:pk>/edit/', views.EquipmentItemUpdateView.as_view(), name='item_update'),
+    path('<int:pk>/delete/', views.item_delete, name='item_delete'),
     path('issue/<int:event_pk>/', views.issue_create, name='issue_create'),
     path('return/<int:issue_pk>/', views.return_create, name='return_create'),
 ]

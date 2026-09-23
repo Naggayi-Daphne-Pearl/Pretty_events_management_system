@@ -109,6 +109,10 @@ SESSION_EXPIRE_AT_BROWSER_CLOSE = True
 # Single currency for Phase 1 (confirmed default: UGX only, no multi-currency).
 CURRENCY = 'UGX'
 
+# Country code assumed for locally-typed phone numbers (e.g. 0772...) when building
+# WhatsApp click-to-chat and call links. Numbers typed with +/00 keep their own.
+DEFAULT_PHONE_COUNTRY_CODE = '256'
+
 # Real business details, as printed on Pretty Events' physical receipt book —
 # used on the branded quotation/invoice/receipt PDFs and in the app header.
 # NOTE: transcribed from a photo of the receipt book; double-check the TIN and
@@ -130,3 +134,21 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=COMPANY_EMAIL)
+
+# Send warnings and errors (including full tracebacks for 500s) to stdout/stderr so they
+# show up in Railway's deploy logs. Without this, Django's default config only emails
+# errors to ADMINS when DEBUG is off, and with no ADMINS set they were silently lost.
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'plain': {'format': '{asctime} {levelname} {name}: {message}', 'style': '{'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'plain'},
+    },
+    'root': {'handlers': ['console'], 'level': 'WARNING'},
+    'loggers': {
+        'django': {'handlers': ['console'], 'level': env('DJANGO_LOG_LEVEL', default='WARNING'), 'propagate': False},
+    },
+}

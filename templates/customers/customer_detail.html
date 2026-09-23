@@ -7,9 +7,15 @@
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">{{ object.name }}</h3>
-    {% if perms.customers.change_customer %}
-    <a href="{% url 'customers:update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
-    {% endif %}
+    <div class="d-flex gap-1 flex-wrap justify-content-end">
+        {% include "comms/_contact_buttons.html" with customer=object %}
+        {% if perms.customers.change_customer %}
+        <a href="{% url 'customers:update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>
+        {% endif %}
+        {% if perms.customers.delete_customer %}
+        <a href="{% url 'customers:delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>
+        {% endif %}
+    </div>
 </div>
 {% include "partials/_audit_trail.html" %}
 
@@ -25,6 +31,16 @@
             </dl>
             {% if object.notes %}<hr><p class="small text-muted mb-0">{{ object.notes }}</p>{% endif %}
         </div>
+        {% if billing_totals %}
+        <div class="card p-3 mt-3">
+            <h6>Billing</h6>
+            <dl class="row mb-0 small">
+                <dt class="col-5">Invoiced</dt><dd class="col-7">{{ CURRENCY }} {{ billing_totals.billed|floatformat:0|intcomma }}</dd>
+                <dt class="col-5">Paid</dt><dd class="col-7">{{ CURRENCY }} {{ billing_totals.paid|floatformat:0|intcomma }}</dd>
+                <dt class="col-5">Balance</dt><dd class="col-7{% if billing_totals.balance > 0 %} text-danger fw-semibold{% endif %}">{{ CURRENCY }} {{ billing_totals.balance|floatformat:0|intcomma }}</dd>
+            </dl>
+        </div>
+        {% endif %}
     </div>
     <div class="col-lg-8">
         <div class="card p-3 mb-3">
@@ -54,22 +70,37 @@
         </div>
         <div class="card p-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Recent communication</h6>
+                <h6 class="mb-0">Timeline</h6>
                 {% if perms.comms.add_communicationlog %}
                 <a href="{% url 'comms:log_create' object.pk %}" class="btn btn-sm btn-outline-secondary">Log Contact</a>
                 {% endif %}
             </div>
-            {% if communication_logs %}
             <ul class="list-group list-group-flush">
-            {% for log in communication_logs %}
-                <li class="list-group-item px-0 small">
-                    <strong>{{ log.get_channel_display }}</strong> ({{ log.get_direction_display }}) — {{ log.created_at|date:"d M Y" }}
-                    <div class="text-muted">{{ log.message|truncatewords:20 }}</div>
+            {% for entry in timeline_page %}
+                <li class="list-group-item px-0 small d-flex gap-2">
+                    <i class="bi {{ entry.icon }} text-muted mt-1"></i>
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between gap-2">
+                            <span>
+                                {% if entry.url %}<a href="{{ entry.url }}">{{ entry.title }}</a>{% else %}<strong>{{ entry.title }}</strong>{% endif %}
+                            </span>
+                            <span class="text-muted text-nowrap">{{ entry.when|date:"d M Y" }}</span>
+                        </div>
+                        {% if entry.detail %}<div class="text-muted">{{ entry.detail|truncatewords:25 }}</div>{% endif %}
+                        {% if entry.log %}
+                        <div>
+                            {% if perms.comms.change_communicationlog %}<a href="{% url 'comms:log_update' entry.log.pk %}?next={{ request.path|urlencode }}" class="small">Edit</a>{% endif %}
+                            {% if perms.comms.delete_communicationlog %}<a href="{% url 'comms:log_delete' entry.log.pk %}" class="small text-danger ms-2">Delete</a>{% endif %}
+                        </div>
+                        {% endif %}
+                    </div>
                 </li>
+            {% empty %}
+                <li class="list-group-item px-0 small text-muted">Nothing recorded for this customer yet.</li>
             {% endfor %}
             </ul>
+            {% include "partials/_pagination.html" with page_obj=timeline_page page_param="timeline_page" %}
         </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %}

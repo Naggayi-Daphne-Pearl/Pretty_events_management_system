@@ -3,12 +3,15 @@ from django.db import models
 
 from core.models import TimeStampedModel
 from customers.models import Customer
+from events.models import Event
 
 
 class CommunicationLog(TimeStampedModel):
     """
-    Structured storage of customer outreach for Phase 1 — no sending capability yet.
-    Designed so a Phase 2 SMS/WhatsApp integration can read/write this same log.
+    Structured storage of customer outreach. Entries are typed in by staff, or
+    written automatically when staff email a document or start a WhatsApp chat /
+    call from the app (see comms.views.contact_customer). Designed so a Phase 2
+    SMS/WhatsApp API integration can read/write this same log.
     """
     class Channel(models.TextChoices):
         SMS = 'sms', 'SMS'
@@ -23,6 +26,10 @@ class CommunicationLog(TimeStampedModel):
         INBOUND = 'inbound', 'Inbound'
 
     customer = models.ForeignKey(Customer, on_delete=models.CASCADE, related_name='communication_logs')
+    event = models.ForeignKey(
+        Event, on_delete=models.SET_NULL, null=True, blank=True, related_name='communication_logs',
+        help_text='Optional: the event this contact was about.',
+    )
     channel = models.CharField(max_length=20, choices=Channel.choices, default=Channel.CALL)
     direction = models.CharField(max_length=20, choices=Direction.choices, default=Direction.OUTBOUND)
     message = models.TextField(blank=True)

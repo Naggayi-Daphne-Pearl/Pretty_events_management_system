@@ -8,6 +8,9 @@ class ActivityLogAdmin(admin.ModelAdmin):
     list_display = ('created_at', 'actor', 'action', 'description')
     list_filter = ('action',)
     search_fields = ('description', 'actor__username')
+    list_select_related = ('actor',)
+    list_per_page = 50
+    date_hierarchy = 'created_at'
 
     def has_add_permission(self, request):
         return False

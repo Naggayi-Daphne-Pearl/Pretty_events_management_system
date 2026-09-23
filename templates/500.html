@@ -19,18 +19,21 @@
     .code { font-size: 4.5rem; font-weight: 700; color: #D8B27C; line-height: 1; margin-bottom: 8px; }
     h1 { font-size: 1.4rem; margin: 0 0 12px; }
     p { color: rgba(255,255,255,0.72); margin: 0 0 24px; }
-    a.btn {
+    .btn {
+        border: 0; cursor: pointer; font: inherit; margin: 4px;
         display: inline-block; padding: 10px 20px; border-radius: 10px; text-decoration: none;
         background: linear-gradient(150deg, #D8B27C, #8a6530); color: #1c1409; font-weight: 600;
     }
+    .btn-secondary { background: transparent; color: #D8B27C; border: 1px solid #D8B27C; }
 </style>
 </head>
 <body>
 <div class="box">
     <div class="code">500</div>
     <h1>Something went wrong on our end</h1>
-    <p>This wasn't caused by anything you did. Please try again in a moment — if it keeps happening, let whoever manages this system know.</p>
-    <a class="btn" href="/">Back to Pretty Events</a>
+    <p>This wasn't caused by anything you did, and the details have been logged for whoever manages this system. Please try again in a moment. If it keeps happening, let them know what you were doing.</p>
+    <button type="button" class="btn" onclick="location.reload()">Try again</button>
+    <a class="btn btn-secondary" href="/">Back to Pretty Events</a>
 </div>
 </body>
 </html>

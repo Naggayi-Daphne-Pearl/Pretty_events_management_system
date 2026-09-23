@@ -7,6 +7,7 @@ from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.activity import log_model_activity
+from core.deletion import confirm_and_delete, count_label
 from events.models import Event
 
 from .forms import EquipmentCategoryForm, EquipmentIssueForm, EquipmentItemForm, EquipmentReturnForm
@@ -141,3 +142,20 @@ def return_create(request, issue_pk):
     else:
         form = EquipmentReturnForm(issue=issue, initial={'quantity_returned': issue.quantity_outstanding})
     return render(request, 'inventory/return_form.html', {'form': form, 'issue': issue})
+
+
+@login_required
+@permission_required('inventory.delete_equipmentitem', raise_exception=True)
+def item_delete(request, pk):
+    item = get_object_or_404(EquipmentItem, pk=pk)
+    return confirm_and_delete(
+        request, item,
+        cancel_url=item.get_absolute_url(),
+        success_url=reverse('inventory:item_list'),
+        blockers=[
+            count_label(item.issues.count(), 'equipment issue record'),
+            count_label(item.quotationlineitem_set.count(), 'quotation line'),
+            count_label(item.invoicelineitem_set.count(), 'invoice line'),
+        ],
+        hint='Items that have been issued or quoted are kept so past events and documents stay accurate.',
+    )

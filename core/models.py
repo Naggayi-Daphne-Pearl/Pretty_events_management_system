@@ -34,3 +34,16 @@ class ActivityLog(models.Model):
     def __str__(self):
         actor_name = self.actor.username if self.actor else 'system'
         return f'{self.created_at:%Y-%m-%d %H:%M} — {actor_name} — {self.description}'
+
+
+class FormSubmissionToken(models.Model):
+    """
+    One-time token embedded in forms whose POST has a side effect that must not
+    repeat: sending an email, recording a payment. The view claims (deletes) the
+    token before acting; a double-click, refresh-resubmit or Back-and-resubmit
+    arrives with an already-claimed token and is refused. Claiming is a single
+    DELETE, so two simultaneous requests can't both win. See core.once.
+    """
+    token = models.CharField(max_length=64, unique=True)
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
+    created_at = models.DateTimeField(auto_now_add=True)

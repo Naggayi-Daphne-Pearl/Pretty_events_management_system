@@ -18,6 +18,7 @@
     <form method="post">
         {% csrf_token %}
         {% for field in form %}
+            {% if field.name not in form.NEW_CUSTOMER_FIELDS %}
             <div class="mb-3">
                 <label class="form-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
                 {% if field.name == 'customer' %}
@@ -28,14 +29,32 @@
                                value="{% if prefill_customer %}{{ prefill_customer.name }}{% elif object %}{{ object.customer.name }}{% endif %}">
                         <div id="customer-results" class="customer-search-results" hidden></div>
                     </div>
-                    <div class="form-text small">Customer not listed? <a href="{% url 'customers:create' %}">Create one</a> first.</div>
+                    {% if form.allow_new_customer %}
+                    <div class="form-text small">Customer not listed? <a href="#" id="new-customer-toggle">Add a new customer here</a>.</div>
+                    {% endif %}
                 {% else %}
                     {{ field }}
                 {% endif %}
                 {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
             </div>
+            {% if field.name == 'customer' and form.allow_new_customer %}
+            <div id="new-customer-fields" class="border rounded p-3 mb-3"{% if not form.new_customer_name.value and not form.new_customer_phone.errors %} hidden{% endif %}>
+                <div class="small text-muted mb-2">New customer (saved together with this event)</div>
+                {% for nf in form %}{% if nf.name in form.NEW_CUSTOMER_FIELDS %}
+                <div class="mb-2">
+                    <label class="form-label small mb-1" for="{{ nf.id_for_label }}">{{ nf.label }}{% if nf.name != 'new_customer_email' %} <span class="text-danger">*</span>{% endif %}</label>
+                    {{ nf }}
+                    {% if nf.errors %}<div class="text-danger small">{{ nf.errors }}</div>{% endif %}
+                </div>
+                {% endif %}{% endfor %}
+            </div>
+            {% endif %}
+            {% endif %}
         {% endfor %}
         <button type="submit" class="btn btn-primary">Save</button>
+        {% if not object and perms.billing.add_quotation %}
+        <button type="submit" name="then" value="quotation" class="btn btn-outline-primary">Save &amp; create quotation</button>
+        {% endif %}
         <a href="{% if object %}{% url 'events:detail' object.pk %}{% else %}{% url 'events:list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
     </form>
 </div>
@@ -82,6 +101,24 @@
     input.addEventListener('blur', function () {
         setTimeout(function () { results.hidden = true; }, 150);
     });
+
+    var toggle = document.getElementById('new-customer-toggle');
+    var newFields = document.getElementById('new-customer-fields');
+    if (toggle && newFields) {
+        toggle.addEventListener('click', function (e) {
+            e.preventDefault();
+            newFields.hidden = false;
+            hidden.value = '';
+            input.value = '';
+            var first = document.getElementById('id_new_customer_name');
+            if (first) first.focus();
+        });
+        // Picking an existing customer means the quick-add fields no longer apply.
+        results.addEventListener('mousedown', function () {
+            newFields.hidden = true;
+            newFields.querySelectorAll('input').forEach(function (el) { el.value = ''; });
+        });
+    }
 })();
 </script>
 {% endblock %}

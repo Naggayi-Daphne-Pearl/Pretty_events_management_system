@@ -2,9 +2,11 @@ from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.shortcuts import get_object_or_404, redirect, render
+from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
 from core.activity import log_activity
+from core.deletion import confirm_and_delete, count_label
 from core.forms import StaffAccountCreationForm, StaffAccountUpdateForm
 from events.models import Event
 
@@ -134,3 +136,21 @@ def assign_staff(request, event_pk):
     else:
         form = EventAssignmentForm()
     return render(request, 'staffing/assign_form.html', {'form': form, 'event': event})
+
+
+@login_required
+@permission_required('staffing.delete_staffmember', raise_exception=True)
+def staff_delete(request, pk):
+    staff_member = get_object_or_404(StaffMember, pk=pk)
+    blockers = [count_label(staff_member.assignments.count(), 'event assignment')]
+    if staff_member.user_id:
+        # Deleting the profile would leave the login working with no staff record
+        # behind it, so make someone deal with the account deliberately.
+        blockers.append(f'the login account "{staff_member.user.username}"')
+    return confirm_and_delete(
+        request, staff_member,
+        cancel_url=staff_member.get_absolute_url(),
+        success_url=reverse('staffing:list'),
+        blockers=blockers,
+        hint='To take someone off the team without losing their event history, edit them and untick "Is active" (and deactivate their login).',
+    )

@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% load humanize %}
+{% load humanize once %}
 {% block title %}{{ object.number }}{% endblock %}
 {% block breadcrumbs %}
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'billing:invoice_list' %}">Invoices</a><span class="sep">/</span><span class="current">{{ object.number }}</span></nav>
@@ -14,6 +14,8 @@
         {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
         <a href="{% url 'billing:invoice_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
         {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
+        {% include "comms/_contact_buttons.html" with customer=object.event.customer event=object.event doc_kind="invoice" doc_pk=object.pk hide_email=True %}
+        {% if perms.billing.delete_invoice and not object.payments.exists %}<a href="{% url 'billing:invoice_delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>{% endif %}
     </div>
 </div>
 {% include "partials/_audit_trail.html" %}
@@ -48,7 +50,7 @@
         <div class="card p-4">
             <h6 class="mb-2">Payment history</h6>
             <table class="table table-sm">
-                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Receipt</th></tr></thead>
+                <thead><tr><th>Date</th><th>Amount</th><th>Method</th><th>Receipt</th><th></th></tr></thead>
                 <tbody>
                 {% for p in object.payments.all %}
                     <tr>
@@ -56,9 +58,14 @@
                         <td>{{ CURRENCY }} {{ p.amount|floatformat:0|intcomma }}</td>
                         <td>{{ p.get_method_display }}</td>
                         <td><a href="{% url 'billing:receipt_detail' p.receipt.pk %}">{{ p.receipt.number }}</a></td>
+                        <td class="text-nowrap text-end">
+                            <a href="{% url 'billing:receipt_pdf' p.receipt.pk %}" target="_blank" class="btn btn-sm btn-outline-primary">PDF</a>
+                            {% if perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' p.receipt.pk %}" class="btn btn-sm btn-outline-primary">Email</a>{% endif %}
+                            <a href="{% url 'billing:receipt_detail' p.receipt.pk %}" class="btn btn-sm btn-outline-secondary">Send / view</a>
+                        </td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="4" class="text-center text-muted py-2">No payments recorded yet.</td></tr>
+                    <tr><td colspan="5" class="text-center text-muted py-2">No payments recorded yet.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>
@@ -66,10 +73,11 @@
     </div>
     <div class="col-lg-4">
         {% if perms.billing.add_payment and object.balance_due > 0 %}
-        <div class="card p-4">
+        <div class="card p-4" id="record-payment">
             <h6 class="mb-3">Record a payment</h6>
             <form method="post" action="{% url 'billing:invoice_add_payment' object.pk %}">
                 {% csrf_token %}
+                {% once_token %}
                 {% for field in payment_form %}
                     <div class="mb-3">
                         <label class="form-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>

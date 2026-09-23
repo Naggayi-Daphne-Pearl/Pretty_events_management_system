@@ -73,3 +73,29 @@ class Event(TimeStampedModel):
             self.save(update_fields=['status'])
             return True
         return False
+
+    @property
+    def last_day(self):
+        return self.end_date or self.event_date
+
+    def has_outstanding_equipment(self):
+        return any(issue.quantity_outstanding > 0 for issue in self.equipment_issues.all())
+
+    def sync_status_with_calendar(self, today=None):
+        """
+        Date-driven moves for confirmed bookings only (never touches inquiries,
+        quotes or cancelled events, so an unconfirmed booking is never marked
+        as happening): Confirmed -> In Progress once the event starts, then
+        -> Completed after its last day, but only once all issued equipment is
+        back, since outstanding equipment means the job isn't really finished.
+        Returns the new status if it changed, else None.
+        """
+        from django.utils import timezone
+        today = today or timezone.localdate()
+        if self.status not in (self.Status.CONFIRMED, self.Status.IN_PROGRESS) or self.event_date > today:
+            return None
+        if self.last_day < today and not self.has_outstanding_equipment():
+            target = self.Status.COMPLETED
+        else:
+            target = self.Status.IN_PROGRESS
+        return target if self.advance_status_at_least(target) else None

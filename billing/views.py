@@ -3,6 +3,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -11,7 +12,9 @@ from django.views.generic import DetailView, ListView
 
 from comms.models import CommunicationLog
 from core.activity import log_activity, log_model_activity
+from core.deletion import confirm_and_delete, count_label
 from core.emailing import send_pdf_email
+from core.once import claim_token
 from core.utils import amount_in_words
 from events.models import Event
 from finance.models import IncomeRecord
@@ -191,6 +194,9 @@ def quotation_email(request, pk):
     if request.method == 'POST':
         form = EmailDocumentForm(request.POST)
         if form.is_valid():
+            if not claim_token(request):
+                messages.info(request, 'That email was already sent. It was not sent again.')
+                return redirect('billing:quotation_detail', pk=quotation.pk)
             to_email = form.cleaned_data['to_email']
             pdf_bytes = generate_pdf_bytes(request, 'pdf/quotation_pdf.html', {'quotation': quotation})
             sent = send_pdf_email(
@@ -208,6 +214,7 @@ def quotation_email(request, pk):
                 quotation.save(update_fields=['status'])
             CommunicationLog.objects.create(
                 customer=customer,
+                event=quotation.event,
                 channel=CommunicationLog.Channel.EMAIL,
                 direction=CommunicationLog.Direction.OUTBOUND,
                 message=f'Emailed quotation {quotation.number} to {to_email}',
@@ -291,6 +298,9 @@ def invoice_add_payment(request, pk):
     if request.method == 'POST':
         form = PaymentForm(request.POST)
         if form.is_valid():
+            if not claim_token(request):
+                messages.info(request, 'That payment was already recorded. It was not recorded again.')
+                return redirect('billing:invoice_detail', pk=invoice.pk)
             payment = form.save(commit=False)
             payment.invoice = invoice
             payment.received_by = request.user
@@ -308,7 +318,9 @@ def invoice_add_payment(request, pk):
                 description=f'Payment on invoice {invoice.number}',
                 recorded_by=request.user,
             )
-            messages.success(request, f'Payment of {payment.amount} recorded. Receipt {payment.receipt.number} generated.')
+            if invoice.event.advance_status_at_least(Event.Status.CONFIRMED):
+                messages.info(request, f'Event status advanced to "{invoice.event.get_status_display()}".')
+            messages.success(request, f'Payment of {settings.CURRENCY} {payment.amount:,.0f} recorded. Receipt {payment.receipt.number} is ready: send it to the client below.')
             return redirect('billing:receipt_detail', pk=payment.receipt.pk)
         # Re-render the invoice page with the bound form so the actual field
         # errors show up (e.g. "Ensure that there are no more than 2 decimal
@@ -333,6 +345,9 @@ def invoice_email(request, pk):
     if request.method == 'POST':
         form = EmailDocumentForm(request.POST)
         if form.is_valid():
+            if not claim_token(request):
+                messages.info(request, 'That email was already sent. It was not sent again.')
+                return redirect('billing:invoice_detail', pk=invoice.pk)
             to_email = form.cleaned_data['to_email']
             pdf_bytes = generate_pdf_bytes(request, 'pdf/invoice_pdf.html', {'invoice': invoice})
             sent = send_pdf_email(
@@ -347,6 +362,7 @@ def invoice_email(request, pk):
                 return render(request, 'billing/invoice_email_form.html', {'form': form, 'object': invoice})
             CommunicationLog.objects.create(
                 customer=customer,
+                event=invoice.event,
                 channel=CommunicationLog.Channel.EMAIL,
                 direction=CommunicationLog.Direction.OUTBOUND,
                 message=f'Emailed invoice {invoice.number} to {to_email}',
@@ -369,20 +385,117 @@ def invoice_email(request, pk):
     return render(request, 'billing/invoice_email_form.html', {'form': form, 'object': invoice})
 
 
+@login_required
+@permission_required('billing.delete_invoice', raise_exception=True)
+def invoice_delete(request, pk):
+    invoice = get_object_or_404(Invoice, pk=pk)
+    return confirm_and_delete(
+        request, invoice,
+        cancel_url=invoice.get_absolute_url(),
+        success_url=reverse('events:detail', args=[invoice.event_id]),
+        blockers=[count_label(invoice.payments.count(), 'recorded payment')],
+        also_deleted=[count_label(invoice.line_items.count(), 'line item')],
+        hint='Invoices with payments are part of the financial record. Set the status to Cancelled instead.',
+    )
+
+
 # ---------- Receipts ----------
+
+class ReceiptListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = Receipt
+    permission_required = 'billing.view_receipt'
+    paginate_by = 25
+    template_name = 'billing/receipt_list.html'
+
+    def get_queryset(self):
+        qs = super().get_queryset().select_related('payment__invoice__event__customer', 'payment__received_by')
+        q = (self.request.GET.get('q') or '').strip()
+        if q:
+            qs = qs.filter(
+                Q(number__icontains=q) | Q(payment__invoice__number__icontains=q)
+                | Q(payment__invoice__event__customer__name__icontains=q)
+                | Q(payment__reference_number__icontains=q)
+            )
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['q'] = self.request.GET.get('q', '')
+        return ctx
+
 
 class ReceiptDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
     model = Receipt
     permission_required = 'billing.view_receipt'
     template_name = 'billing/receipt_detail.html'
 
+    def get_queryset(self):
+        return super().get_queryset().select_related('payment__invoice__event__customer', 'payment__received_by')
+
+
+def receipt_pdf_context(receipt):
+    return {
+        'receipt': receipt,
+        'amount_in_words': amount_in_words(receipt.payment.amount),
+    }
+
 
 @login_required
 @permission_required('billing.view_receipt', raise_exception=True)
 def receipt_pdf(request, pk):
     receipt = get_object_or_404(Receipt, pk=pk)
-    context = {
-        'receipt': receipt,
-        'amount_in_words': amount_in_words(receipt.payment.amount),
-    }
-    return render_pdf(request, 'pdf/receipt_pdf.html', context, f'{receipt.number}.pdf')
+    return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt), f'{receipt.number}.pdf')
+
+
+@login_required
+@permission_required('billing.change_receipt', raise_exception=True)
+def receipt_email(request, pk):
+    receipt = get_object_or_404(Receipt.objects.select_related('payment__invoice__event__customer'), pk=pk)
+    payment = receipt.payment
+    invoice = payment.invoice
+    customer = invoice.event.customer
+    if request.method == 'POST':
+        form = EmailDocumentForm(request.POST)
+        if form.is_valid():
+            if not claim_token(request):
+                messages.info(request, 'That email was already sent. It was not sent again.')
+                return redirect('billing:receipt_detail', pk=receipt.pk)
+            to_email = form.cleaned_data['to_email']
+            pdf_bytes = generate_pdf_bytes(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt))
+            sent = send_pdf_email(
+                to_email=to_email,
+                subject=f'Receipt {receipt.number} from {settings.COMPANY_LEGAL_NAME}',
+                body=form.cleaned_data['message'],
+                pdf_bytes=pdf_bytes,
+                filename=f'{receipt.number}.pdf',
+            )
+            if not sent:
+                messages.error(request, 'Could not send the email. Please check the email settings and try again.')
+                return render(request, 'billing/receipt_email_form.html', {'form': form, 'object': receipt})
+            CommunicationLog.objects.create(
+                customer=customer,
+                event=invoice.event,
+                channel=CommunicationLog.Channel.EMAIL,
+                direction=CommunicationLog.Direction.OUTBOUND,
+                message=f'Emailed receipt {receipt.number} to {to_email}',
+                logged_by=request.user,
+            )
+            log_model_activity(request, receipt, 'emailed', extra=f'to {to_email}')
+            messages.success(request, f'Receipt {receipt.number} emailed to {to_email}.')
+            return redirect('billing:receipt_detail', pk=receipt.pk)
+    else:
+        balance_line = (
+            f'Remaining balance on invoice {invoice.number}: {settings.CURRENCY} {invoice.balance_due:,.0f}.'
+            if invoice.balance_due > 0 else f'Invoice {invoice.number} is now fully paid.'
+        )
+        form = EmailDocumentForm(initial={
+            'to_email': customer.email,
+            'message': (
+                f'Hi {customer.name},\n\n'
+                f'Thank you for your payment of {settings.CURRENCY} {payment.amount:,.0f} '
+                f'received on {payment.paid_at:%d %b %Y}. Please find attached receipt {receipt.number}.\n\n'
+                f'{balance_line}\n\n'
+                f'Thank you,\n{settings.COMPANY_LEGAL_NAME}'
+            ),
+        })
+    return render(request, 'billing/receipt_email_form.html', {'form': form, 'object': receipt})

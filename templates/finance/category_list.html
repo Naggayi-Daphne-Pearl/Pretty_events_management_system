@@ -4,6 +4,7 @@
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'finance:summary' %}">Finance</a><span class="sep">/</span><span class="current">Categories</span></nav>
 {% endblock %}
 {% block content %}
+{% if perms.finance.add_expensecategory %}{% url 'finance:category_create' as add_url %}{% endif %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">Expense Categories</h3>
     {% if perms.finance.add_expensecategory %}
@@ -27,10 +28,11 @@
                     </td>
                 </tr>
             {% empty %}
-                <tr><td colspan="3" class="text-center text-muted py-4">No categories yet.</td></tr>
+                {% include "partials/_empty_row.html" with colspan=3 noun="expense categories" empty_text="Categories group expenses (transport, labour, fuel) in the Profit and Loss report." action_url=add_url action_label="Add a category" %}
             {% endfor %}
             </tbody>
         </table>
+    {% if object_list %}<div class="small text-muted mt-2">{{ object_list|length }} {% if object_list|length == 1 %}category{% else %}categories{% endif %}</div>{% endif %}
     </div>
 </div>
 {% endblock %}

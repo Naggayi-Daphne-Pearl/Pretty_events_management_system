@@ -5,6 +5,7 @@
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Events</span></nav>
 {% endblock %}
 {% block content %}
+{% if perms.events.add_event %}{% url 'events:create' as add_url %}{% endif %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">Events</h3>
     {% if perms.events.add_event %}
@@ -43,7 +44,7 @@
                     <td><span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span></td>
                 </tr>
             {% empty %}
-                <tr><td colspan="6" class="text-center text-muted py-4">No events found.</td></tr>
+                {% include "partials/_empty_row.html" with colspan=6 noun="events" empty_text="Record an inquiry as an event, then quote, invoice and track it from there." action_url=add_url action_label="Create your first event" %}
             {% endfor %}
             </tbody>
         </table>

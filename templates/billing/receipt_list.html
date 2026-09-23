@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Receipts{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Receipts</span></nav>
+{% endblock %}
+{% block content %}
+{% if perms.billing.view_invoice %}{% url 'billing:invoice_list' as invoices_url %}{% endif %}
+<h3 class="mb-1">Receipts</h3>
+<p class="text-muted small mb-3">A receipt is created automatically every time a payment is recorded on an invoice.</p>
+<div class="card p-3">
+    <form method="get" class="row g-2 mb-3">
+        <div class="col-sm-6 col-md-4">
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search receipt, invoice, customer or reference…">
+        </div>
+        <div class="col-auto"><button type="submit" class="btn btn-outline-secondary">Search</button></div>
+    </form>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Invoice</th><th class="text-end">Amount</th><th>Method</th><th></th></tr></thead>
+            <tbody>
+            {% for r in object_list %}
+                <tr>
+                    <td><a href="{% url 'billing:receipt_detail' r.pk %}">{{ r.number }}</a></td>
+                    <td class="text-nowrap">{{ r.payment.paid_at }}</td>
+                    <td><a href="{% url 'customers:detail' r.payment.invoice.event.customer.pk %}">{{ r.payment.invoice.event.customer.name }}</a></td>
+                    <td><a href="{% url 'billing:invoice_detail' r.payment.invoice.pk %}">{{ r.payment.invoice.number }}</a></td>
+                    <td class="text-end">{{ CURRENCY }} {{ r.payment.amount|floatformat:0|intcomma }}</td>
+                    <td>{{ r.payment.get_method_display }}</td>
+                    <td class="text-nowrap">
+                        <a href="{% url 'billing:receipt_pdf' r.pk %}" target="_blank" class="btn btn-sm btn-outline-primary">PDF</a>
+                        {% if perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' r.pk %}" class="btn btn-sm btn-outline-primary">Email</a>{% endif %}
+                    </td>
+                </tr>
+            {% empty %}
+                {% include "partials/_empty_row.html" with colspan=7 noun="receipts" empty_text="A receipt is created each time a payment is recorded on an invoice." action_url=invoices_url action_label="Go to invoices" %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

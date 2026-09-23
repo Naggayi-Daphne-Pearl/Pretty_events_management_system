@@ -262,6 +262,9 @@
 
         .page-link { background: var(--panel-strong); border-color: var(--border); color: var(--text-1); }
         .page-item.disabled .page-link { background: transparent; color: var(--text-3); }
+        .page-item.active .page-link { background: var(--gold); border-color: var(--gold); color: #1c1409; font-weight: 600; }
+        .page-link:hover { background: var(--gold-soft); color: var(--text-1); }
+        .page-link:focus { box-shadow: 0 0 0 .2rem var(--gold-soft); }
         .list-group-item { background: transparent; border-color: var(--border); color: var(--text-1); }
 
         main { background: transparent; }
@@ -313,6 +316,9 @@
                 {% endif %}
                 {% if perms.billing.view_invoice %}
                 <li class="nav-item"><a href="{% url 'billing:invoice_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
+                {% endif %}
+                {% if perms.billing.view_receipt %}
+                <li class="nav-item"><a href="{% url 'billing:receipt_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'receipt' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt-cutoff me-2"></i>Receipts</a></li>
                 {% endif %}
                 {% if perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
                 <li class="nav-item"><a href="{% url 'finance:summary' %}" class="nav-link {% if request.resolver_match.app_name == 'finance' %}active{% endif %}"><i class="bi bi-cash-coin me-2"></i>Finance</a></li>
@@ -452,6 +458,44 @@
             var open = saved !== null ? saved === '1' : section.dataset.defaultOpen === 'true';
             items.hidden = !open;
             chevron.classList.toggle('collapsed', !open);
+        });
+    })();
+</script>
+<script>
+    // Loading state for form submits: pages are server-rendered, so the only real wait is
+    // between clicking Save/Send and the next page arriving. Show that it's working and
+    // block a second click, which could otherwise record a payment or send an email twice.
+    // Attributes are read with getAttribute because a form field named e.g. "method" (the
+    // payment form has one) shadows form.method and used to crash this handler.
+    // Forms that open a new tab (WhatsApp) or hand off to another app (tel:/mailto:, marked
+    // data-no-busy) are skipped, since this page stays on screen afterwards.
+    (function () {
+        document.addEventListener('submit', function (e) {
+            var form = e.target;
+            if (e.defaultPrevented || form.getAttribute('target') === '_blank' || 'noBusy' in form.dataset || (form.getAttribute('method') || '').toLowerCase() !== 'post') return;
+            if (form.dataset.submitting) { e.preventDefault(); return; }
+            form.dataset.submitting = '1';
+            var btn = e.submitter || form.querySelector('[type="submit"]');
+            if (btn) {
+                // Keep a clicked button's name/value (e.g. "Save & create quotation") in the POST.
+                if (btn.name) {
+                    var carry = document.createElement('input');
+                    carry.type = 'hidden'; carry.name = btn.name; carry.value = btn.value;
+                    form.appendChild(carry);
+                }
+                btn.dataset.label = btn.innerHTML;
+                btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Working…';
+                btn.disabled = true;
+            }
+        });
+        // Coming back via the browser's Back button restores the page from cache; un-stick it.
+        window.addEventListener('pageshow', function () {
+            document.querySelectorAll('form[data-submitting]').forEach(function (form) {
+                delete form.dataset.submitting;
+                form.querySelectorAll('[data-label]').forEach(function (btn) {
+                    btn.innerHTML = btn.dataset.label; btn.disabled = false; delete btn.dataset.label;
+                });
+            });
         });
     })();
 </script>

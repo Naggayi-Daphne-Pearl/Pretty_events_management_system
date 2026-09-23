@@ -1,0 +1,35 @@
+{% comment %}
+Click-to-contact buttons. Each one POSTs to comms:contact, which logs the contact
+and then hands off to WhatsApp / the phone dialer / the mail client.
+Expects: customer. Optional: event, doc_kind ("invoice" / "quotation") + doc_pk,
+hide_email (pages that already have "Email to Client" with the PDF attached).
+{% endcomment %}
+{% if perms.comms.add_communicationlog %}
+<span class="d-inline-flex gap-1 flex-wrap align-items-center">
+    {% if customer.phone %}
+    <form method="post" action="{% url 'comms:contact' customer.pk 'whatsapp' %}" target="_blank" class="d-inline" data-no-busy>
+        {% csrf_token %}
+        {% if event %}<input type="hidden" name="event" value="{{ event.pk }}">{% endif %}
+        {% if doc_kind %}<input type="hidden" name="document" value="{{ doc_kind }}:{{ doc_pk }}">{% endif %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-outline-success btn-sm" title="Opens WhatsApp with a pre-filled message and logs the contact"><i class="bi bi-whatsapp me-1"></i>WhatsApp</button>
+    </form>
+    <form method="post" action="{% url 'comms:contact' customer.pk 'call' %}" class="d-inline" data-no-busy>
+        {% csrf_token %}
+        {% if event %}<input type="hidden" name="event" value="{{ event.pk }}">{% endif %}
+        {% if doc_kind %}<input type="hidden" name="document" value="{{ doc_kind }}:{{ doc_pk }}">{% endif %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-outline-secondary btn-sm" title="Calls {{ customer.phone }} and logs the call"><i class="bi bi-telephone me-1"></i>Call</button>
+    </form>
+    {% endif %}
+    {% if customer.email and not hide_email %}
+    <form method="post" action="{% url 'comms:contact' customer.pk 'email' %}" class="d-inline" data-no-busy>
+        {% csrf_token %}
+        {% if event %}<input type="hidden" name="event" value="{{ event.pk }}">{% endif %}
+        {% if doc_kind %}<input type="hidden" name="document" value="{{ doc_kind }}:{{ doc_pk }}">{% endif %}
+        <input type="hidden" name="next" value="{{ request.get_full_path }}">
+        <button type="submit" class="btn btn-outline-secondary btn-sm" title="Opens your mail app and logs the email"><i class="bi bi-envelope me-1"></i>Email</button>
+    </form>
+    {% endif %}
+</span>
+{% endif %}

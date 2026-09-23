@@ -5,6 +5,7 @@
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'finance:summary' %}">Finance</a><span class="sep">/</span><span class="current">Expenses</span></nav>
 {% endblock %}
 {% block content %}
+{% if perms.finance.add_expenserecord %}{% url 'finance:expense_create' as add_url %}{% endif %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">Expense Records</h3>
     <div>
@@ -25,7 +26,7 @@
                 <td>{{ r.description }}</td>
             </tr>
         {% empty %}
-            <tr><td colspan="5" class="text-center text-muted py-4">No expense records yet.</td></tr>
+            {% include "partials/_empty_row.html" with colspan=5 noun="expense records" empty_text="Record money spent on events and running the business to see profit and loss." action_url=add_url action_label="Record an expense" %}
         {% endfor %}
         </tbody>
     </table>

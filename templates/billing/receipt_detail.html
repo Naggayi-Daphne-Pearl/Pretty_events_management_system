@@ -2,20 +2,46 @@
 {% load humanize %}
 {% block title %}{{ object.number }}{% endblock %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'billing:invoice_list' %}">Invoices</a><span class="sep">/</span><a href="{% url 'billing:invoice_detail' object.payment.invoice.pk %}">{{ object.payment.invoice.number }}</a><span class="sep">/</span><span class="current">Receipt {{ object.number }}</span></nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'billing:receipt_list' %}">Receipts</a><span class="sep">/</span><span class="current">{{ object.number }}</span></nav>
 {% endblock %}
 {% block content %}
-<div class="d-flex justify-content-between align-items-center mb-3">
+{% with payment=object.payment invoice=object.payment.invoice customer=object.payment.invoice.event.customer %}
+<div class="d-flex justify-content-between align-items-center mb-3 flex-wrap gap-2">
     <h3 class="mb-0">Receipt {{ object.number }}</h3>
-    <a href="{% url 'billing:receipt_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
+    <a href="{% url 'billing:invoice_detail' invoice.pk %}" class="btn btn-outline-secondary btn-sm">Back to invoice {{ invoice.number }}</a>
 </div>
-<div class="card p-4" style="max-width: 560px;">
-    <dl class="row mb-0">
-        <dt class="col-5">Invoice</dt><dd class="col-7"><a href="{% url 'billing:invoice_detail' object.payment.invoice.pk %}">{{ object.payment.invoice.number }}</a></dd>
-        <dt class="col-5">Customer</dt><dd class="col-7">{{ object.payment.invoice.event.customer.name }}</dd>
-        <dt class="col-5">Amount</dt><dd class="col-7">{{ CURRENCY }} {{ object.payment.amount|floatformat:0|intcomma }}</dd>
-        <dt class="col-5">Method</dt><dd class="col-7">{{ object.payment.get_method_display }}</dd>
-        <dt class="col-5">Date</dt><dd class="col-7">{{ object.issued_at }}</dd>
-    </dl>
+{% include "partials/_audit_trail.html" %}
+
+<div class="row g-3">
+    <div class="col-lg-7">
+        <div class="card p-4">
+            <dl class="row mb-0">
+                <dt class="col-5">Customer</dt><dd class="col-7"><a href="{% url 'customers:detail' customer.pk %}">{{ customer.name }}</a></dd>
+                <dt class="col-5">Event</dt><dd class="col-7"><a href="{% url 'events:detail' invoice.event.pk %}">{{ invoice.event.event_type }} on {{ invoice.event.event_date }}</a></dd>
+                <dt class="col-5">Invoice</dt><dd class="col-7"><a href="{% url 'billing:invoice_detail' invoice.pk %}">{{ invoice.number }}</a></dd>
+                <dt class="col-5">Amount paid</dt><dd class="col-7 fw-semibold">{{ CURRENCY }} {{ payment.amount|floatformat:0|intcomma }}</dd>
+                <dt class="col-5">Method</dt><dd class="col-7">{{ payment.get_method_display }}{% if payment.reference_number %} ({{ payment.reference_number }}){% endif %}</dd>
+                <dt class="col-5">Payment date</dt><dd class="col-7">{{ payment.paid_at }}</dd>
+                {% if payment.notes %}<dt class="col-5">Being payment of</dt><dd class="col-7">{{ payment.notes }}</dd>{% endif %}
+                <dt class="col-5">Received by</dt><dd class="col-7">{{ payment.received_by.username|default:"-" }}</dd>
+                <dt class="col-5">Invoice balance now</dt><dd class="col-7">{% if invoice.balance_due > 0 %}<span class="text-danger fw-semibold">{{ CURRENCY }} {{ invoice.balance_due|floatformat:0|intcomma }}</span>{% else %}<span class="text-success fw-semibold">Fully paid</span>{% endif %}</dd>
+            </dl>
+        </div>
+    </div>
+    <div class="col-lg-5">
+        <div class="card p-4">
+            <h6 class="mb-1">Send receipt to client</h6>
+            <p class="small text-muted mb-3">
+                {% if customer.email %}Email attaches the receipt PDF to {{ customer.email }}.{% else %}{{ customer.name }} has no email on file; you can type one on the next screen.{% endif %}
+                WhatsApp opens a chat with the receipt details filled in; attach the downloaded PDF there if needed.
+            </p>
+            <div class="d-flex gap-2 flex-wrap">
+                <a href="{% url 'billing:receipt_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
+                {% if perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' object.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-envelope me-1"></i>Email to Client</a>{% endif %}
+                {% include "comms/_contact_buttons.html" with customer=customer event=invoice.event doc_kind="receipt" doc_pk=object.pk hide_email=True %}
+            </div>
+        </div>
+    </div>
 </div>
+{% endwith %}
 {% endblock %}

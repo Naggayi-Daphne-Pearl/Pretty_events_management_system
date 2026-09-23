@@ -5,6 +5,7 @@
 <nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Quotations</span></nav>
 {% endblock %}
 {% block content %}
+{% if perms.events.view_event %}{% url 'events:list' as events_url %}{% endif %}
 <h3 class="mb-3">Quotations</h3>
 <div class="card p-3">
     <form method="get" class="row g-2 mb-3">
@@ -30,7 +31,7 @@
                     <td>{{ CURRENCY }} {{ q.total|floatformat:0|intcomma }}</td>
                 </tr>
             {% empty %}
-                <tr><td colspan="5" class="text-center text-muted py-4">No quotations yet.</td></tr>
+                {% include "partials/_empty_row.html" with colspan=5 noun="quotations" empty_text="Quotations are created from an event. Open the event and click New quotation." action_url=events_url action_label="Go to events" %}
             {% endfor %}
             </tbody>
         </table>
