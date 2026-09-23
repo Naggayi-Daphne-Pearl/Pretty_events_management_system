@@ -101,6 +101,11 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
+# Sessions expire after 30 minutes of inactivity; each request resets the clock.
+SESSION_COOKIE_AGE = 30 * 60
+SESSION_SAVE_EVERY_REQUEST = True
+SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+
 # Single currency for Phase 1 (confirmed default: UGX only, no multi-currency).
 CURRENCY = 'UGX'
 
