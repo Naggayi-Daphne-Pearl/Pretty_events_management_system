@@ -152,6 +152,18 @@ DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=COMPANY_EMAIL)
 # user gets "could not send" (and can retry) instead of the request being killed mid-send.
 EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
 
+# Railway's trial/hobby plans block outgoing SMTP, so production sends through Brevo's
+# HTTPS API instead. Setting BREVO_API_KEY switches the backend automatically; the
+# SMTP settings above stay as the fallback (e.g. local dev or a plan that allows SMTP).
+# DEFAULT_FROM_EMAIL must be a sender verified in Brevo.
+BREVO_API_KEY = env('BREVO_API_KEY', default='')
+if BREVO_API_KEY:
+    EMAIL_BACKEND = 'anymail.backends.brevo.EmailBackend'
+    ANYMAIL = {
+        'BREVO_API_KEY': BREVO_API_KEY,
+        'REQUESTS_TIMEOUT': EMAIL_TIMEOUT,  # stay inside gunicorn's 30s worker timeout
+    }
+
 # Send warnings and errors (including full tracebacks for 500s) to stdout/stderr so they
 # show up in Railway's deploy logs. Without this, Django's default config only emails
 # errors to ADMINS when DEBUG is off, and with no ADMINS set they were silently lost.

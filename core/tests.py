@@ -489,3 +489,76 @@ class EmailFailureTests(BaseDataMixin, TestCase):
         self.assertContains(response, 'could not be reached')
         self.assertContains(response, 'name="once_token"')  # fresh token so a retry is accepted
         self.assertFalse(CommunicationLog.objects.exists())
+
+
+@override_settings(
+    EMAIL_BACKEND='anymail.backends.brevo.EmailBackend',
+    ANYMAIL={'BREVO_API_KEY': 'test-key', 'REQUESTS_TIMEOUT': 15},
+    DEFAULT_FROM_EMAIL='Pretty Events <info@prettyeventslimited.co.ug>',
+)
+class BrevoEmailTests(BaseDataMixin, TestCase):
+    """Production sends through Brevo's HTTPS API (Railway blocks SMTP). No real network here."""
+
+    def fake_response(self, status=201, body=b'{"messageId": "<abc@smtp-relay.brevo.com>"}'):
+        from unittest import mock
+        response = mock.Mock(status_code=status, content=body, text=body.decode(), headers={})
+        response.json.return_value = __import__('json').loads(body)
+        return response
+
+    def send_invoice(self):
+        invoice = self.make_invoice('300000')
+        url = reverse('billing:invoice_email', args=[invoice.pk])
+        return invoice, self.client.post(url, {'to_email': 'jane@example.com', 'message': 'Hi Jane',
+                                               'once_token': issue_token(self.user)})
+
+    def call_parts(self, request):
+        call = request.call_args
+        args, kwargs = call.args, call.kwargs
+        method = kwargs.get('method', args[0] if args else '')
+        url = kwargs.get('url', args[1] if len(args) > 1 else '')
+        return method.upper(), url, __import__('json').loads(kwargs['data']), kwargs['headers']
+
+    def test_invoice_goes_to_brevo_api(self):
+        from unittest import mock
+        with mock.patch('requests.Session.request', return_value=self.fake_response()) as request:
+            invoice, response = self.send_invoice()
+        self.assertRedirects(response, reverse('billing:invoice_detail', args=[invoice.pk]))
+        method, url, payload, headers = self.call_parts(request)
+        self.assertEqual((method, url), ('POST', 'https://api.brevo.com/v3/smtp/email'))
+        self.assertEqual(payload['to'], [{'email': 'jane@example.com'}])
+        self.assertEqual(payload['sender']['email'], 'info@prettyeventslimited.co.ug')
+        self.assertEqual(headers['api-key'], 'test-key')
+        self.assertTrue(CommunicationLog.objects.filter(channel='email').exists())
+
+    def test_pdf_attachment_is_included(self):
+        from unittest import mock
+        from core.emailing import send_pdf_email
+        with mock.patch('requests.Session.request', return_value=self.fake_response()) as request:
+            self.assertTrue(send_pdf_email(to_email='jane@example.com', subject='Invoice', body='Hi',
+                                           pdf_bytes=b'%PDF-1.4 test', filename='INV-1.pdf'))
+        payload = self.call_parts(request)[2]
+        self.assertEqual(payload['attachment'][0]['name'], 'INV-1.pdf')
+
+    def test_brevo_rejection_shows_friendly_error(self):
+        from unittest import mock
+        rejected = self.fake_response(400, b'{"code": "invalid_parameter", "message": "sender not valid"}')
+        with mock.patch('requests.Session.request', return_value=rejected), \
+                self.assertLogs('core.emailing', level='ERROR'):
+            _, response = self.send_invoice()
+        self.assertContains(response, 'could not be reached')
+        self.assertFalse(CommunicationLog.objects.exists())
+
+    def test_brevo_timeout_shows_friendly_error(self):
+        import requests
+        from unittest import mock
+        with mock.patch('requests.Session.request', side_effect=requests.Timeout('slow')), \
+                self.assertLogs('core.emailing', level='ERROR'):
+            _, response = self.send_invoice()
+        self.assertContains(response, 'could not be reached')
+
+    def test_setting_api_key_switches_backend(self):
+        import os, subprocess, sys
+        code = 'import django; django.setup(); from django.conf import settings; print(settings.EMAIL_BACKEND)'
+        env = {**os.environ, 'DJANGO_SETTINGS_MODULE': 'config.settings.dev', 'BREVO_API_KEY': 'k'}
+        out = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True).stdout.strip()
+        self.assertEqual(out, 'anymail.backends.brevo.EmailBackend')
