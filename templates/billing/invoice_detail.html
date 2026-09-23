@@ -13,8 +13,8 @@
     <div>
         {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
         <a href="{% url 'billing:invoice_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
-        {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
-        {% include "comms/_contact_buttons.html" with customer=object.event.customer event=object.event doc_kind="invoice" doc_pk=object.pk hide_email=True %}
+        {% if EMAIL_ENABLED and perms.billing.change_invoice %}<a href="{% url 'billing:invoice_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
+        {% include "comms/_contact_buttons.html" with customer=object.event.customer event=object.event doc_kind="invoice" doc_pk=object.pk hide_email=EMAIL_ENABLED %}
         {% if perms.billing.delete_invoice and not object.payments.exists %}<a href="{% url 'billing:invoice_delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>{% endif %}
     </div>
 </div>
@@ -60,7 +60,7 @@
                         <td><a href="{% url 'billing:receipt_detail' p.receipt.pk %}">{{ p.receipt.number }}</a></td>
                         <td class="text-nowrap text-end">
                             <a href="{% url 'billing:receipt_pdf' p.receipt.pk %}" target="_blank" class="btn btn-sm btn-outline-primary">PDF</a>
-                            {% if perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' p.receipt.pk %}" class="btn btn-sm btn-outline-primary">Email</a>{% endif %}
+                            {% if EMAIL_ENABLED and perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' p.receipt.pk %}" class="btn btn-sm btn-outline-primary">Email</a>{% endif %}
                             <a href="{% url 'billing:receipt_detail' p.receipt.pk %}" class="btn btn-sm btn-outline-secondary">Send / view</a>
                         </td>
                     </tr>

@@ -141,6 +141,13 @@ COMPANY_EMAIL = 'prettyevents5@gmail.com'
 COMPANY_WEBSITE_EMAIL = 'info@prettyeventslimited.co.ug'
 COMPANY_LOGO_STATIC_PATH = 'branding/pretty-events-logo.png'
 
+# Master switch for everything that sends email from the server: "Email to Client" on
+# quotations/invoices/receipts, staff invite emails, and "Forgot your password?". Off until
+# a working mail provider is configured (Railway blocks SMTP on trial/hobby plans); set
+# EMAIL_ENABLED=True on the service to turn it all on. While off, those buttons are hidden
+# and new staff logins get a password set by the admin.
+EMAIL_ENABLED = env.bool('EMAIL_ENABLED', default=False)
+
 EMAIL_BACKEND = env('EMAIL_BACKEND', default='django.core.mail.backends.console.EmailBackend')
 EMAIL_HOST = env('EMAIL_HOST', default='')
 EMAIL_PORT = env.int('EMAIL_PORT', default=587)

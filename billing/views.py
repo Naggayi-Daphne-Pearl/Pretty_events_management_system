@@ -13,7 +13,7 @@ from django.views.generic import DetailView, ListView
 from comms.models import CommunicationLog
 from core.activity import log_activity, log_model_activity
 from core.deletion import confirm_and_delete, count_label
-from core.emailing import send_pdf_email
+from core.emailing import email_enabled_required, send_pdf_email
 from core.once import claim_token
 from core.utils import amount_in_words
 from events.models import Event
@@ -186,6 +186,7 @@ def quotation_pdf(request, pk):
     return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': quotation}, f'{quotation.number}.pdf')
 
 
+@email_enabled_required
 @login_required
 @permission_required('billing.change_quotation', raise_exception=True)
 def quotation_email(request, pk):
@@ -337,6 +338,7 @@ def invoice_pdf(request, pk):
     return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': invoice}, f'{invoice.number}.pdf')
 
 
+@email_enabled_required
 @login_required
 @permission_required('billing.change_invoice', raise_exception=True)
 def invoice_email(request, pk):
@@ -447,6 +449,7 @@ def receipt_pdf(request, pk):
     return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt), f'{receipt.number}.pdf')
 
 
+@email_enabled_required
 @login_required
 @permission_required('billing.change_receipt', raise_exception=True)
 def receipt_email(request, pk):

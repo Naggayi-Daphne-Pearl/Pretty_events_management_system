@@ -72,6 +72,15 @@ class StaffAccountCreationForm(BootstrapFieldsMixin, forms.Form):
     password1 = forms.CharField(label='Password', required=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
     password2 = forms.CharField(label='Confirm password', required=False, widget=forms.PasswordInput(attrs={'autocomplete': 'new-password'}))
 
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if not settings.EMAIL_ENABLED:
+            # No way to send an invite, so the admin sets the first password (they can
+            # share it in person, and the staff member changes it from My Profile).
+            del self.fields['set_password_now']
+            self.fields['password1'].required = True
+            self.fields['password2'].required = True
+
     def clean_email(self):
         email = self.cleaned_data['email'].strip()
         if email_taken(email):
@@ -80,6 +89,8 @@ class StaffAccountCreationForm(BootstrapFieldsMixin, forms.Form):
 
     def clean(self):
         cleaned = super().clean()
+        if not settings.EMAIL_ENABLED:
+            cleaned['set_password_now'] = True
         if cleaned.get('set_password_now'):
             p1, p2 = cleaned.get('password1'), cleaned.get('password2')
             if not p1:

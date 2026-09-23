@@ -25,7 +25,7 @@
         {% if linked_user %}
             <p class="text-muted small mb-3">
                 Logs in with <strong>{{ linked_user.email|default:linked_user.username }}</strong> ·
-                Password: use "Email password reset link" or "Set password directly" on their staff page.
+                Password: use {% if EMAIL_ENABLED %}"Email password reset link" or {% endif %}"Set password directly" on their staff page.
             </p>
             {% for field in login_form %}
                 <div class="mb-3">
@@ -52,7 +52,11 @@
                 <label class="form-check-label" for="create_login">Give this person a login to the system</label>
             </div>
             <div id="login-fields" {% if not wants_login %}hidden{% endif %}>
+                {% if EMAIL_ENABLED %}
                 <p class="small text-muted">They'll get an email with a link to set their own password. You never see or choose it.</p>
+                {% else %}
+                <p class="small text-muted">Set a temporary password and give it to them in person. They can change it any time from <strong>My Profile</strong>.</p>
+                {% endif %}
                 {% for field in login_form %}
                     {% if field.name == 'set_password_now' %}
                     <div class="form-check mb-3">
@@ -60,7 +64,7 @@
                         <label class="form-check-label small" for="{{ field.id_for_label }}">{{ field.label }}</label>
                     </div>
                     {% elif field.name == 'password1' or field.name == 'password2' %}
-                    <div class="mb-3 pw-now-field"{% if not login_form.set_password_now.value %} hidden{% endif %}>
+                    <div class="mb-3 pw-now-field"{% if EMAIL_ENABLED and not login_form.set_password_now.value %} hidden{% endif %}>
                         <label class="form-label">{{ field.label }} <span class="text-danger">*</span></label>
                         {{ field }}
                         {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}

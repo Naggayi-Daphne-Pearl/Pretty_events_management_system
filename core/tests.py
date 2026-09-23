@@ -269,7 +269,7 @@ class PagesRenderTests(BaseDataMixin, TestCase):
         self.assertContains(response, f'Invoice {invoice.number}')
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', EMAIL_ENABLED=True)
 class ReceiptTests(BaseDataMixin, TestCase):
     def setUp(self):
         super().setUp()
@@ -367,7 +367,7 @@ class ErrorLoggingTests(TestCase):
         self.assertIn('console', settings.LOGGING['loggers']['django']['handlers'])
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', EMAIL_ENABLED=True)
 class DuplicateSubmitTests(BaseDataMixin, TestCase):
     def setUp(self):
         super().setUp()
@@ -475,6 +475,7 @@ class LogPaginationTests(BaseDataMixin, TestCase):
                 self.assertEqual(self.client.get(reverse(name)).status_code, 200)
 
 
+@override_settings(EMAIL_ENABLED=True)
 class EmailFailureTests(BaseDataMixin, TestCase):
     def test_unreachable_mail_server_fails_fast_and_allows_retry(self):
         from unittest import mock
@@ -495,6 +496,7 @@ class EmailFailureTests(BaseDataMixin, TestCase):
     EMAIL_BACKEND='anymail.backends.brevo.EmailBackend',
     ANYMAIL={'BREVO_API_KEY': 'test-key', 'REQUESTS_TIMEOUT': 15},
     DEFAULT_FROM_EMAIL='Pretty Events <info@prettyeventslimited.co.ug>',
+    EMAIL_ENABLED=True,
 )
 class BrevoEmailTests(BaseDataMixin, TestCase):
     """Production sends through Brevo's HTTPS API (Railway blocks SMTP). No real network here."""
@@ -562,3 +564,64 @@ class BrevoEmailTests(BaseDataMixin, TestCase):
         env = {**os.environ, 'DJANGO_SETTINGS_MODULE': 'config.settings.dev', 'BREVO_API_KEY': 'k'}
         out = subprocess.run([sys.executable, '-c', code], env=env, capture_output=True, text=True).stdout.strip()
         self.assertEqual(out, 'anymail.backends.brevo.EmailBackend')
+
+
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class EmailSwitchedOffTests(BaseDataMixin, TestCase):
+    """EMAIL_ENABLED defaults to off: nothing offers to send email, and nothing sends it."""
+
+    def setUp(self):
+        super().setUp()
+        from django.conf import settings
+        self.assertFalse(settings.EMAIL_ENABLED)
+        self.invoice = self.make_invoice('300000')
+        self.receipt = Payment.objects.create(invoice=self.invoice, amount=Decimal('1000')).receipt
+
+    def test_email_buttons_hidden(self):
+        for url, email_url in (
+            (self.invoice.get_absolute_url(), reverse('billing:invoice_email', args=[self.invoice.pk])),
+            (reverse('billing:receipt_detail', args=[self.receipt.pk]), reverse('billing:receipt_email', args=[self.receipt.pk])),
+            (reverse('billing:receipt_list'), reverse('billing:receipt_email', args=[self.receipt.pk])),
+        ):
+            with self.subTest(url=url):
+                page = self.client.get(url)
+                self.assertNotContains(page, email_url)
+                self.assertNotContains(page, 'Email to Client')
+
+    def test_mail_app_button_shown_instead(self):
+        page = self.client.get(self.invoice.get_absolute_url())
+        self.assertContains(page, reverse('comms:contact', args=[self.customer.pk, 'email']))
+
+    def test_direct_url_redirects_and_sends_nothing(self):
+        from django.core import mail
+        url = reverse('billing:invoice_email', args=[self.invoice.pk])
+        response = self.client.post(url, {'to_email': 'jane@example.com', 'message': 'Hi',
+                                          'once_token': issue_token(self.user)}, HTTP_REFERER='http://testserver' + self.invoice.get_absolute_url())
+        self.assertRedirects(response, 'http://testserver' + self.invoice.get_absolute_url())  # back where they came from
+        self.assertEqual(len(mail.outbox), 0)
+        self.assertFalse(CommunicationLog.objects.exists())
+
+    def test_forgot_password_hidden_and_blocked(self):
+        from django.core import mail
+        self.client.logout()
+        login = self.client.get(reverse('login'))
+        self.assertNotContains(login, reverse('password_reset'))
+        self.assertContains(login, 'Ask your administrator')
+        response = self.client.post(reverse('password_reset'), {'email': self.user.email})
+        self.assertRedirects(response, reverse('login'), fetch_redirect_response=False)
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_new_staff_login_requires_admin_set_password(self):
+        from django.core import mail
+        data = {'full_name': 'New Person', 'phone': '', 'title': '', 'is_active': 'on', 'create_login': '1',
+                'login-email': 'new.person@example.com'}
+        response = self.client.post(reverse('staffing:create'), data)
+        self.assertEqual(response.status_code, 200)  # form re-shown: password required
+        self.assertFalse(get_user_model().objects.filter(email='new.person@example.com').exists())
+        data.update({'login-password1': 'Temp-Pass-4567', 'login-password2': 'Temp-Pass-4567'})
+        self.client.post(reverse('staffing:create'), data)
+        user = get_user_model().objects.get(email='new.person@example.com')
+        self.assertTrue(user.check_password('Temp-Pass-4567'))
+        self.assertEqual(len(mail.outbox), 0)
+        page = self.client.get(reverse('staffing:detail', args=[user.staff_profile.pk]))
+        self.assertNotContains(page, reverse('user_send_reset', args=[user.pk]))

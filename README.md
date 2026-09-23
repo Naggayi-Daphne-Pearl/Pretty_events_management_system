@@ -50,13 +50,14 @@ always gets real PDFs.
 ## Logging in
 
 Staff log in with their **email address**. New logins are created from the Staff
-page and, by default, the person is emailed an invite link to choose their own
-password (links work once and expire after 3 days). "Forgot your password?" on the
-login page emails a reset link. Sessions end after 30 minutes idle, when the browser
+page. Sending email from the server is **off by default** (`EMAIL_ENABLED`): while
+it's off, the admin sets each new login's first password and resets forgotten ones
+from the staff page, and the "Email to Client" / "Forgot your password?" options are
+hidden. With `EMAIL_ENABLED=True` and a mail provider configured (see `.env.example`),
+new staff are emailed an invite link to choose their own password (links work once
+and expire after 3 days) and "Forgot your password?" emails a reset link. Sessions end after 30 minutes idle, when the browser
 closes, and in any case 12 hours after login (`SESSION_MAX_AGE_HOURS`). Five wrong
-passwords lock that email out for 15 minutes. Invite and reset emails need working
-email settings (see `.env.example`); until then they're printed to the server log.
-
+passwords lock that email out for 15 minutes. 
 ## Roles
 
 Run `python manage.py setup_groups` to create the three Phase 1 groups

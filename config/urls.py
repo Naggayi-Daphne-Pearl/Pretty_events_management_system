@@ -2,6 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
+from core.emailing import email_enabled_required
 from core.forms import EmailAuthenticationForm, EmailPasswordResetForm, EmailSetPasswordForm
 from core.views import (
     activity_log, activity_log_export, dashboard, profile, role_delete, role_form, role_list, user_send_reset,
@@ -22,12 +23,12 @@ urlpatterns = [
     path('logout/', auth_views.LogoutView.as_view(), name='logout'),
 
     # Forgot password: request link -> "check your email" -> set new password -> done.
-    path('password-reset/', auth_views.PasswordResetView.as_view(
+    path('password-reset/', email_enabled_required(auth_views.PasswordResetView.as_view(
         form_class=EmailPasswordResetForm,
         template_name='registration/password_reset_form.html', extra_context=AUTH_PAGE,
         email_template_name='registration/password_reset_email.txt',
         subject_template_name='registration/password_reset_subject.txt',
-    ), name='password_reset'),
+    )), name='password_reset'),
     path('password-reset/sent/', auth_views.PasswordResetDoneView.as_view(
         template_name='registration/password_reset_done.html', extra_context=AUTH_PAGE,
     ), name='password_reset_done'),

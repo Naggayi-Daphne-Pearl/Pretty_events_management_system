@@ -12,5 +12,9 @@
     <input type="hidden" name="next" value="{{ next }}">
     <button type="submit" class="btn btn-primary w-100">Log in</button>
 </form>
+{% if EMAIL_ENABLED %}
 <div class="text-center mt-3"><a href="{% url 'password_reset' %}" class="small">Forgot your password?</a></div>
+{% else %}
+<p class="text-center text-muted small mt-3 mb-0">Forgotten your password? Ask your administrator to reset it for you.</p>
+{% endif %}
 {% endblock %}

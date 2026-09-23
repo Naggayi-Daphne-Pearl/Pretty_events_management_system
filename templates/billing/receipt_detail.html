@@ -32,13 +32,13 @@
         <div class="card p-4">
             <h6 class="mb-1">Send receipt to client</h6>
             <p class="small text-muted mb-3">
-                {% if customer.email %}Email attaches the receipt PDF to {{ customer.email }}.{% else %}{{ customer.name }} has no email on file; you can type one on the next screen.{% endif %}
+                {% if EMAIL_ENABLED %}{% if customer.email %}Email attaches the receipt PDF to {{ customer.email }}.{% else %}{{ customer.name }} has no email on file; you can type one on the next screen.{% endif %}{% endif %}
                 WhatsApp opens a chat with the receipt details filled in; attach the downloaded PDF there if needed.
             </p>
             <div class="d-flex gap-2 flex-wrap">
                 <a href="{% url 'billing:receipt_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
-                {% if perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' object.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-envelope me-1"></i>Email to Client</a>{% endif %}
-                {% include "comms/_contact_buttons.html" with customer=customer event=invoice.event doc_kind="receipt" doc_pk=object.pk hide_email=True %}
+                {% if EMAIL_ENABLED and perms.billing.change_receipt %}<a href="{% url 'billing:receipt_email' object.pk %}" class="btn btn-primary btn-sm"><i class="bi bi-envelope me-1"></i>Email to Client</a>{% endif %}
+                {% include "comms/_contact_buttons.html" with customer=customer event=invoice.event doc_kind="receipt" doc_pk=object.pk hide_email=EMAIL_ENABLED %}
             </div>
         </div>
     </div>

@@ -35,10 +35,12 @@
             {% if object.user and user.is_superuser %}
             <hr>
             <div class="d-flex gap-2 flex-wrap">
+                {% if EMAIL_ENABLED %}
                 <form method="post" action="{% url 'user_send_reset' object.user.pk %}" class="d-inline">
                     {% csrf_token %}
                     <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope me-1"></i>{% if object.user.has_usable_password %}Email password reset link{% else %}Resend invite{% endif %}</button>
                 </form>
+                {% endif %}
                 <a href="{% url 'user_set_password' object.user.pk %}" class="btn btn-sm btn-outline-secondary">Set password directly</a>
             </div>
             {% endif %}

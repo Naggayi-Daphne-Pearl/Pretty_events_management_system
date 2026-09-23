@@ -20,6 +20,7 @@ from events.services import sync_event_statuses
 from inventory.models import EquipmentItem
 
 from .accounts import send_password_reset, send_staff_invite
+from .emailing import email_enabled_required
 from .activity import log_activity
 from .forms import SelfPasswordChangeForm, StaffSetPasswordForm
 from .models import ActivityLog
@@ -167,6 +168,7 @@ def user_set_password(request, pk):
     return render(request, 'core/user_set_password.html', {'form': form, 'staff_user': staff_user})
 
 
+@email_enabled_required
 @require_POST
 @superuser_required
 def user_send_reset(request, pk):

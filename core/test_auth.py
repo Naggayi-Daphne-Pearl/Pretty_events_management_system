@@ -66,11 +66,12 @@ class EmailLoginTests(TestCase):
         self.login('jane@example.com')
         self.assertFalse(FailedLoginAttempt.objects.exists())
 
+    @override_settings(EMAIL_ENABLED=True)
     def test_login_page_links_forgot_password(self):
         self.assertContains(self.client.get(reverse('login')), reverse('password_reset'))
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', EMAIL_ENABLED=True)
 class ForgotPasswordTests(TestCase):
     def setUp(self):
         self.user = User.objects.create_user('jane', email='jane@example.com', password='Old-Password-9')
@@ -113,7 +114,7 @@ class ForgotPasswordTests(TestCase):
         self.assertEqual(response.status_code, 302)
 
 
-@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+@override_settings(EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend', EMAIL_ENABLED=True)
 class StaffInviteTests(TestCase):
     def setUp(self):
         self.admin = User.objects.create_superuser('boss', 'boss@example.com', 'Admin-Pass-99')
