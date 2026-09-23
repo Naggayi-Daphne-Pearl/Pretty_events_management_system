@@ -1,7 +1,7 @@
 from django import forms
 from django.forms import inlineformset_factory
 
-from core.forms import BootstrapModelForm
+from core.forms import BootstrapFieldsMixin, BootstrapModelForm
 
 from .models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem
 
@@ -63,6 +63,11 @@ InvoiceLineItemFormSet = inlineformset_factory(
     Invoice, InvoiceLineItem, form=InvoiceLineItemForm, extra=0, can_delete=True,
     min_num=1, validate_min=True,
 )
+
+
+class EmailDocumentForm(BootstrapFieldsMixin, forms.Form):
+    to_email = forms.EmailField(label='Send to')
+    message = forms.CharField(label='Message', widget=forms.Textarea(attrs={'rows': 6}))
 
 
 class PaymentForm(BootstrapModelForm):

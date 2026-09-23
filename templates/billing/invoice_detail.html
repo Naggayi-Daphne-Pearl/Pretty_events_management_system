@@ -13,6 +13,7 @@
     <div>
         {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
         <a href="{% url 'billing:invoice_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
+        {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
     </div>
 </div>
 {% include "partials/_audit_trail.html" %}

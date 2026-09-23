@@ -13,6 +13,7 @@
     <div>
         {% if perms.billing.change_quotation %}<a href="{% url 'billing:quotation_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
         <a href="{% url 'billing:quotation_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
+        {% if perms.billing.change_quotation %}<a href="{% url 'billing:quotation_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
         {% if not object.has_invoice and perms.billing.add_invoice %}
         <a href="{% url 'billing:quotation_convert' object.pk %}" class="btn btn-primary btn-sm">Convert to Invoice</a>
         {% endif %}

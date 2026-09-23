@@ -9,14 +9,17 @@ from django.template.loader import render_to_string
 from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
+from comms.models import CommunicationLog
 from core.activity import log_activity, log_model_activity
+from core.emailing import send_pdf_email
 from core.utils import amount_in_words
 from events.models import Event
 from finance.models import IncomeRecord
 from inventory.models import EquipmentItem
 
 from .forms import (
-    InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm, QuotationLineItemFormSet,
+    EmailDocumentForm, InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm,
+    QuotationLineItemFormSet,
 )
 from .models import Invoice, Payment, Quotation, Receipt
 
@@ -35,17 +38,25 @@ def equipment_items_json():
     }
 
 
-def render_pdf(request, template_name, context, filename):
+def generate_pdf_bytes(request, template_name, context):
+    """Returns rendered PDF bytes, or None if WeasyPrint's native deps aren't installed."""
     # Render context processors (branding, currency, etc.) into the PDF template too.
     html_string = render_to_string(template_name, context, request=request)
     try:
         from weasyprint import HTML
         # Resolve relative asset paths (e.g. the logo) straight off disk rather than
         # over HTTP — avoids a request-fetching-itself deadlock on the dev server.
-        pdf_bytes = HTML(string=html_string, base_url=f'file://{settings.BASE_DIR}/').write_pdf()
+        return HTML(string=html_string, base_url=f'file://{settings.BASE_DIR}/').write_pdf()
     except (ImportError, OSError):
+        return None
+
+
+def render_pdf(request, template_name, context, filename):
+    pdf_bytes = generate_pdf_bytes(request, template_name, context)
+    if pdf_bytes is None:
         # WeasyPrint's native deps (pango/cairo) aren't installed on this machine —
         # fall back to plain HTML so the document is still viewable/printable.
+        html_string = render_to_string(template_name, context, request=request)
         return HttpResponse(html_string)
     response = HttpResponse(pdf_bytes, content_type='application/pdf')
     response['Content-Disposition'] = f'inline; filename="{filename}"'
@@ -172,6 +183,52 @@ def quotation_pdf(request, pk):
     return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': quotation}, f'{quotation.number}.pdf')
 
 
+@login_required
+@permission_required('billing.change_quotation', raise_exception=True)
+def quotation_email(request, pk):
+    quotation = get_object_or_404(Quotation, pk=pk)
+    customer = quotation.event.customer
+    if request.method == 'POST':
+        form = EmailDocumentForm(request.POST)
+        if form.is_valid():
+            to_email = form.cleaned_data['to_email']
+            pdf_bytes = generate_pdf_bytes(request, 'pdf/quotation_pdf.html', {'quotation': quotation})
+            sent = send_pdf_email(
+                to_email=to_email,
+                subject=f'Quotation {quotation.number} from {settings.COMPANY_LEGAL_NAME}',
+                body=form.cleaned_data['message'],
+                pdf_bytes=pdf_bytes,
+                filename=f'{quotation.number}.pdf',
+            )
+            if not sent:
+                messages.error(request, 'Could not send the email — please check the email settings and try again.')
+                return render(request, 'billing/quotation_email_form.html', {'form': form, 'object': quotation})
+            if quotation.status == Quotation.Status.DRAFT:
+                quotation.status = Quotation.Status.SENT
+                quotation.save(update_fields=['status'])
+            CommunicationLog.objects.create(
+                customer=customer,
+                channel=CommunicationLog.Channel.EMAIL,
+                direction=CommunicationLog.Direction.OUTBOUND,
+                message=f'Emailed quotation {quotation.number} to {to_email}',
+                logged_by=request.user,
+            )
+            log_model_activity(request, quotation, 'emailed', extra=f'to {to_email}')
+            messages.success(request, f'Quotation {quotation.number} emailed to {to_email}.')
+            return redirect('billing:quotation_detail', pk=quotation.pk)
+    else:
+        form = EmailDocumentForm(initial={
+            'to_email': customer.email,
+            'message': (
+                f'Hi {customer.name},\n\n'
+                f'Please find attached quotation {quotation.number} for your '
+                f'{quotation.event.event_type} on {quotation.event.event_date}.\n\n'
+                f'Thank you,\n{settings.COMPANY_LEGAL_NAME}'
+            ),
+        })
+    return render(request, 'billing/quotation_email_form.html', {'form': form, 'object': quotation})
+
+
 # ---------- Invoices ----------
 
 class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -266,6 +323,50 @@ def invoice_add_payment(request, pk):
 def invoice_pdf(request, pk):
     invoice = get_object_or_404(Invoice, pk=pk)
     return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': invoice}, f'{invoice.number}.pdf')
+
+
+@login_required
+@permission_required('billing.change_invoice', raise_exception=True)
+def invoice_email(request, pk):
+    invoice = get_object_or_404(Invoice, pk=pk)
+    customer = invoice.event.customer
+    if request.method == 'POST':
+        form = EmailDocumentForm(request.POST)
+        if form.is_valid():
+            to_email = form.cleaned_data['to_email']
+            pdf_bytes = generate_pdf_bytes(request, 'pdf/invoice_pdf.html', {'invoice': invoice})
+            sent = send_pdf_email(
+                to_email=to_email,
+                subject=f'Invoice {invoice.number} from {settings.COMPANY_LEGAL_NAME}',
+                body=form.cleaned_data['message'],
+                pdf_bytes=pdf_bytes,
+                filename=f'{invoice.number}.pdf',
+            )
+            if not sent:
+                messages.error(request, 'Could not send the email — please check the email settings and try again.')
+                return render(request, 'billing/invoice_email_form.html', {'form': form, 'object': invoice})
+            CommunicationLog.objects.create(
+                customer=customer,
+                channel=CommunicationLog.Channel.EMAIL,
+                direction=CommunicationLog.Direction.OUTBOUND,
+                message=f'Emailed invoice {invoice.number} to {to_email}',
+                logged_by=request.user,
+            )
+            log_model_activity(request, invoice, 'emailed', extra=f'to {to_email}')
+            messages.success(request, f'Invoice {invoice.number} emailed to {to_email}.')
+            return redirect('billing:invoice_detail', pk=invoice.pk)
+    else:
+        form = EmailDocumentForm(initial={
+            'to_email': customer.email,
+            'message': (
+                f'Hi {customer.name},\n\n'
+                f'Please find attached invoice {invoice.number} for your '
+                f'{invoice.event.event_type} on {invoice.event.event_date}. '
+                f'Balance due: {settings.CURRENCY} {invoice.balance_due:,.0f}.\n\n'
+                f'Thank you,\n{settings.COMPANY_LEGAL_NAME}'
+            ),
+        })
+    return render(request, 'billing/invoice_email_form.html', {'form': form, 'object': invoice})
 
 
 # ---------- Receipts ----------
