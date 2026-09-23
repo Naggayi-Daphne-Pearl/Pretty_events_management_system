@@ -22,4 +22,19 @@
         <a href="{% url 'finance:expense_list' %}" class="btn btn-outline-secondary">Cancel</a>
     </form>
 </div>
+{{ form.category_accounts|json_script:"category-accounts" }}
+<script>
+// Choosing a category pre-selects its ledger account, unless the user already picked one by hand.
+(function () {
+    var map = JSON.parse(document.getElementById('category-accounts').textContent);
+    var category = document.getElementById('id_category'), account = document.getElementById('id_expense_account');
+    if (!category || !account) return;
+    var touched = !!account.value;
+    account.addEventListener('change', function () { touched = true; });
+    category.addEventListener('change', function () {
+        if (touched) return;
+        account.value = map[category.value] ? String(map[category.value]) : '';
+    });
+})();
+</script>
 {% endblock %}

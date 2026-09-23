@@ -1,0 +1,11 @@
+{% load humanize %}
+<tr class="table-active"><th colspan="2">{{ section.title }}</th></tr>
+{% for r in section.rows %}
+<tr>
+    <td class="ps-4">{% if r.account %}<a href="{% url 'accounting:account_detail' r.account.pk %}{% if start %}?start={{ start|date:'Y-m-d' }}&end={{ end|date:'Y-m-d' }}{% endif %}">{{ r.account.code }} · {{ r.account.name }}</a>{% else %}<em>{{ r.label }}</em>{% endif %}</td>
+    <td class="text-end{% if r.amount < 0 %} text-danger{% endif %}">{{ r.amount|floatformat:2|intcomma }}</td>
+</tr>
+{% empty %}
+<tr><td class="ps-4 text-muted" colspan="2">None</td></tr>
+{% endfor %}
+<tr><td class="text-end fw-semibold">Total {{ section.title|lower }}</td><td class="text-end fw-semibold">{{ section.total|floatformat:2|intcomma }}</td></tr>

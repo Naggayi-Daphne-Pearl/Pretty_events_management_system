@@ -1,0 +1,19 @@
+{% extends "base.html" %}
+{% load static %}
+{% block auth_content %}
+<div class="d-flex align-items-center justify-content-center px-3" style="min-height: 100vh; background: var(--bg);">
+    <div class="card p-4" style="width: 100%; max-width: 400px;">
+        <div class="d-flex justify-content-center mb-1">
+            <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" style="height: 72px; width: auto;">
+        </div>
+        {% for message in messages %}
+            <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} py-2 small">{{ message }}</div>
+        {% endfor %}
+        {% block card %}{% endblock %}
+        <div class="theme-toggle mt-3">
+            <button type="button" id="pe-theme-light" onclick="peSetTheme('light')">Light</button>
+            <button type="button" id="pe-theme-dark" onclick="peSetTheme('dark')">Dark</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

@@ -45,11 +45,22 @@ always gets real PDFs.
 - `staffing` — staff records and event assignments
 - `comms` — structured client contact/communication log (no sending — a Phase 2 foundation)
 - `reports` — cross-app ORM aggregation reports
+- `accounting` — chart of accounts, double-entry journals, banking (cash / mobile money / bank accounts and transfers), trial balance, balance sheet and income statement. Cash basis: every income and expense record (including each invoice payment) posts its journal automatically; accountants add manual journals for assets, loans, capital, depreciation and opening balances.
+
+## Logging in
+
+Staff log in with their **email address**. New logins are created from the Staff
+page and, by default, the person is emailed an invite link to choose their own
+password (links work once and expire after 3 days). "Forgot your password?" on the
+login page emails a reset link. Sessions end after 30 minutes idle, when the browser
+closes, and in any case 12 hours after login (`SESSION_MAX_AGE_HOURS`). Five wrong
+passwords lock that email out for 15 minutes. Invite and reset emails need working
+email settings (see `.env.example`); until then they're printed to the server log.
 
 ## Roles
 
 Run `python manage.py setup_groups` to create the three Phase 1 groups
-(`Admin`, `Office Staff`, `Field Staff`) with model permissions already
+(`Admin`, `Office Staff`, `Field Staff`, `Accountant`) with model permissions already
 assigned. Assign users to a group from `/admin/` (Users → edit → Groups).
 Field Staff additionally only see events/issues they're assigned to — that
 row-level scoping lives in view querysets, not just group permissions.

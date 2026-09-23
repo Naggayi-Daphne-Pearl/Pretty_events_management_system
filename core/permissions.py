@@ -13,11 +13,12 @@ MANAGEABLE_APPS = OrderedDict([
     ('finance', 'Finance'),
     ('staffing', 'Staff'),
     ('comms', 'Communication'),
+    ('accounting', 'Accounting'),
 ])
 
 # Line items are only ever edited inline through their parent (quotation/invoice)
 # formset, never permission-checked on their own — hide them from the checklist.
-HIDDEN_MODELS = {'quotationlineitem', 'invoicelineitem'}
+HIDDEN_MODELS = {'quotationlineitem', 'invoicelineitem', 'journalline'}
 
 ACTION_ORDER = {'view': 0, 'add': 1, 'change': 2, 'delete': 3}
 

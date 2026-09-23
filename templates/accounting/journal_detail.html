@@ -1,0 +1,49 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ object.number }}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'accounting:journal_list' %}">Journals</a><span class="sep">/</span><span class="current">{{ object.number }}</span></nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <div>
+        <h3 class="mb-0">Journal {{ object.number }}</h3>
+        <span class="badge bg-secondary badge-status">{{ object.get_source_display }}</span>
+    </div>
+    <div class="d-flex gap-1">
+        {% if not object.is_auto and perms.accounting.change_journalentry and object.source != 'transfer' %}<a href="{% url 'accounting:journal_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
+        {% if not object.is_auto and perms.accounting.delete_journalentry %}<a href="{% url 'accounting:journal_delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>{% endif %}
+    </div>
+</div>
+{% include "partials/_audit_trail.html" %}
+{% if object.is_auto %}
+<div class="alert alert-info py-2 small">
+    Created automatically from
+    {% if object.income_record %}income record "{{ object.income_record.description|default:'income' }}"{% if object.income_record.payment %} (payment on <a href="{% url 'billing:invoice_detail' object.income_record.payment.invoice.pk %}">{{ object.income_record.payment.invoice.number }}</a>){% endif %}{% else %}expense record "{{ object.expense_record.description|default:object.expense_record.category }}"{% endif %}.
+    To change it, edit that record; this entry updates itself.
+</div>
+{% endif %}
+<div class="card p-4" style="max-width: 900px;">
+    <dl class="row small mb-3">
+        <dt class="col-sm-2">Date</dt><dd class="col-sm-4">{{ object.date|date:"d M Y" }}</dd>
+        <dt class="col-sm-2">Reference</dt><dd class="col-sm-4">{{ object.reference|default:"-" }}</dd>
+        <dt class="col-sm-2">Narration</dt><dd class="col-sm-10">{{ object.memo|default:"-" }}</dd>
+    </dl>
+    <div class="table-responsive">
+    <table class="table table-sm align-middle">
+        <thead><tr><th>Account</th><th>Description</th><th class="text-end">Debit</th><th class="text-end">Credit</th></tr></thead>
+        <tbody>
+        {% for line in object.lines.all %}
+            <tr>
+                <td><a href="{% url 'accounting:account_detail' line.account.pk %}">{{ line.account }}</a></td>
+                <td>{{ line.description }}</td>
+                <td class="text-end">{% if line.debit %}{{ line.debit|floatformat:2|intcomma }}{% endif %}</td>
+                <td class="text-end">{% if line.credit %}{{ line.credit|floatformat:2|intcomma }}{% endif %}</td>
+            </tr>
+        {% endfor %}
+        </tbody>
+        <tfoot><tr><th colspan="2" class="text-end">Total</th><th class="text-end">{{ object.total|floatformat:2|intcomma }}</th><th class="text-end">{{ object.total|floatformat:2|intcomma }}</th></tr></tfoot>
+    </table>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Record Entry: {{ object.name }}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'accounting:chart' %}">Chart of Accounts</a><span class="sep">/</span><a href="{% url 'accounting:account_detail' object.pk %}">{{ object }}</a><span class="sep">/</span><span class="current">Record entry</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-1">Record entry on {{ object.name }}</h3>
+<p class="text-muted small mb-3">{{ object.code }} · {{ object.get_account_type_display }} · {{ object.get_detail_type_display }}. The other side goes to the account you choose below, so the books stay balanced. Need more than two accounts? <a href="{% url 'accounting:journal_create' %}?account={{ object.pk }}">Use a multi-line journal</a>.</p>
+<div class="card p-4" style="max-width: 640px;">
+    <form method="post" id="account-entry-form">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger py-2 small">{% for e in form.non_field_errors %}{{ e }} {% endfor %}</div>{% endif %}
+        {% for field in form %}
+            <div class="mb-3">
+                <label class="form-label">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                {% if field.name == 'side' %}
+                    {% for radio in field %}
+                    <div class="form-check">{{ radio.tag }} <label class="form-check-label" for="{{ radio.id_for_label }}">{{ radio.choice_label }}</label></div>
+                    {% endfor %}
+                {% else %}
+                    {{ field }}
+                {% endif %}
+                {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <div class="alert alert-light border small py-2" id="entry-preview" hidden></div>
+        <button type="submit" class="btn btn-primary">Record entry</button>
+        <a href="{% url 'accounting:account_detail' object.pk %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+</div>
+{{ object.name|json_script:"acct-name" }}
+<script>
+// Show the resulting double entry in plain words before saving. Built with text nodes,
+// never innerHTML, because account names are user-entered.
+(function () {
+    var form = document.getElementById('account-entry-form'), box = document.getElementById('entry-preview');
+    var me = JSON.parse(document.getElementById('acct-name').textContent);
+    function part(label, name, amt) {
+        var frag = document.createDocumentFragment(), b = document.createElement('strong');
+        b.textContent = label; frag.appendChild(b); frag.appendChild(document.createTextNode(' ' + name + ' ' + amt));
+        return frag;
+    }
+    function update() {
+        var side = form.querySelector('input[name=side]:checked'), amount = parseFloat(form.elements.amount.value || '0');
+        var other = form.elements.offset_account, otherText = other.selectedIndex > 0 ? other.options[other.selectedIndex].text : '';
+        if (!side || !amount || !otherText) { box.hidden = true; return; }
+        var amt = amount.toLocaleString(undefined, {minimumFractionDigits: 2, maximumFractionDigits: 2});
+        var dr = side.value === 'debit' ? me : otherText, cr = side.value === 'debit' ? otherText : me;
+        box.replaceChildren(part('Debit', dr, amt), document.createTextNode('  /  '), part('Credit', cr, amt));
+        box.hidden = false;
+    }
+    form.addEventListener('input', update); form.addEventListener('change', update);
+})();
+</script>
+{% endblock %}

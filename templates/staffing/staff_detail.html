@@ -18,12 +18,30 @@
             <dl class="row mb-0 small">
                 <dt class="col-5">Title</dt><dd class="col-7">{{ object.title|default:"—" }}</dd>
                 <dt class="col-5">Phone</dt><dd class="col-7">{{ object.phone|default:"—" }}</dd>
-                <dt class="col-5">Login account</dt><dd class="col-7">{{ object.user|default:"None" }}</dd>
+                <dt class="col-5">Login</dt><dd class="col-7">{% if object.user %}{{ object.user.email|default:object.user.username }}{% else %}None{% endif %}</dd>
+                {% if object.user %}
+                <dt class="col-5">Login status</dt><dd class="col-7">
+                    {% if not object.user.is_active %}<span class="badge bg-secondary">Disabled</span>
+                    {% elif not object.user.has_usable_password %}<span class="badge bg-warning text-dark">Invited, password not set yet</span>
+                    {% else %}<span class="badge bg-success">Active</span>{% endif %}
+                </dd>
+                <dt class="col-5">Last login</dt><dd class="col-7">{{ object.user.last_login|default:"Never" }}</dd>
+                {% endif %}
                 {% if object.user %}
                 <dt class="col-5">Roles</dt><dd class="col-7">{% for g in object.user.groups.all %}<span class="badge bg-secondary badge-status me-1">{{ g.name }}</span>{% empty %}<span class="text-muted">—</span>{% endfor %}</dd>
                 {% endif %}
                 <dt class="col-5">Status</dt><dd class="col-7">{% if object.is_active %}Active{% else %}Inactive{% endif %}</dd>
             </dl>
+            {% if object.user and user.is_superuser %}
+            <hr>
+            <div class="d-flex gap-2 flex-wrap">
+                <form method="post" action="{% url 'user_send_reset' object.user.pk %}" class="d-inline">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-sm btn-outline-primary"><i class="bi bi-envelope me-1"></i>{% if object.user.has_usable_password %}Email password reset link{% else %}Resend invite{% endif %}</button>
+                </form>
+                <a href="{% url 'user_set_password' object.user.pk %}" class="btn btn-sm btn-outline-secondary">Set password directly</a>
+            </div>
+            {% endif %}
         </div>
     </div>
     <div class="col-lg-8">

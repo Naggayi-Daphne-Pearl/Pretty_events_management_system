@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Chart of Accounts{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Chart of Accounts</span></nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <h3 class="mb-0">Chart of Accounts</h3>
+    <div class="d-flex gap-1">
+        <a href="?{{ request.GET.urlencode }}{% if request.GET %}&{% endif %}format=csv" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>CSV</a>
+        {% if perms.accounting.add_account %}<a href="{% url 'accounting:account_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New account</a>{% endif %}
+    </div>
+</div>
+{% include "accounting/_nav.html" %}
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-sm-4"><label class="form-label small mb-0">Search</label><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Code or name"></div>
+        <div class="col-auto"><label class="form-label small mb-0">Balances as of</label><input type="date" name="as_of" value="{{ as_of|date:'Y-m-d' }}" class="form-control"></div>
+        <div class="col-auto form-check ms-2 mb-2"><input type="checkbox" class="form-check-input" name="inactive" value="1" id="inactive"{% if show_inactive %} checked{% endif %}><label class="form-check-label small" for="inactive">Show inactive</label></div>
+        <div class="col-auto"><button class="btn btn-outline-secondary" type="submit">Apply</button></div>
+    </form>
+</div>
+{% for group in groups %}
+<div class="card p-3 mb-3">
+    <div class="d-flex justify-content-between align-items-baseline">
+        <h6 class="mb-2">{{ group.label }}{% if group.label == 'Equity' %} <span class="small text-muted fw-normal">(profit is added on the balance sheet)</span>{% endif %}</h6>
+        <span class="small text-muted">{{ group.rows|length }} account{{ group.rows|length|pluralize }}</span>
+    </div>
+    <div class="table-responsive">
+    <table class="table table-sm align-middle mb-0">
+        <thead><tr><th style="width:110px;">Code</th><th>Account</th><th>Detail type</th><th class="text-end">Balance ({{ CURRENCY }})</th>{% if perms.accounting.add_journalentry %}<th style="width:60px;"></th>{% endif %}</tr></thead>
+        <tbody>
+        {% for row in group.rows %}
+            <tr{% if not row.account.is_active %} class="text-muted"{% endif %}>
+                <td>{{ row.account.code }}</td>
+                <td style="padding-left: {{ row.account.depth|add:1 }}rem;">
+                    <a href="{% url 'accounting:account_detail' row.account.pk %}">{{ row.account.name }}</a>
+                    {% if row.account.system_key %}<span class="badge bg-secondary ms-1" title="The app posts to this account automatically">auto</span>{% endif %}
+                    {% if not row.account.is_active %}<span class="badge bg-light text-dark ms-1">inactive</span>{% endif %}
+                </td>
+                <td class="small">{{ row.account.get_detail_type_display }}</td>
+                <td class="text-end{% if row.balance < 0 %} text-danger{% endif %}">{{ row.balance|floatformat:2|intcomma }}</td>
+                {% if perms.accounting.add_journalentry %}<td class="text-end">{% if row.account.is_active %}<a href="{% url 'accounting:account_entry' row.account.pk %}" class="btn btn-sm btn-outline-secondary py-0" title="Record a manual entry on {{ row.account.name }}"><i class="bi bi-plus-lg"></i></a>{% endif %}</td>{% endif %}
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-3">{% if q %}No {{ group.label|lower }} accounts match "{{ q }}".{% else %}No {{ group.label|lower }} accounts yet.{% endif %}</td></tr>
+        {% endfor %}
+        </tbody>
+        {% if group.rows %}<tfoot><tr><th colspan="3" class="text-end">Total {{ group.label|lower }}</th><th class="text-end">{{ group.total|floatformat:2|intcomma }}</th>{% if perms.accounting.add_journalentry %}<th></th>{% endif %}</tr></tfoot>{% endif %}
+    </table>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

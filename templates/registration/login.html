@@ -1,33 +1,16 @@
-{% extends "base.html" %}
-{% load static %}
+{% extends "registration/auth_base.html" %}
 {% block title %}Log in{% endblock %}
-{% block auth_content %}
-<div class="d-flex align-items-center justify-content-center" style="min-height: 100vh; background: var(--bg);">
-    <div class="card p-4" style="width: 360px;">
-        <div class="d-flex justify-content-center mb-1">
-            <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" style="height: 72px; width: auto;">
-        </div>
-        <p class="text-muted text-center small mb-4">Staff login</p>
-        {% if form.errors %}
-            <div class="alert alert-danger py-2">Incorrect username or password.</div>
-        {% endif %}
-        <form method="post">
-            {% csrf_token %}
-            <div class="mb-3">
-                <label class="form-label">Username <span class="text-danger">*</span></label>
-                <input type="text" name="username" class="form-control" required autofocus>
-            </div>
-            <div class="mb-3">
-                <label class="form-label">Password <span class="text-danger">*</span></label>
-                <input type="password" name="password" class="form-control" required>
-            </div>
-            <input type="hidden" name="next" value="{{ next }}">
-            <button type="submit" class="btn btn-primary w-100">Log in</button>
-        </form>
-        <div class="theme-toggle mt-3">
-            <button type="button" id="pe-theme-light" onclick="peSetTheme('light')">Light</button>
-            <button type="button" id="pe-theme-dark" onclick="peSetTheme('dark')">Dark</button>
-        </div>
-    </div>
-</div>
+{% block card %}
+<p class="text-muted text-center small mb-4">Staff login</p>
+{% if form.non_field_errors %}
+    <div class="alert alert-danger py-2 small">{% for e in form.non_field_errors %}{{ e }}{% endfor %}</div>
+{% endif %}
+<form method="post" novalidate>
+    {% csrf_token %}
+    {% include "registration/_field.html" with field=form.username %}
+    {% include "registration/_field.html" with field=form.password %}
+    <input type="hidden" name="next" value="{{ next }}">
+    <button type="submit" class="btn btn-primary w-100">Log in</button>
+</form>
+<div class="text-center mt-3"><a href="{% url 'password_reset' %}" class="small">Forgot your password?</a></div>
 {% endblock %}

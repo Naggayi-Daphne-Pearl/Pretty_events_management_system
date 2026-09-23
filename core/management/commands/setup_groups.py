@@ -1,6 +1,7 @@
 from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
+from accounting.models import Account, JournalEntry
 from billing.models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem, Receipt
 from comms.models import CommunicationLog
 from customers.models import Customer
@@ -36,7 +37,7 @@ class Command(BaseCommand):
         admin_group, _ = Group.objects.get_or_create(name='Admin')
         admin_perms = Permission.objects.filter(
             content_type__app_label__in=[
-                'customers', 'events', 'billing', 'inventory', 'finance', 'staffing', 'comms',
+                'customers', 'events', 'billing', 'inventory', 'finance', 'staffing', 'comms', 'accounting',
             ]
         )
         admin_group.permissions.set(admin_perms)
@@ -68,8 +69,18 @@ class Command(BaseCommand):
         ))
         field_group.permissions.set(field_perms)
 
+        # Accountant: runs the books. Full accounting + income/expense records, and
+        # read-only access to the operational records the books are built from.
+        accountant_group, _ = Group.objects.get_or_create(name='Accountant')
+        accountant_perms = list(perms_for(Account)) + list(perms_for(JournalEntry))
+        for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
+            accountant_perms += list(perms_for(model))
+        for model in (Customer, Event, Quotation, Invoice, Payment, Receipt):
+            accountant_perms += list(perms_for(model, VIEW_ONLY))
+        accountant_group.permissions.set(accountant_perms)
+
         self.stdout.write(self.style.SUCCESS(
-            'Groups ready: Admin, Office Staff, Field Staff. '
+            'Groups ready: Admin, Office Staff, Field Staff, Accountant. '
             'Assign users to a group in Django admin (Users > edit > Groups). '
             'To add a new role, create a Group there and tick whichever permissions it needs — '
             'no code changes required.'

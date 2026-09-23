@@ -1,0 +1,12 @@
+{% autoescape off %}Hello,
+
+{{ invited_by }} has created a login for you on the {{ company }} system.
+
+Choose your password here to get started:
+{{ link }}
+
+You'll log in with this email address ({{ user.email }}) and the password you choose.
+The link works once and expires in {{ valid_days }} days. If it has expired, use "Forgot your password?" on the login page.
+
+{{ company }}
+{% endautoescape %}

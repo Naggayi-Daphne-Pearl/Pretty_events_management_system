@@ -12,12 +12,14 @@ from django.db.models import Count, Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
+from django.views.decorators.http import require_POST
 
 from billing.models import Invoice
 from events.models import Event
 from events.services import sync_event_statuses
 from inventory.models import EquipmentItem
 
+from .accounts import send_password_reset, send_staff_invite
 from .activity import log_activity
 from .forms import SelfPasswordChangeForm, StaffSetPasswordForm
 from .models import ActivityLog
@@ -163,6 +165,27 @@ def user_set_password(request, pk):
     else:
         form = StaffSetPasswordForm(staff_user)
     return render(request, 'core/user_set_password.html', {'form': form, 'staff_user': staff_user})
+
+
+@require_POST
+@superuser_required
+def user_send_reset(request, pk):
+    """Email a staff login a link to set a new password: a fresh invite if they never set
+    one, otherwise a reset. The admin never sees or chooses the password."""
+    staff_user = get_object_or_404(get_user_model(), pk=pk)
+    back = redirect('staffing:detail', pk=staff_user.staff_profile.pk) if hasattr(staff_user, 'staff_profile') else redirect('dashboard')
+    if not staff_user.email:
+        messages.error(request, f'"{staff_user.username}" has no email address. Add one first.')
+        return back
+    invite = not staff_user.has_usable_password()
+    sent = send_staff_invite(request, staff_user) if invite else send_password_reset(request, staff_user)
+    kind = 'invite' if invite else 'password reset link'
+    if sent:
+        log_activity(request, f'staff_account.{"invite" if invite else "reset"}_sent', f'Sent {kind} to "{staff_user.email}"')
+        messages.success(request, f'Sent a {kind} to {staff_user.email}.')
+    else:
+        messages.error(request, f'Could not send the {kind}: the mail server could not be reached. Try again later.')
+    return back
 
 
 # ---------- Activity Log (superuser-only) ----------

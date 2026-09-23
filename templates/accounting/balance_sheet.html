@@ -1,0 +1,36 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Balance Sheet{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'accounting:reports' %}">Accounting Reports</a><span class="sep">/</span><span class="current">Balance Sheet</span></nav>
+{% endblock %}
+{% block content %}
+{% with as_of_s=as_of|date:"d M Y" %}
+{% include "accounting/_report_header.html" with title="Balance Sheet" subtitle="As of "|add:as_of_s %}
+{% endwith %}
+{% include "accounting/_nav.html" %}
+<div class="card p-3 mb-3">
+    <form method="get" class="row g-2 align-items-end">
+        <div class="col-auto"><label class="form-label small mb-0">As of</label><input type="date" name="as_of" value="{{ as_of|date:'Y-m-d' }}" class="form-control"></div>
+        <div class="col-auto"><button class="btn btn-outline-secondary" type="submit">Apply</button></div>
+    </form>
+</div>
+{% if difference %}
+<div class="alert alert-danger py-2 small">Assets and liabilities + equity differ by {{ difference|floatformat:2|intcomma }}. This shouldn't happen; please check recent manual journals.</div>
+{% endif %}
+<div class="card p-3" style="max-width: 820px;">
+    <table class="table table-sm align-middle mb-0">
+        <thead><tr><th>Account</th><th class="text-end" style="width:200px;">Amount</th></tr></thead>
+        <tbody>
+            <tr><th colspan="2" class="fs-6">Assets</th></tr>
+            {% for section in asset_sections %}{% include "accounting/_report_section.html" %}{% endfor %}
+            <tr class="border-top border-3"><th>Total assets</th><th class="text-end">{{ total_assets|floatformat:2|intcomma }}</th></tr>
+            <tr><th colspan="2" class="fs-6 pt-4">Liabilities &amp; equity</th></tr>
+            {% for section in liability_sections %}{% include "accounting/_report_section.html" %}{% endfor %}
+            <tr class="border-top border-2"><th>Total liabilities</th><th class="text-end">{{ total_liabilities|floatformat:2|intcomma }}</th></tr>
+            {% include "accounting/_report_section.html" with section=equity %}
+            <tr class="border-top border-3"><th>Total liabilities &amp; equity</th><th class="text-end">{{ liabilities_and_equity|floatformat:2|intcomma }}</th></tr>
+        </tbody>
+    </table>
+</div>
+{% endblock %}

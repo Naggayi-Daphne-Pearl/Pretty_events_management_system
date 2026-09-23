@@ -36,6 +36,7 @@ INSTALLED_APPS = [
     'staffing',
     'comms',
     'reports',
+    'accounting',
 ]
 
 MIDDLEWARE = [
@@ -46,6 +47,7 @@ MIDDLEWARE = [
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
+    'core.auth.SessionMaxAgeMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -101,10 +103,22 @@ LOGIN_URL = 'login'
 LOGIN_REDIRECT_URL = 'dashboard'
 LOGOUT_REDIRECT_URL = 'login'
 
-# Sessions expire after 30 minutes of inactivity; each request resets the clock.
+# Staff log in with their email address (username still accepted for old admin accounts).
+AUTHENTICATION_BACKENDS = ['core.auth.EmailBackend']
+
+# Sessions expire after 30 minutes of inactivity; each request resets the clock...
 SESSION_COOKIE_AGE = 30 * 60
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
+# ...and never last longer than this from login, however active (core.auth.SessionMaxAgeMiddleware).
+SESSION_MAX_AGE_HOURS = env.int('SESSION_MAX_AGE_HOURS', default=12)
+
+# Lock an email out of logging in for a while after this many wrong passwords.
+LOGIN_MAX_FAILED_ATTEMPTS = 5
+LOGIN_LOCKOUT_MINUTES = 15
+
+# Password reset and staff invite links stop working after this long (and once used).
+PASSWORD_RESET_TIMEOUT = 3 * 24 * 60 * 60
 
 # Single currency for Phase 1 (confirmed default: UGX only, no multi-currency).
 CURRENCY = 'UGX'

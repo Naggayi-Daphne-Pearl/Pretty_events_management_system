@@ -47,3 +47,15 @@ class FormSubmissionToken(models.Model):
     token = models.CharField(max_length=64, unique=True)
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name='+')
     created_at = models.DateTimeField(auto_now_add=True)
+
+
+class FailedLoginAttempt(models.Model):
+    """
+    One row per failed login, keyed by the (lower-cased) email/username typed.
+    Used to lock an identifier out for a while after repeated failures so a
+    password can't be brute-forced. Stored in the DB rather than the cache
+    because production runs several gunicorn workers that don't share memory.
+    See core.auth.
+    """
+    identifier = models.CharField(max_length=254, db_index=True)
+    created_at = models.DateTimeField(auto_now_add=True, db_index=True)

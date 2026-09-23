@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Banking{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Banking</span></nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <div>
+        <h3 class="mb-0">Banking</h3>
+        <span class="small text-muted">Cash, mobile money and bank accounts. Total available: <strong>{{ CURRENCY }} {{ total|floatformat:2|intcomma }}</strong></span>
+    </div>
+    <div class="d-flex gap-1">
+        {% if perms.accounting.add_journalentry %}<a href="{% url 'accounting:transfer_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-arrow-left-right me-1"></i>Transfer money</a>{% endif %}
+        {% if perms.accounting.add_account %}<a href="{% url 'accounting:account_create' %}?type=asset&detail=cash_bank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add bank account</a>{% endif %}
+    </div>
+</div>
+{% include "accounting/_nav.html" %}
+<p class="small text-muted">Invoice payments land here automatically by payment method (cash, mobile money, bank/cheque). Expenses come out of the account chosen on the expense. To add another bank or mobile money wallet, create an Asset account with detail type "Cash &amp; bank".</p>
+<div class="row g-3">
+{% for row in rows %}
+    <div class="col-md-6 col-xl-4">
+        <div class="card p-3 h-100{% if not row.account.is_active %} opacity-75{% endif %}">
+            <div class="d-flex justify-content-between align-items-start">
+                <div>
+                    <a href="{% url 'accounting:account_detail' row.account.pk %}" class="fw-semibold">{{ row.account.name }}</a>
+                    <div class="small text-muted">{{ row.account.code }}{% if not row.account.is_active %} · inactive{% endif %}</div>
+                </div>
+                <div class="fs-5 fw-semibold{% if row.balance < 0 %} text-danger{% endif %}">{{ row.balance|floatformat:0|intcomma }}</div>
+            </div>
+            <ul class="list-group list-group-flush mt-2 small">
+            {% for line in row.recent %}
+                <li class="list-group-item px-0 d-flex justify-content-between gap-2">
+                    <span class="text-truncate"><span class="text-muted">{{ line.entry.date|date:"d M" }}</span> {{ line.description|default:line.entry.memo }}</span>
+                    <span class="text-nowrap {% if line.credit %}text-danger{% else %}text-success{% endif %}">{% if line.credit %}-{{ line.credit|floatformat:0|intcomma }}{% else %}+{{ line.debit|floatformat:0|intcomma }}{% endif %}</span>
+                </li>
+            {% empty %}
+                <li class="list-group-item px-0 text-muted">No transactions yet.</li>
+            {% endfor %}
+            </ul>
+            <a href="{% url 'accounting:account_detail' row.account.pk %}" class="small mt-2">View all transactions</a>
+        </div>
+    </div>
+{% empty %}
+    <div class="col-12"><div class="card p-4 text-center text-muted">No cash or bank accounts yet.</div></div>
+{% endfor %}
+</div>
+{% endblock %}

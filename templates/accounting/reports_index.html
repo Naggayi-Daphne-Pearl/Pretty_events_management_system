@@ -1,0 +1,16 @@
+{% extends "base.html" %}
+{% block title %}Accounting Reports{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Accounting Reports</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-2">Accounting Reports</h3>
+{% include "accounting/_nav.html" %}
+<p class="small text-muted">All reports are on a <strong>cash basis</strong>: income counts when money is received, expenses when they're paid. Money clients still owe is on the <a href="{% url 'reports:outstanding_payments' %}">Outstanding Payments</a> report.</p>
+<div class="row g-3">
+    <div class="col-md-4"><a href="{% url 'accounting:income_statement' %}" class="card p-3 h-100 text-decoration-none"><h6><i class="bi bi-graph-up-arrow me-2"></i>Income Statement (Profit &amp; Loss)</h6><span class="small text-muted">Income, cost of sales, gross profit, expenses and net profit for a period.</span></a></div>
+    <div class="col-md-4"><a href="{% url 'accounting:balance_sheet' %}" class="card p-3 h-100 text-decoration-none"><h6><i class="bi bi-bank me-2"></i>Balance Sheet</h6><span class="small text-muted">Assets, liabilities and equity on a date.</span></a></div>
+    <div class="col-md-4"><a href="{% url 'accounting:trial_balance' %}" class="card p-3 h-100 text-decoration-none"><h6><i class="bi bi-list-check me-2"></i>Trial Balance</h6><span class="small text-muted">Every account's debit or credit balance on a date; the two columns must match.</span></a></div>
+    <div class="col-md-4"><a href="{% url 'accounting:chart' %}" class="card p-3 h-100 text-decoration-none"><h6><i class="bi bi-diagram-3 me-2"></i>Chart of Accounts</h6><span class="small text-muted">Every account with its balance, grouped by type. Open one for its ledger.</span></a></div>
+</div>
+{% endblock %}

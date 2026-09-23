@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Journals{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Journals</span></nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-2 flex-wrap gap-2">
+    <h3 class="mb-0">Journals</h3>
+    {% if perms.accounting.add_journalentry %}<a href="{% url 'accounting:journal_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New journal</a>{% endif %}
+</div>
+{% include "accounting/_nav.html" %}
+<div class="card p-3">
+    <form method="get" class="row g-2 mb-3 align-items-end">
+        <div class="col-sm-3"><label class="form-label small mb-0">Search</label><input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Number, narration, reference, account"></div>
+        <div class="col-auto"><label class="form-label small mb-0">Type</label>
+            <select name="source" class="form-select"><option value="">All types</option>{% for v, l in sources %}<option value="{{ v }}"{% if v == source %} selected{% endif %}>{{ l }}</option>{% endfor %}</select></div>
+        <div class="col-auto"><label class="form-label small mb-0">From</label><input type="date" name="start" value="{{ start|date:'Y-m-d' }}" class="form-control"></div>
+        <div class="col-auto"><label class="form-label small mb-0">To</label><input type="date" name="end" value="{{ end|date:'Y-m-d' }}" class="form-control"></div>
+        <input type="hidden" name="per_page" value="{{ per_page }}">
+        <div class="col-auto"><button class="btn btn-outline-secondary" type="submit">Apply</button></div>
+    </form>
+    <div class="table-responsive">
+    <table class="table align-middle">
+        <thead><tr><th>Date</th><th>Number</th><th>Type</th><th>Narration</th><th>Accounts</th><th class="text-end">Amount</th></tr></thead>
+        <tbody>
+        {% for e in page_obj %}
+            <tr>
+                <td class="text-nowrap">{{ e.date|date:"d M Y" }}</td>
+                <td><a href="{% url 'accounting:journal_detail' e.pk %}">{{ e.number }}</a></td>
+                <td><span class="badge bg-secondary badge-status">{{ e.get_source_display }}</span></td>
+                <td>{{ e.memo|truncatechars:60 }}{% if e.reference %} <span class="text-muted small">({{ e.reference }})</span>{% endif %}</td>
+                <td class="small">{% for l in e.lines.all %}{{ l.account.name }}{% if not forloop.last %}, {% endif %}{% endfor %}</td>
+                <td class="text-end text-nowrap">{{ e.total|floatformat:2|intcomma }}</td>
+            </tr>
+        {% empty %}
+            {% url 'accounting:journal_create' as add_url %}
+            {% include "partials/_empty_row.html" with colspan=6 noun="journal entries" empty_text="Income, expenses and invoice payments post here automatically. Add manual journals for assets, loans, capital, depreciation and opening balances." action_url=add_url action_label="New journal" %}
+        {% endfor %}
+        </tbody>
+    </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

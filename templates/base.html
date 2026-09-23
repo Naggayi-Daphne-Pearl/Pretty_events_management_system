@@ -272,7 +272,7 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
-{% if user.is_authenticated %}
+{% if user.is_authenticated and not auth_page %}
 <div class="d-flex">
     <nav class="sidebar d-none d-md-flex flex-column p-3" style="width: 240px;">
         <a href="{% url 'dashboard' %}" class="text-decoration-none d-flex align-items-center gap-2 mb-4 px-1">
@@ -340,6 +340,27 @@
                 {% if perms.staffing.view_staffmember %}
                 <li class="nav-item"><a href="{% url 'staffing:list' %}" class="nav-link {% if request.resolver_match.app_name == 'staffing' %}active{% endif %}"><i class="bi bi-person-badge me-2"></i>Staff</a></li>
                 {% endif %}
+            </ul>
+        </div>
+        {% endif %}
+
+        {% if perms.accounting.view_account or perms.accounting.view_journalentry %}
+        <div class="nav-section" data-section="accounting" data-default-open="{% if request.resolver_match.app_name == 'accounting' %}true{% else %}false{% endif %}">
+            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
+                <span class="nav-section-label">Accounting</span>
+                <i class="bi bi-chevron-down nav-section-chevron"></i>
+            </button>
+            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
+                {% with url_name=request.resolver_match.url_name in_acc=request.resolver_match.app_name %}
+                {% if perms.accounting.view_account %}
+                <li class="nav-item"><a href="{% url 'accounting:chart' %}" class="nav-link {% if in_acc == 'accounting' and url_name == 'chart' or in_acc == 'accounting' and 'account_' in url_name %}active{% endif %}"><i class="bi bi-diagram-3 me-2"></i>Chart of Accounts</a></li>
+                <li class="nav-item"><a href="{% url 'accounting:banking' %}" class="nav-link {% if in_acc == 'accounting' and url_name == 'banking' or in_acc == 'accounting' and url_name == 'transfer_create' %}active{% endif %}"><i class="bi bi-bank me-2"></i>Banking</a></li>
+                {% endif %}
+                {% if perms.accounting.view_journalentry %}
+                <li class="nav-item"><a href="{% url 'accounting:journal_list' %}" class="nav-link {% if in_acc == 'accounting' and 'journal' in url_name %}active{% endif %}"><i class="bi bi-journal-text me-2"></i>Journals</a></li>
+                <li class="nav-item"><a href="{% url 'accounting:reports' %}" class="nav-link {% if in_acc == 'accounting' and url_name in 'reports,trial_balance,income_statement,balance_sheet' %}active{% endif %}"><i class="bi bi-bar-chart-line me-2"></i>Financial Reports</a></li>
+                {% endif %}
+                {% endwith %}
             </ul>
         </div>
         {% endif %}

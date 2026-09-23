@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
 from core.activity import log_activity
+from core.accounts import send_staff_invite
 from core.deletion import confirm_and_delete, count_label
 from core.forms import StaffAccountCreationForm, StaffAccountUpdateForm
 from events.models import Event
@@ -31,6 +32,24 @@ class StaffMemberDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailV
         return ctx
 
 
+def _create_login(request, staff_member, login_form):
+    user = login_form.save()
+    staff_member.user = user
+    staff_member.save(update_fields=['user'])
+    log_activity(request, 'staff_account.created', f'Created login "{user.email}" for staff member "{staff_member.full_name}"')
+    if not login_form.sends_invite:
+        return
+    if send_staff_invite(request, user):
+        log_activity(request, 'staff_account.invite_sent', f'Sent invite to "{user.email}"')
+        messages.info(request, f'An invite was emailed to {user.email} so they can set their own password.')
+    else:
+        messages.warning(
+            request,
+            f'The login was created, but the invite email to {user.email} could not be sent. '
+            'Use "Send invite" on their page once email is working, or set a password for them.',
+        )
+
+
 @login_required
 @permission_required('staffing.add_staffmember', raise_exception=True)
 def staff_create(request):
@@ -44,13 +63,7 @@ def staff_create(request):
             staff_member = form.save()
             log_activity(request, 'staff.created', f'Created staff member "{staff_member.full_name}"')
             if wants_login:
-                user = login_form.save()
-                staff_member.user = user
-                staff_member.save(update_fields=['user'])
-                log_activity(
-                    request, 'staff_account.created',
-                    f'Created login "{user.username}" for staff member "{staff_member.full_name}"',
-                )
+                _create_login(request, staff_member, login_form)
             messages.success(request, f'Staff member "{staff_member.full_name}" added.')
             return redirect('staffing:detail', pk=staff_member.pk)
     else:
@@ -86,13 +99,7 @@ def staff_update(request, pk):
             staff_member = form.save()
             log_activity(request, 'staff.updated', f'Updated staff member "{staff_member.full_name}"')
             if login_form and not linked_user:
-                user = login_form.save()
-                staff_member.user = user
-                staff_member.save(update_fields=['user'])
-                log_activity(
-                    request, 'staff_account.created',
-                    f'Created login "{user.username}" for staff member "{staff_member.full_name}"',
-                )
+                _create_login(request, staff_member, login_form)
             elif login_form and linked_user:
                 login_form.save()
                 log_activity(

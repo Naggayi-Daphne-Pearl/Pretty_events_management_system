@@ -1,0 +1,48 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Account{% else %}New Account{% endif %}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'accounting:chart' %}">Chart of Accounts</a><span class="sep">/</span>{% if object %}<a href="{% url 'accounting:account_detail' object.pk %}">{{ object }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New Account</span>{% endif %}</nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-3">{% if object %}Edit {{ object }}{% else %}New Account{% endif %}</h3>
+<div class="card p-4" style="max-width: 640px;">
+    <form method="post">
+        {% csrf_token %}
+        {% if form.non_field_errors %}<div class="alert alert-danger py-2 small">{{ form.non_field_errors }}</div>{% endif %}
+        {% for field in form %}
+            <div class="mb-3">
+                {% if field.name == 'is_active' %}
+                    <div class="form-check">{{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label></div>
+                {% else %}
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                    {{ field }}
+                {% endif %}
+                {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% if object %}{% url 'accounting:account_detail' object.pk %}{% else %}{% url 'accounting:chart' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+</div>
+{{ details_by_type|json_script:"details-by-type" }}
+<script>
+// Only offer detail types that belong to the chosen account type.
+(function () {
+    var map = JSON.parse(document.getElementById('details-by-type').textContent);
+    var type = document.getElementById('id_account_type'), detail = document.getElementById('id_detail_type');
+    if (!type || !detail) return;
+    var all = Array.from(detail.options).map(function (o) { return {value: o.value, text: o.text}; });
+    function refresh() {
+        var allowed = map[type.value] || [], current = detail.value;
+        detail.innerHTML = '';
+        all.forEach(function (o) {
+            if (o.value === '' || allowed.indexOf(o.value) !== -1) {
+                var opt = new Option(o.text, o.value); opt.selected = o.value === current; detail.add(opt);
+            }
+        });
+    }
+    type.addEventListener('change', refresh); refresh();
+})();
+</script>
+{% endblock %}
