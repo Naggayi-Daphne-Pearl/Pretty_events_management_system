@@ -473,3 +473,19 @@ class LogPaginationTests(BaseDataMixin, TestCase):
         for name in ('admin:comms_communicationlog_changelist', 'admin:core_activitylog_changelist'):
             with self.subTest(name=name):
                 self.assertEqual(self.client.get(reverse(name)).status_code, 200)
+
+
+class EmailFailureTests(BaseDataMixin, TestCase):
+    def test_unreachable_mail_server_fails_fast_and_allows_retry(self):
+        from unittest import mock
+        from django.conf import settings
+        self.assertLess(settings.EMAIL_TIMEOUT, 30)  # must beat gunicorn's worker timeout
+        invoice = self.make_invoice()
+        url = reverse('billing:invoice_email', args=[invoice.pk])
+        with mock.patch('django.core.mail.EmailMessage.send', side_effect=TimeoutError('timed out')), \
+                self.assertLogs('core.emailing', level='ERROR'):
+            response = self.client.post(url, {'to_email': 'jane@example.com', 'message': 'Hi',
+                                              'once_token': issue_token(self.user)})
+        self.assertContains(response, 'could not be reached')
+        self.assertContains(response, 'name="once_token"')  # fresh token so a retry is accepted
+        self.assertFalse(CommunicationLog.objects.exists())

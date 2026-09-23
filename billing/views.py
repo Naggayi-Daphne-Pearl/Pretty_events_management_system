@@ -207,7 +207,7 @@ def quotation_email(request, pk):
                 filename=f'{quotation.number}.pdf',
             )
             if not sent:
-                messages.error(request, 'Could not send the email — please check the email settings and try again.')
+                messages.error(request, 'Could not send the email: the mail server could not be reached. Please try again, and tell your administrator if it keeps failing.')
                 return render(request, 'billing/quotation_email_form.html', {'form': form, 'object': quotation})
             if quotation.status == Quotation.Status.DRAFT:
                 quotation.status = Quotation.Status.SENT
@@ -358,7 +358,7 @@ def invoice_email(request, pk):
                 filename=f'{invoice.number}.pdf',
             )
             if not sent:
-                messages.error(request, 'Could not send the email — please check the email settings and try again.')
+                messages.error(request, 'Could not send the email: the mail server could not be reached. Please try again, and tell your administrator if it keeps failing.')
                 return render(request, 'billing/invoice_email_form.html', {'form': form, 'object': invoice})
             CommunicationLog.objects.create(
                 customer=customer,
@@ -470,7 +470,7 @@ def receipt_email(request, pk):
                 filename=f'{receipt.number}.pdf',
             )
             if not sent:
-                messages.error(request, 'Could not send the email. Please check the email settings and try again.')
+                messages.error(request, 'Could not send the email: the mail server could not be reached. Please try again, and tell your administrator if it keeps failing.')
                 return render(request, 'billing/receipt_email_form.html', {'form': form, 'object': receipt})
             CommunicationLog.objects.create(
                 customer=customer,

@@ -134,6 +134,9 @@ EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
 DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=COMPANY_EMAIL)
+# Give up on an unreachable mail server well inside gunicorn's 30s worker timeout, so the
+# user gets "could not send" (and can retry) instead of the request being killed mid-send.
+EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)
 
 # Send warnings and errors (including full tracebacks for 500s) to stdout/stderr so they
 # show up in Railway's deploy logs. Without this, Django's default config only emails
