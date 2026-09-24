@@ -10,6 +10,7 @@ def branding(request):
         'COMPANY_ADDRESS_LINES': settings.COMPANY_ADDRESS_LINES,
         'COMPANY_TIN': settings.COMPANY_TIN,
         'COMPANY_PHONES': settings.COMPANY_PHONES,
+        'COMPANY_CONTACTS': settings.COMPANY_CONTACTS,
         'COMPANY_EMAIL': settings.COMPANY_EMAIL,
         'COMPANY_WEBSITE_EMAIL': settings.COMPANY_WEBSITE_EMAIL,
         'COMPANY_LOGO_STATIC_PATH': settings.COMPANY_LOGO_STATIC_PATH,

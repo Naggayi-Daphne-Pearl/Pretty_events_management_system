@@ -1,0 +1,4 @@
+<p class="client">NAME: <span>{{ customer.name }}</span></p>
+{% if customer.phone %}<p class="client">PHONE: <span>{{ customer.phone }}{% if customer.alt_phone %} / {{ customer.alt_phone }}{% endif %}</span></p>{% endif %}
+{% if customer.email %}<p class="client">EMAIL: <span>{{ customer.email }}</span></p>{% endif %}
+{% if customer.address %}<p class="client">ADDRESS: <span>{{ customer.address }}</span></p>{% endif %}

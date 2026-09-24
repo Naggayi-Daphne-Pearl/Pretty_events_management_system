@@ -1,33 +1,17 @@
 {% extends "pdf/_document_base.html" %}
 {% load humanize %}
+{% load people %}
+{% block sign_left %}<div class="sign-line">Prepared by:{% if quotation.created_by %} <b>{{ quotation.created_by|person_name }}</b>{% endif %}</div>{% endblock %}
 {% block doc_type %}Quotation{% endblock %}
 {% block doc_number %}{{ quotation.number }}{% endblock %}
+{% block doc_details %}
+<p class="details"><b>Date:</b> {{ quotation.created_at|date:"d M Y" }}{% if quotation.valid_until %} &nbsp; <b>Valid until:</b> {{ quotation.valid_until|date:"d M Y" }}{% endif %}</p>
+<p class="details"><b>Event date:</b> {{ quotation.event.event_date|date:"d M Y" }}{% if quotation.event.end_date %} to {{ quotation.event.end_date|date:"d M Y" }}{% endif %}</p>
+<p class="details"><b>For:</b> {{ quotation.event.event_type }}{% if quotation.event.guest_count %} ({{ quotation.event.guest_count|intcomma }} guests){% endif %}</p>
+<p class="details"><b>Venue:</b> {{ quotation.event.venue }}</p>
+{% endblock %}
+{% block client_details %}{% include "pdf/_client_block.html" with customer=quotation.event.customer %}{% endblock %}
 {% block body %}
-<table class="meta-table">
-    <tr>
-        <td><strong>Prepared for:</strong><br>{{ quotation.event.customer.name }}<br>{{ quotation.event.customer.phone }}</td>
-        <td><strong>Event:</strong><br>{{ quotation.event.event_type }}<br>{{ quotation.event.event_date }} — {{ quotation.event.venue }}</td>
-        <td><strong>Date:</strong> {{ quotation.created_at|date:"d M Y" }}<br>
-            {% if quotation.valid_until %}<strong>Valid until:</strong> {{ quotation.valid_until }}<br>{% endif %}
-            <span class="status-pill">{{ quotation.get_status_display }}</span>
-        </td>
-    </tr>
-</table>
-<table class="items">
-    <thead><tr><th>Description</th><th class="num">Qty</th><th class="num">Unit Price</th><th class="num">Total</th></tr></thead>
-    <tbody>
-    {% for item in quotation.line_items.all %}
-        <tr>
-            <td>{{ item.description }}</td>
-            <td class="num">{{ item.quantity|intcomma }}</td>
-            <td class="num">{{ item.unit_price|floatformat:0|intcomma }}</td>
-            <td class="num">{{ item.line_total|floatformat:0|intcomma }}</td>
-        </tr>
-    {% endfor %}
-    </tbody>
-</table>
-<table class="totals">
-    <tr class="grand-total"><td style="text-align:right;">Total (UGX)</td><td class="num" style="text-align:right; width:150px;">{{ quotation.total|floatformat:0|intcomma }}</td></tr>
-</table>
-{% if quotation.notes %}<p><strong>Notes:</strong> {{ quotation.notes }}</p>{% endif %}
+{% include "pdf/_quotation_items.html" with doc=quotation event=quotation.event %}
+{% if quotation.notes %}<div class="notes"><b>Notes:</b> {{ quotation.notes }}</div>{% endif %}
 {% endblock %}

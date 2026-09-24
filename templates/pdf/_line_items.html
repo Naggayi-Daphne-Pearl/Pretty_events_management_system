@@ -1,0 +1,17 @@
+{% load humanize %}
+{% comment %}Bordered items table shared by quotations and invoices. Expects: doc (quotation or invoice), event.{% endcomment %}
+<table class="items">
+    <tr class="title"><td colspan="5">{{ event.event_type }} · {{ event.venue }} · {{ event.event_date|date:"d M Y" }}</td></tr>
+    <tr><th></th><th>Item</th><th style="width:70px;">Qty</th><th style="width:95px;">Rate</th><th style="width:105px;">Amount</th></tr>
+    {% for item in doc.line_items.all %}
+    <tr>
+        <td class="no">{{ forloop.counter }}</td>
+        <td>{{ item.description }}</td>
+        <td class="qty num">{{ item.quantity|floatformat:"-2"|intcomma }}</td>
+        <td class="num">{{ item.unit_price|floatformat:0|intcomma }}</td>
+        <td class="num">{{ item.line_total|floatformat:0|intcomma }}</td>
+    </tr>
+    {% endfor %}
+    <tr class="spacer"><td></td><td></td><td></td><td></td><td></td></tr>
+    {% block totals %}{% endblock %}
+</table>

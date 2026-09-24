@@ -1,0 +1,5 @@
+{% extends "pdf/_line_items.html" %}
+{% load humanize %}
+{% block totals %}
+<tr class="grand"><td></td><td>Grand total ({{ CURRENCY }})</td><td></td><td></td><td class="num">{{ quotation.total|floatformat:0|intcomma }}</td></tr>
+{% endblock %}

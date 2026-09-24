@@ -136,7 +136,14 @@ COMPANY_TAGLINE = 'EVENTS MANAGEMENT & TENT HIRE'
 COMPANY_MOTTO = 'Your Happiness Is Our Passion'
 COMPANY_ADDRESS_LINES = ['Kiwatule Stage &', 'Kira Bulindo Road']
 COMPANY_TIN = '1004479551'
-COMPANY_PHONES = ['+256 393 254 159', '+256 772 682 448', '+256 703 492 505']
+# Named contact numbers, printed in the CONTACTS box on quotations, invoices and receipts
+# (as supplied by the client, 2026-09-24).
+COMPANY_CONTACTS = [
+    ('James', '0772 682 448'),
+    ('Rukiah', '0704 316 745'),
+    ('Office line', '0393 254 159'),
+]
+COMPANY_PHONES = [phone for _, phone in COMPANY_CONTACTS]
 COMPANY_EMAIL = 'prettyevents5@gmail.com'
 COMPANY_WEBSITE_EMAIL = 'info@prettyeventslimited.co.ug'
 COMPANY_LOGO_STATIC_PATH = 'branding/pretty-events-logo.png'

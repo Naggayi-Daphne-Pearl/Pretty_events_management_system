@@ -673,3 +673,52 @@ class EmailSwitchedOffTests(BaseDataMixin, TestCase):
         self.assertEqual(len(mail.outbox), 0)
         page = self.client.get(reverse('staffing:detail', args=[user.staff_profile.pk]))
         self.assertNotContains(page, reverse('user_send_reset', args=[user.pk]))
+
+
+
+class DocumentPdfTests(BaseDataMixin, TestCase):
+    """The PDF templates render for every document, including edge cases in old data."""
+
+    def test_all_documents_render(self):
+        from billing.models import Quotation, QuotationLineItem
+        from billing.views import generate_pdf_bytes, receipt_pdf_context
+        from django.template.loader import render_to_string
+        from django.test import RequestFactory
+        quotation = Quotation.objects.create(event=self.event)
+        QuotationLineItem.objects.create(quotation=quotation, description='Pagoda tent (10m x 10m)', quantity=Decimal('1.00'), unit_price=Decimal('600000'))
+        invoice = self.make_invoice('600000')
+        with_user = Payment.objects.create(invoice=invoice, amount=Decimal('100000'), received_by=self.user)
+        without_user = Payment.objects.create(invoice=invoice, amount=Decimal('50000'))  # e.g. entered via admin
+        request = RequestFactory().get('/')
+        request.user = self.user
+        quote_html = render_to_string('pdf/quotation_pdf.html', {'quotation': quotation}, request=request)
+        self.assertIn('QUOTATION', quote_html.upper())
+        self.assertIn('600,000', quote_html)
+        self.assertIn('CLIENT DETAILS', quote_html.upper())
+        invoice.created_by = self.user
+        invoice.save()
+        StaffMember.objects.create(full_name='Rukiah', user=self.user)
+        self.user.refresh_from_db()
+        invoice_html = render_to_string('pdf/invoice_pdf.html', {'invoice': invoice}, request=request)
+        self.assertIn('Balance due', invoice_html)
+        self.assertIn('Prepared by: <b>Rukiah</b>', invoice_html)  # staff name, not the login's username
+        for name, phone in (('James', '0772 682 448'), ('Rukiah', '0704 316 745'), ('Office line', '0393 254 159')):
+            self.assertIn(f'<span class="contact-name">{name}</span> - {phone}', invoice_html)
+        self.assertIn('450,000', invoice_html)
+        for payment in (with_user, without_user):
+            with self.subTest(received_by=payment.received_by):
+                html = render_to_string('pdf/receipt_pdf.html', receipt_pdf_context(payment.receipt), request=request)
+                self.assertIn(payment.receipt.number, html)
+                if payment.received_by:
+                    self.assertIn('Received by: <b>Rukiah</b>', html)
+        # Real PDFs where WeasyPrint's native libraries are available (always in the Docker image).
+        pdf = generate_pdf_bytes(request, 'pdf/invoice_pdf.html', {'invoice': invoice})
+        if pdf is not None:
+            self.assertTrue(pdf.startswith(b'%PDF'))
+
+    def test_pdf_views_respond(self):
+        invoice = self.make_invoice()
+        payment = Payment.objects.create(invoice=invoice, amount=Decimal('1000'))
+        for url in (reverse('billing:invoice_pdf', args=[invoice.pk]), reverse('billing:receipt_pdf', args=[payment.receipt.pk])):
+            with self.subTest(url=url):
+                self.assertEqual(self.client.get(url).status_code, 200)

@@ -1,60 +1,108 @@
-<!DOCTYPE html>
+{% load humanize people %}<!DOCTYPE html>
 <html>
 <head>
 <meta charset="utf-8">
 <style>
-    @page { size: A4; margin: 2cm; }
-    body { font-family: 'Helvetica Neue', Arial, sans-serif; color: #241d3d; font-size: 12px; }
-    .header { display: flex; justify-content: space-between; align-items: flex-start; border-bottom: 3px solid #1e5fd6; padding-bottom: 12px; margin-bottom: 16px; }
-    .brand { display: flex; align-items: center; gap: 10px; flex-shrink: 0; white-space: nowrap; }
-    .brand img { height: 46px; width: auto; flex-shrink: 0; }
-    .company-name { font-size: 17px; font-weight: bold; color: #241d3d; margin: 0; letter-spacing: .3px; white-space: nowrap; }
-    .company-tagline { color: #e8792c; font-size: 10px; font-weight: bold; letter-spacing: .3px; white-space: nowrap; }
-    .company-contact { text-align: right; font-size: 10px; color: #444; line-height: 1.5; white-space: nowrap; }
-    .company-contact .tin { color: #d23c2e; font-weight: bold; }
-    .doc-title { text-align: right; margin-top: 4px; }
-    .doc-title h2 { margin: 0; text-transform: uppercase; letter-spacing: 1px; }
-    .doc-title .number { color: #6c757d; }
-    .meta-table { width: 100%; margin-bottom: 20px; }
-    .meta-table td { vertical-align: top; padding: 4px 0; }
-    table.items { width: 100%; border-collapse: collapse; margin-bottom: 20px; }
-    table.items th { background: #f2f3f8; text-align: left; padding: 8px; font-size: 10px; text-transform: uppercase; color: #6c757d; }
-    table.items td { padding: 8px; border-bottom: 1px solid #eee; }
-    table.items td.num, table.items th.num { text-align: right; }
-    .totals { width: 100%; margin-top: 10px; }
-    .totals td { padding: 4px 8px; }
-    .totals tr.grand-total td { font-weight: bold; font-size: 14px; border-top: 2px solid #241d3d; }
-    .footer { margin-top: 40px; color: #6c757d; font-size: 10.5px; text-align: center; }
-    .footer .motto { font-style: italic; color: #e8792c; font-weight: bold; margin-top: 2px; }
-    .status-pill { display: inline-block; padding: 3px 10px; border-radius: 12px; background: #eaf0fd; color: #1e5fd6; font-size: 10px; text-transform: uppercase; }
+    /* Layout requested by the client: a bold black document badge, event/client details
+       on the left with a navy "CLIENT DETAILS" bar, the logo and a boxed CONTACTS panel
+       on the right, and a fully bordered items table with bold totals.
+       Fonts: DejaVu ships in the Docker image (fonts-dejavu-core); the rest are fallbacks. */
+    @page { size: A4; margin: 1.5cm 1.6cm 1.8cm; }
+    body { font-family: 'DejaVu Sans', 'Helvetica Neue', Arial, sans-serif; color: #000; font-size: 11px; line-height: 1.35; }
+    .serif { font-family: 'DejaVu Serif', 'Times New Roman', Georgia, serif; }
+
+    table.header { width: 100%; border-collapse: collapse; margin-bottom: 16px; }
+    table.header td { vertical-align: top; padding: 0; }
+    td.header-left { width: 56%; padding-right: 14px; }
+    td.header-right { width: 44%; text-align: center; }
+
+    .doc-badge {
+        display: inline-block; background: #111; color: #fff; border-radius: 6px;
+        padding: 4px 14px 3px; font-family: 'DejaVu Serif', 'Times New Roman', serif;
+        font-size: 29px; font-weight: bold; letter-spacing: 1.5px; text-transform: uppercase; margin-bottom: 12px;
+    }
+    .details { font-family: 'DejaVu Serif', 'Times New Roman', serif; font-size: 11px; margin: 0 0 3px 22px; }
+    .details b { text-transform: uppercase; }
+    .details.number { font-size: 12px; }
+    .client-bar {
+        background: #1b3a5c; color: #fff; font-family: 'DejaVu Serif', 'Times New Roman', serif;
+        font-weight: bold; font-size: 11.5px; padding: 3px 8px; margin: 8px 0 4px 18px; text-transform: uppercase; letter-spacing: .3px;
+    }
+    .client { margin: 0 0 2px 22px; font-weight: bold; font-size: 10.5px; }
+    .client span { font-weight: normal; }
+
+    .logo { height: 112px; width: auto; }
+    .company-name { font-size: 17px; font-weight: bold; letter-spacing: .4px; margin: 4px 0 0; }
+    .company-tagline { font-size: 9px; font-weight: bold; letter-spacing: .6px; color: #333; margin-bottom: 8px; }
+    .contacts {
+        border: 1.4px solid #000; text-align: left; padding: 9px 10px 6px; margin: 8px 0 0 10px; position: relative;
+        font-family: 'DejaVu Serif', 'Times New Roman', serif; font-size: 9px; line-height: 1.45;
+    }
+    .contacts-label {
+        position: absolute; top: -7px; left: 8px; background: #fff; padding: 0 5px;
+        font-family: 'DejaVu Sans', Arial, sans-serif; font-weight: bold; font-size: 9.5px; letter-spacing: 2px;
+    }
+    .contacts .tin { font-weight: bold; }
+    .contacts .contact-name { font-weight: bold; text-transform: uppercase; }
+
+    table.items { width: 100%; border-collapse: collapse; border: 2px solid #000; }
+    table.items th, table.items td { border: 1.2px solid #000; padding: 5px 7px; font-size: 11px; }
+    table.items th { font-weight: bold; text-align: left; font-size: 11px; text-transform: uppercase; padding-top: 7px; padding-bottom: 7px; }
+    table.items td.no { width: 26px; text-align: right; }
+    table.items .num { text-align: right; white-space: nowrap; }
+    table.items td.qty { white-space: nowrap; }
+    table.items tr.title td { font-weight: bold; text-align: center; font-size: 12px; text-transform: uppercase; padding: 8px 6px; }
+    table.items tr.spacer td { height: 12px; padding: 0; }
+    table.items tr.subtotal td { font-weight: bold; font-size: 12px; }
+    table.items tr.grand td { font-weight: bold; font-size: 12.5px; padding-top: 7px; padding-bottom: 7px; }
+    table.items tr.grand td.num { font-size: 17px; }
+    table.items tr.balance td { font-weight: bold; font-size: 13px; }
+
+    .notes { border: 1px solid #000; padding: 6px 8px; margin-top: 12px; font-size: 10px; }
+    .notes b { text-transform: uppercase; }
+    table.sign { width: 100%; margin-top: 34px; border-collapse: collapse; }
+    table.sign td { width: 50%; vertical-align: bottom; font-size: 10px; }
+    .sign-line { border-top: 1px solid #000; width: 75%; padding-top: 3px; }
+    .footer { margin-top: 22px; text-align: center; font-size: 9.5px; }
+    .footer .motto { font-family: 'DejaVu Serif', 'Times New Roman', serif; font-style: italic; font-weight: bold; margin-top: 2px; }
 </style>
+{% block extra_style %}{% endblock %}
 </head>
 <body>
-<div class="header">
-    <div class="brand">
-        <img src="assets/branding/pretty-events-logo.png" alt="Pretty Events logo">
-        <div>
+<table class="header">
+    <tr>
+        <td class="header-left">
+            <div class="doc-badge">{% block doc_type %}{% endblock %}</div>
+            <p class="details number"><b>No:</b> {% block doc_number %}{% endblock %}</p>
+            {% block doc_details %}{% endblock %}
+            <div class="client-bar">Client details</div>
+            {% block client_details %}{% endblock %}
+        </td>
+        <td class="header-right">
+            <img class="logo" src="assets/branding/pretty-events-logo.png" alt="Pretty Events logo">
             <p class="company-name">{{ COMPANY_LEGAL_NAME }}</p>
             <div class="company-tagline">{{ COMPANY_TAGLINE }}</div>
-        </div>
-    </div>
-    <div>
-        <div class="company-contact">
-            {% for line in COMPANY_ADDRESS_LINES %}{{ line }}<br>{% endfor %}
-            Email: {{ COMPANY_EMAIL }}<br>
-            <span class="tin">TIN No: {{ COMPANY_TIN }}</span><br>
-            {% for phone in COMPANY_PHONES %}Tel: {{ phone }}<br>{% endfor %}
-            {{ COMPANY_WEBSITE_EMAIL }}
-        </div>
-        <div class="doc-title">
-            <h2>{% block doc_type %}{% endblock %}</h2>
-            <p class="number">{% block doc_number %}{% endblock %}</p>
-        </div>
-    </div>
-</div>
+            <div class="contacts">
+                <span class="contacts-label">CONTACTS:</span>
+                {% for name, phone in COMPANY_CONTACTS %}<span class="contact-name">{{ name }}</span> - {{ phone }}<br>{% endfor %}
+                {{ COMPANY_EMAIL }}{% if COMPANY_WEBSITE_EMAIL %} · {{ COMPANY_WEBSITE_EMAIL }}{% endif %}<br>
+                {% for line in COMPANY_ADDRESS_LINES %}{{ line }} {% endfor %}<br>
+                <span class="tin">TIN: {{ COMPANY_TIN }}</span>
+            </div>
+        </td>
+    </tr>
+</table>
+
 {% block body %}{% endblock %}
+
+<table class="sign">
+    <tr>
+        <td>{% block sign_left %}<div class="sign-line">Prepared by:</div>{% endblock %}</td>
+        <td style="text-align:right;"><div class="sign-line" style="margin-left:auto;">For: {{ COMPANY_LEGAL_NAME }}</div></td>
+    </tr>
+</table>
 <div class="footer">
-    For: {{ COMPANY_LEGAL_NAME }}
+    Thank you for choosing {{ COMPANY_LEGAL_NAME }}
     <div class="motto">&ldquo;{{ COMPANY_MOTTO }}&rdquo;</div>
 </div>
 </body>

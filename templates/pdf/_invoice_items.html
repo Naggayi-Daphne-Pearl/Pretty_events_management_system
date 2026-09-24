@@ -1,0 +1,7 @@
+{% extends "pdf/_line_items.html" %}
+{% load humanize %}
+{% block totals %}
+<tr class="grand"><td></td><td>Grand total ({{ CURRENCY }})</td><td></td><td></td><td class="num">{{ invoice.total|floatformat:0|intcomma }}</td></tr>
+<tr class="subtotal"><td></td><td>Amount paid</td><td></td><td></td><td class="num">{{ invoice.amount_paid|floatformat:0|intcomma }}</td></tr>
+<tr class="balance"><td></td><td>Balance due</td><td></td><td></td><td class="num">{{ invoice.balance_due|floatformat:0|intcomma }}</td></tr>
+{% endblock %}
