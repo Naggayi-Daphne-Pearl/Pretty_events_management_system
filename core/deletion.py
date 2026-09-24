@@ -6,7 +6,7 @@ from django.shortcuts import redirect, render
 from .activity import log_activity
 
 
-def confirm_and_delete(request, obj, *, cancel_url, success_url, blockers=(), also_deleted=(), hint=''):
+def confirm_and_delete(request, obj, *, cancel_url, success_url, blockers=(), also_deleted=(), hint='', after_delete=None):
     """
     Shared "are you sure?" + delete flow for business records.
 
@@ -14,7 +14,9 @@ def confirm_and_delete(request, obj, *, cancel_url, success_url, blockers=(), al
     payments). While any exist the page only explains what's linked and never
     offers a Delete button, so financial history can't be wiped by accident.
     `also_deleted` lists harmless child records removed along with it, shown so
-    the user knows exactly what the delete covers.
+    the user knows exactly what the delete covers. `after_delete`, if given, runs
+    inside the same transaction right after the delete (e.g. to deal with a
+    linked login), so either everything happens or nothing does.
     """
     blockers = [b for b in blockers if b]
     also_deleted = [a for a in also_deleted if a]
@@ -25,6 +27,8 @@ def confirm_and_delete(request, obj, *, cancel_url, success_url, blockers=(), al
         try:
             with transaction.atomic():
                 obj.delete()
+                if after_delete:
+                    after_delete()
         except ProtectedError:
             # Something got linked between the page loading and the POST; the DB-level
             # PROTECT caught it. Fall through and re-render with a clear message.

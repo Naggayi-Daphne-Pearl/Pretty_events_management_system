@@ -9,6 +9,7 @@ from core.activity import log_activity
 from core.accounts import send_staff_invite
 from core.deletion import confirm_and_delete, count_label
 from core.forms import StaffAccountCreationForm, StaffAccountUpdateForm
+from core.models import ActivityLog
 from events.models import Event
 
 from .forms import EventAssignmentForm, StaffMemberForm
@@ -148,16 +149,49 @@ def assign_staff(request, event_pk):
 @login_required
 @permission_required('staffing.delete_staffmember', raise_exception=True)
 def staff_delete(request, pk):
-    staff_member = get_object_or_404(StaffMember, pk=pk)
+    """
+    Staff not assigned to any event can be deleted. A linked login is deleted too if it
+    was never used; if it has been used it is switched off instead, so the activity log
+    keeps showing who did what (deleting it would turn their entries into "system").
+    """
+    staff_member = get_object_or_404(StaffMember.objects.select_related('user'), pk=pk)
+    user = staff_member.user
     blockers = [count_label(staff_member.assignments.count(), 'event assignment')]
-    if staff_member.user_id:
-        # Deleting the profile would leave the login working with no staff record
-        # behind it, so make someone deal with the account deliberately.
-        blockers.append(f'the login account "{staff_member.user.username}"')
+    also_deleted = []
+    after_delete = None
+
+    if user:
+        if user == request.user:
+            blockers.append('your own login (you can\'t delete yourself)')
+        elif user.is_superuser:
+            blockers.append(f'the superuser login "{user.email or user.username}" (remove superuser status in admin first)')
+        elif not request.user.is_superuser:
+            blockers.append(f'the login "{user.email or user.username}" (only an administrator can remove logins)')
+        else:
+            used = user.last_login is not None or ActivityLog.objects.filter(actor=user).exists()
+            login_label = user.email or user.username
+            if used:
+                also_deleted.append(f'their login "{login_label}" will be switched off (kept so the activity log still shows their name)')
+
+                def after_delete():
+                    user.is_active = False
+                    user.set_unusable_password()
+                    user.save(update_fields=['is_active', 'password'])
+                    log_activity(request, 'staff_account.deactivated', f'Deactivated login "{login_label}" (staff member deleted)')
+            else:
+                also_deleted.append(f'their login "{login_label}" (never used)')
+
+                def after_delete():
+                    user.delete()
+                    log_activity(request, 'staff_account.deleted', f'Deleted unused login "{login_label}" (staff member deleted)')
+
     return confirm_and_delete(
         request, staff_member,
         cancel_url=staff_member.get_absolute_url(),
         success_url=reverse('staffing:list'),
         blockers=blockers,
-        hint='To take someone off the team without losing their event history, edit them and untick "Is active" (and deactivate their login).',
+        also_deleted=also_deleted,
+        after_delete=after_delete,
+        hint='Staff who have worked events are kept so event history stays accurate. To take them off the team, '
+             'edit them and untick "Is active".',
     )

@@ -85,16 +85,64 @@ class DeleteTests(BaseDataMixin, TestCase):
         self.client.post(reverse('billing:invoice_delete', args=[invoice.pk]))
         self.assertFalse(Invoice.objects.filter(pk=invoice.pk).exists())
 
-    def test_staff_with_assignment_or_login_is_blocked(self):
+    def test_staff_with_event_assignment_is_blocked(self):
         assigned = StaffMember.objects.create(full_name='Assigned')
         EventAssignment.objects.create(event=self.event, staff_member=assigned)
-        with_login = StaffMember.objects.create(full_name='Has Login', user=self.user)
-        free = StaffMember.objects.create(full_name='Free')
-        for staff in (assigned, with_login, free):
-            self.client.post(reverse('staffing:delete', args=[staff.pk]))
+        response = self.client.post(reverse('staffing:delete', args=[assigned.pk]))
+        self.assertContains(response, '1 event assignment')
         self.assertTrue(StaffMember.objects.filter(pk=assigned.pk).exists())
-        self.assertTrue(StaffMember.objects.filter(pk=with_login.pk).exists())
+
+    def test_unassigned_staff_without_login_is_deleted(self):
+        free = StaffMember.objects.create(full_name='Free')
+        self.assertRedirects(self.client.post(reverse('staffing:delete', args=[free.pk])), reverse('staffing:list'))
         self.assertFalse(StaffMember.objects.filter(pk=free.pk).exists())
+
+    def test_unused_login_is_deleted_with_staff(self):
+        user = get_user_model().objects.create_user('never', email='never@example.com', password='x')
+        staff = StaffMember.objects.create(full_name='Never Logged In', user=user)
+        page = self.client.get(reverse('staffing:delete', args=[staff.pk]))
+        self.assertContains(page, 'never used')
+        self.client.post(reverse('staffing:delete', args=[staff.pk]))
+        self.assertFalse(StaffMember.objects.filter(pk=staff.pk).exists())
+        self.assertFalse(get_user_model().objects.filter(pk=user.pk).exists())
+
+    def test_used_login_is_switched_off_and_kept_for_audit(self):
+        from .models import ActivityLog
+        user = get_user_model().objects.create_user('worked', email='worked@example.com', password='Pass-1234x')
+        ActivityLog.objects.create(actor=user, action='customer.created', description='Created customer "X"')
+        staff = StaffMember.objects.create(full_name='Has History', user=user)
+        page = self.client.get(reverse('staffing:delete', args=[staff.pk]))
+        self.assertContains(page, 'switched off')
+        self.client.post(reverse('staffing:delete', args=[staff.pk]))
+        self.assertFalse(StaffMember.objects.filter(pk=staff.pk).exists())
+        user.refresh_from_db()
+        self.assertFalse(user.is_active)
+        self.assertFalse(user.has_usable_password())
+        self.assertEqual(ActivityLog.objects.filter(actor=user).count(), 1)  # history still attributed
+        self.client.logout()
+        self.assertEqual(self.client.post(reverse('login'), {'username': 'worked@example.com', 'password': 'Pass-1234x'}).status_code, 200)
+
+    def test_cannot_delete_yourself_or_a_superuser(self):
+        me = StaffMember.objects.create(full_name='Me', user=self.user)
+        boss = get_user_model().objects.create_superuser('boss2', 'boss2@example.com', 'x')
+        other_admin = StaffMember.objects.create(full_name='Other Admin', user=boss)
+        for staff, reason in ((me, 'delete yourself'), (other_admin, 'superuser login')):
+            with self.subTest(staff=staff.full_name):
+                self.assertContains(self.client.post(reverse('staffing:delete', args=[staff.pk])), reason)
+                self.assertTrue(StaffMember.objects.filter(pk=staff.pk).exists())
+
+    def test_only_superuser_can_remove_staff_with_login(self):
+        from django.contrib.auth.models import Permission
+        office = get_user_model().objects.create_user('office', email='office@example.com', password='x')
+        office.user_permissions.add(*Permission.objects.filter(codename__in=['delete_staffmember', 'view_staffmember']))
+        target_user = get_user_model().objects.create_user('t', email='t@example.com', password='x')
+        target = StaffMember.objects.create(full_name='Target', user=target_user)
+        no_login = StaffMember.objects.create(full_name='No Login')
+        self.client.force_login(office)
+        self.assertContains(self.client.post(reverse('staffing:delete', args=[target.pk])), 'only an administrator')
+        self.assertTrue(StaffMember.objects.filter(pk=target.pk).exists())
+        self.client.post(reverse('staffing:delete', args=[no_login.pk]))
+        self.assertFalse(StaffMember.objects.filter(pk=no_login.pk).exists())
 
     def test_equipment_used_on_a_quotation_is_blocked(self):
         quoted = EquipmentItem.objects.create(name='Chair', total_quantity=10)
