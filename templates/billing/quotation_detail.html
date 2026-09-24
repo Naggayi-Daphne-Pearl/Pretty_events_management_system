@@ -11,7 +11,9 @@
         <span class="badge bg-secondary badge-status">{{ object.get_status_display }}</span>
     </div>
     <div>
-        {% if perms.billing.change_quotation %}<a href="{% url 'billing:quotation_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
+        {% if object.has_invoice %}
+        {% if perms.billing.change_invoice %}<a href="{% url 'billing:invoice_update' object.invoice.pk %}" class="btn btn-outline-secondary btn-sm">Edit invoice</a>{% endif %}
+        {% elif perms.billing.change_quotation %}<a href="{% url 'billing:quotation_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
         <a href="{% url 'billing:quotation_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
         {% if EMAIL_ENABLED and perms.billing.change_quotation %}<a href="{% url 'billing:quotation_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
         {% include "comms/_contact_buttons.html" with customer=object.event.customer event=object.event doc_kind="quotation" doc_pk=object.pk hide_email=EMAIL_ENABLED %}
@@ -24,6 +26,12 @@
     </div>
 </div>
 {% include "partials/_audit_trail.html" %}
+{% if object.has_invoice %}
+<div class="alert alert-info d-flex justify-content-between align-items-center gap-2 flex-wrap py-2">
+    <span><i class="bi bi-lock me-2"></i>Converted to invoice <a href="{% url 'billing:invoice_detail' object.invoice.pk %}">{{ object.invoice.number }}</a> on {{ object.invoice.created_at|date:"d M Y" }}. This quotation is kept as the record of the offer; to change items or prices, edit the invoice.</span>
+    <a href="{% url 'billing:invoice_detail' object.invoice.pk %}" class="btn btn-sm btn-primary">Open invoice</a>
+</div>
+{% endif %}
 
 <div class="card p-4">
     <p class="text-muted mb-1">For <a href="{% url 'customers:detail' object.event.customer.pk %}">{{ object.event.customer.name }}</a> — <a href="{% url 'events:detail' object.event.pk %}">{{ object.event.event_type }} on {{ object.event.event_date }}</a></p>

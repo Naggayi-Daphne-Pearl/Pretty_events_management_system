@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django import forms
 from django.forms import inlineformset_factory
 
@@ -59,8 +61,30 @@ class InvoiceLineItemForm(BootstrapModelForm):
         self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
+class BaseInvoiceLineItemFormSet(forms.BaseInlineFormSet):
+    def clean(self):
+        super().clean()
+        if any(self.errors) or not self.instance.pk:
+            return
+        paid = self.instance.amount_paid
+        if not paid:
+            return
+        new_total = Decimal('0')
+        for form in self.forms:
+            data = getattr(form, 'cleaned_data', None) or {}
+            if not data or data.get('DELETE'):
+                continue
+            quantity, price = data.get('quantity') or 0, data.get('unit_price') or 0
+            new_total += (Decimal(quantity) * Decimal(price)).quantize(Decimal('0.01'))
+        if new_total < paid:
+            raise forms.ValidationError(
+                f'The new total ({new_total:,.0f}) is less than the {paid:,.0f} already paid on this invoice. '
+                'Keep the total at or above the amount paid; if the client is owed money back, record that separately.'
+            )
+
+
 InvoiceLineItemFormSet = inlineformset_factory(
-    Invoice, InvoiceLineItem, form=InvoiceLineItemForm, extra=0, can_delete=True,
+    Invoice, InvoiceLineItem, form=InvoiceLineItemForm, formset=BaseInvoiceLineItemFormSet, extra=0, can_delete=True,
     min_num=1, validate_min=True,
 )
 

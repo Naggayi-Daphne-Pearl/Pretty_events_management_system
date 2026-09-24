@@ -127,6 +127,12 @@ def quotation_create(request, event_pk):
 @permission_required('billing.change_quotation', raise_exception=True)
 def quotation_update(request, pk):
     quotation = get_object_or_404(Quotation, pk=pk)
+    if quotation.has_invoice:
+        # Once converted, the invoice is the working document: editing the quotation too
+        # would leave two versions that disagree. The quotation stays as the record of the offer.
+        messages.info(request, f'{quotation.number} was converted to invoice {quotation.invoice.number}, '
+                               'so it can no longer be edited. Make changes on the invoice instead.')
+        return redirect('billing:quotation_detail', pk=quotation.pk)
     if request.method == 'POST':
         form = QuotationForm(request.POST, instance=quotation)
         formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')

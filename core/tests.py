@@ -722,3 +722,70 @@ class DocumentPdfTests(BaseDataMixin, TestCase):
         for url in (reverse('billing:invoice_pdf', args=[invoice.pk]), reverse('billing:receipt_pdf', args=[payment.receipt.pk])):
             with self.subTest(url=url):
                 self.assertEqual(self.client.get(url).status_code, 200)
+
+
+class ConvertedQuotationFlowTests(BaseDataMixin, TestCase):
+    """Once a quotation becomes an invoice, the invoice is the working document."""
+
+    def setUp(self):
+        super().setUp()
+        from billing.models import Quotation, QuotationLineItem
+        self.quotation = Quotation.objects.create(event=self.event)
+        QuotationLineItem.objects.create(quotation=self.quotation, description='Tent', quantity=1, unit_price=Decimal('500000'))
+
+    def convert(self):
+        self.client.get(reverse('billing:quotation_convert', args=[self.quotation.pk]))
+        self.quotation.refresh_from_db()
+        return self.quotation.invoice
+
+    def formset_post(self, url, rows, **fields):
+        data = {'line_items-TOTAL_FORMS': str(len(rows)), 'line_items-INITIAL_FORMS': str(sum(1 for r in rows if r.get('id'))),
+                'line_items-MIN_NUM_FORMS': '1', 'line_items-MAX_NUM_FORMS': '1000', **fields}
+        for i, row in enumerate(rows):
+            for key, value in row.items():
+                data[f'line_items-{i}-{key}'] = value
+        return self.client.post(url, data)
+
+    def test_quotation_editable_before_conversion(self):
+        self.assertEqual(self.client.get(reverse('billing:quotation_update', args=[self.quotation.pk])).status_code, 200)
+
+    def test_converted_quotation_is_locked(self):
+        invoice = self.convert()
+        response = self.client.get(reverse('billing:quotation_update', args=[self.quotation.pk]))
+        self.assertRedirects(response, reverse('billing:quotation_detail', args=[self.quotation.pk]))
+        line = self.quotation.line_items.get()
+        self.formset_post(reverse('billing:quotation_update', args=[self.quotation.pk]),
+                          [{'id': line.pk, 'description': 'Tent', 'quantity': '5', 'unit_price': '500000'}],
+                          status='approved', valid_until='', notes='')
+        line.refresh_from_db()
+        self.assertEqual(line.quantity, 1)  # POST can't sneak an edit through either
+        page = self.client.get(reverse('billing:quotation_detail', args=[self.quotation.pk]))
+        self.assertContains(page, f'Converted to invoice')
+        self.assertContains(page, reverse('billing:invoice_update', args=[invoice.pk]))
+        self.assertNotContains(page, reverse('billing:quotation_update', args=[self.quotation.pk]))
+
+    def test_invoice_edit_is_the_way_to_change_items(self):
+        invoice = self.convert()
+        line = invoice.line_items.get()
+        self.formset_post(reverse('billing:invoice_update', args=[invoice.pk]),
+                          [{'id': line.pk, 'description': 'Tent', 'quantity': '2', 'unit_price': '500000'}],
+                          status='unpaid', issue_date=timezone.localdate().isoformat(), due_date='', notes='')
+        self.assertEqual(Invoice.objects.get(pk=invoice.pk).total, Decimal('1000000'))
+        self.assertEqual(self.quotation.total, Decimal('500000'))  # original offer kept as sent
+
+    def test_invoice_total_cannot_drop_below_amount_paid(self):
+        invoice = self.convert()
+        Payment.objects.create(invoice=invoice, amount=Decimal('400000'))
+        line = invoice.line_items.get()
+        response = self.formset_post(reverse('billing:invoice_update', args=[invoice.pk]),
+                                     [{'id': line.pk, 'description': 'Tent', 'quantity': '1', 'unit_price': '300000'}],
+                                     status='partially_paid', issue_date=timezone.localdate().isoformat(), due_date='', notes='')
+        self.assertContains(response, 'less than the 400,000 already paid')
+        self.assertEqual(Invoice.objects.get(pk=invoice.pk).total, Decimal('500000'))
+        # Equal to the amount paid is fine.
+        self.formset_post(reverse('billing:invoice_update', args=[invoice.pk]),
+                          [{'id': line.pk, 'description': 'Tent', 'quantity': '1', 'unit_price': '400000'}],
+                          status='partially_paid', issue_date=timezone.localdate().isoformat(), due_date='', notes='')
+        invoice = Invoice.objects.get(pk=invoice.pk)
+        self.assertEqual(invoice.total, Decimal('400000'))
+        self.assertEqual(invoice.status, Invoice.Status.PAID)
