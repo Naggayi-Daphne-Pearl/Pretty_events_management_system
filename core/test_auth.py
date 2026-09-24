@@ -202,3 +202,29 @@ class SessionLifetimeTests(TestCase):
         from django.conf import settings
         self.assertEqual(settings.SESSION_COOKIE_AGE, 30 * 60)
         self.assertTrue(settings.SESSION_EXPIRE_AT_BROWSER_CLOSE)
+
+
+class StaffPasswordRulesTests(TestCase):
+    def setUp(self):
+        self.admin = User.objects.create_superuser('boss', 'boss@example.com', 'Admin-Pass-99')
+        self.client.force_login(self.admin)
+
+    def create(self, password):
+        return self.client.post(reverse('staffing:create'), {
+            'full_name': 'New Person', 'is_active': 'on', 'create_login': '1',
+            'login-email': 'new.person@example.com', 'login-password1': password, 'login-password2': password,
+        })
+
+    def test_rules_are_shown_on_the_form(self):
+        self.assertContains(self.client.get(reverse('staffing:create')), 'At least 8 characters')
+
+    def test_weak_password_explains_why(self):
+        response = self.create('12345678')
+        self.assertContains(response, 'entirely numeric')
+        self.assertFalse(User.objects.filter(email='new.person@example.com').exists())
+
+    def test_admin_set_password_logs_in_by_email(self):
+        self.create('Kampala-Tent-2026')
+        self.client.logout()
+        response = self.client.post(reverse('login'), {'username': 'New.Person@example.com', 'password': 'Kampala-Tent-2026'})
+        self.assertRedirects(response, reverse('dashboard'), fetch_redirect_response=False)

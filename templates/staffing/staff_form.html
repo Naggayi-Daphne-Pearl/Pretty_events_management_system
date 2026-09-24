@@ -67,6 +67,7 @@
                     <div class="mb-3 pw-now-field"{% if EMAIL_ENABLED and not login_form.set_password_now.value %} hidden{% endif %}>
                         <label class="form-label">{{ field.label }} <span class="text-danger">*</span></label>
                         {{ field }}
+                        {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
                         {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
                     </div>
                     {% else %}

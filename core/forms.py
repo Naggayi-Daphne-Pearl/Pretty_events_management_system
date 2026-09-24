@@ -80,6 +80,11 @@ class StaffAccountCreationForm(BootstrapFieldsMixin, forms.Form):
             del self.fields['set_password_now']
             self.fields['password1'].required = True
             self.fields['password2'].required = True
+        # Show the rules up front: the most common "can't create staff" cause is a password
+        # quietly rejected for being short, common, all digits or too like their email.
+        self.fields['password1'].help_text = (
+            'At least 8 characters, not all numbers, not a common password, and not too similar to their email.'
+        )
 
     def clean_email(self):
         email = self.cleaned_data['email'].strip()
