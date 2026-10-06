@@ -150,8 +150,11 @@
         }
         .sidebar-brand-name { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--text-1); }
         .sidebar-brand-logo { height: 44px; width: auto; }
-        /* The logo's navy lettering disappears on black, so in dark mode it sits on a white tile. */
-        :root[data-theme="dark"] .brand-logo-tile { background: #ffffff; border-radius: 10px; padding: 4px 8px; }
+        /* Two versions of the transparent logo: the dark theme's has white lettering
+           where the original is navy, which would vanish on black. */
+        .logo-for-dark { display: none; }
+        :root[data-theme="dark"] .logo-for-light { display: none; }
+        :root[data-theme="dark"] .logo-for-dark { display: inline-block; }
         .sidebar-brand-sub { font-size: 11px; color: var(--text-3); }
         .sidebar .nav-link {
             color: var(--sidebar-text); font-weight: 500; font-size: 14px;
@@ -365,7 +368,8 @@
     <nav class="sidebar offcanvas-md offcanvas-start d-flex flex-column p-3" id="pe-sidebar" tabindex="-1" aria-label="Main menu">
         <div class="d-flex align-items-center justify-content-between mb-4 px-1">
             <a href="{% url 'dashboard' %}" class="text-decoration-none d-flex align-items-center gap-2">
-                <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo brand-logo-tile">
+                <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo logo-for-light">
+                <img src="{% static COMPANY_LOGO_DARK_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo logo-for-dark">
                 <div class="sidebar-brand-sub">operations</div>
             </a>
             <button type="button" class="btn-close d-md-none" data-bs-dismiss="offcanvas" data-bs-target="#pe-sidebar" aria-label="Close menu"></button>

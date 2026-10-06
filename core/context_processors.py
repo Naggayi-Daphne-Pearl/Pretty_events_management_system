@@ -14,6 +14,7 @@ def branding(request):
         'COMPANY_EMAIL': settings.COMPANY_EMAIL,
         'COMPANY_WEBSITE_EMAIL': settings.COMPANY_WEBSITE_EMAIL,
         'COMPANY_LOGO_STATIC_PATH': settings.COMPANY_LOGO_STATIC_PATH,
+        'COMPANY_LOGO_DARK_STATIC_PATH': settings.COMPANY_LOGO_DARK_STATIC_PATH,
         'CURRENCY': settings.CURRENCY,
         'EMAIL_ENABLED': settings.EMAIL_ENABLED,
     }

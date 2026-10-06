@@ -192,6 +192,8 @@ COMPANY_PHONES = [phone for _, phone in COMPANY_CONTACTS]
 COMPANY_EMAIL = 'prettyevents5@gmail.com'
 COMPANY_WEBSITE_EMAIL = 'info@prettyeventslimited.co.ug'
 COMPANY_LOGO_STATIC_PATH = 'branding/pretty-events-logo.png'
+# Same logo with the navy lettering in white, for the dark theme (transparent background).
+COMPANY_LOGO_DARK_STATIC_PATH = 'branding/pretty-events-logo-dark.png'
 
 # Master switch for everything that sends email from the server: "Email to Client" on
 # quotations/invoices/receipts, staff invite emails, and "Forgot your password?". Off until
