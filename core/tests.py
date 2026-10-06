@@ -1119,3 +1119,78 @@ class ResetBusinessDataTests(BaseDataMixin, TestCase):
         self.assertFalse(EquipmentItem.objects.exists())
         self.assertFalse(StaffMember.objects.exists())
         self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+
+
+class NavigationTests(BaseDataMixin, TestCase):
+    def nav(self, user, path='/'):
+        self.client.force_login(user)
+        return self.client.get(path).context
+
+    def role_user(self, codenames, email='role@example.com'):
+        from django.contrib.auth.models import Permission
+        user = get_user_model().objects.create_user(email.split('@')[0], email, 'pw')
+        user.user_permissions.set(Permission.objects.filter(codename__in=codenames))
+        return user
+
+    def test_owner_sees_eight_flat_items(self):
+        labels = [i['label'] for i in self.nav(self.user)['nav_items']]
+        self.assertEqual(labels, ['Dashboard', 'Events', 'Customers', 'Billing', 'Inventory', 'Staff', 'Finance', 'Reports',
+                                  'Administration'])
+
+    def test_field_staff_see_only_what_they_use(self):
+        user = self.role_user(['view_event', 'view_assigned_events_only', 'view_eventassignment'])
+        ctx = self.nav(user)
+        self.assertEqual([i['label'] for i in ctx['nav_items']], ['Dashboard', 'Events'])
+        # And the event report itself only counts their own events.
+        Event.objects.create(customer=self.customer, event_type='Not mine', venue='X', event_date=timezone.localdate())
+        response = self.client.get(reverse('reports:event_summary'))
+        self.assertEqual(response.context['total'], 0)
+        self.assertEqual(ctx['nav_new'], [])
+
+    def test_accountant_lands_on_money_sections(self):
+        user = self.role_user(['view_account', 'view_journalentry', 'view_incomerecord', 'view_expenserecord',
+                               'view_invoice', 'view_payment', 'view_periodclose'])
+        labels = [i['label'] for i in self.nav(user)['nav_items']]
+        self.assertEqual(labels, ['Dashboard', 'Billing', 'Finance', 'Reports'])
+
+    def test_tabs_show_on_section_pages_with_the_right_one_active(self):
+        ctx = self.nav(self.user, reverse('billing:quotation_list'))
+        self.assertEqual([(t['label'], t['active']) for t in ctx['nav_tabs']],
+                         [('Invoices', False), ('Quotations', True), ('Receipts', False), ('Mobile money', False)])
+        self.assertEqual([i['key'] for i in ctx['nav_items'] if i['active']], ['billing'])
+        # Journals live under Finance now; financial statements under Reports.
+        self.assertEqual(self.nav(self.user, reverse('accounting:journal_list'))['nav_section'], 'finance')
+        self.assertEqual(self.nav(self.user, reverse('accounting:balance_sheet'))['nav_section'], 'reports')
+        # Detail pages keep breadcrumbs, not the tab row.
+        self.assertEqual(self.nav(self.user, reverse('events:detail', args=[self.event.pk]))['nav_tabs'], [])
+
+    def test_badges_flag_overdue_invoices_and_low_stock(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(status=Invoice.Status.OVERDUE)
+        EquipmentItem.objects.create(name='Chair', total_quantity=2)
+        badges = {i['key']: i['badge'] for i in self.nav(self.user)['nav_items'] if i['badge']}
+        self.assertEqual(badges, {'billing': 1, 'inventory': 1})
+
+    def test_administration_section_with_tabs_for_owners_only(self):
+        ctx = self.nav(self.user, reverse('activity_log'))
+        self.assertEqual(ctx['nav_section'], 'admin')
+        self.assertEqual([(t['label'], t['active']) for t in ctx['nav_tabs']],
+                         [('Roles & permissions', False), ('Activity log', True)])
+        self.assertEqual(self.nav(self.user, reverse('role_create'))['nav_section'], 'admin')
+        staff = self.role_user(['view_event', 'view_customer'], email='plain@example.com')
+        self.assertNotIn('Administration', [i['label'] for i in self.nav(staff)['nav_items']])
+
+
+class ThemeAndLoginPageTests(TestCase):
+    def test_login_page_has_no_theme_switch(self):
+        response = self.client.get(reverse('login'))
+        self.assertNotContains(response, 'data-theme-choice="')  # the Auto/Light/Dark buttons
+        self.assertContains(response, 'prefers-color-scheme')  # follows the device instead
+        self.assertContains(response, 'password-toggle')        # show/hide button script
+
+    def test_signed_in_users_can_pick_auto_light_or_dark(self):
+        user = get_user_model().objects.create_user('u', 'u@example.com', 'pw')
+        self.client.force_login(user)
+        response = self.client.get(reverse('dashboard'))
+        for choice in ('auto', 'light', 'dark'):
+            self.assertContains(response, f'data-theme-choice="{choice}"')

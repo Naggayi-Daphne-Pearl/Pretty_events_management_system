@@ -202,10 +202,14 @@ class ReportTests(LedgerTestMixin, TestCase):
 
     def test_report_pages_and_csv_render(self):
         self.build_books()
-        for name in ('accounting:chart', 'accounting:journal_list', 'accounting:banking', 'accounting:reports',
+        for name in ('accounting:chart', 'accounting:journal_list', 'accounting:banking',
                      'accounting:trial_balance', 'accounting:income_statement', 'accounting:balance_sheet'):
             with self.subTest(page=name):
                 self.assertEqual(self.client.get(reverse(name)).status_code, 200)
+        # The old accounting reports page now lands on the single Reports page, statements included.
+        response = self.client.get(reverse('accounting:reports'), follow=True)
+        self.assertRedirects(response, reverse('reports:index'))
+        self.assertContains(response, 'Balance Sheet')
         for name in ('accounting:chart', 'accounting:trial_balance', 'accounting:income_statement', 'accounting:balance_sheet'):
             with self.subTest(csv=name):
                 response = self.client.get(reverse(name), {'format': 'csv'})

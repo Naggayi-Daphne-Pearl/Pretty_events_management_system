@@ -10,10 +10,6 @@
             <div class="alert alert-{% if message.tags == 'error' %}danger{% else %}{{ message.tags|default:'info' }}{% endif %} py-2 small">{{ message }}</div>
         {% endfor %}
         {% block card %}{% endblock %}
-        <div class="theme-toggle mt-3">
-            <button type="button" id="pe-theme-light" onclick="peSetTheme('light')">Light</button>
-            <button type="button" id="pe-theme-dark" onclick="peSetTheme('dark')">Dark</button>
-        </div>
     </div>
 </div>
 {% endblock %}

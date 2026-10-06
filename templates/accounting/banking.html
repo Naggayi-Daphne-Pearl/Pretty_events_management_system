@@ -15,7 +15,6 @@
         {% if perms.accounting.add_account %}<a href="{% url 'accounting:account_create' %}?type=asset&detail=cash_bank" class="btn btn-outline-secondary btn-sm"><i class="bi bi-plus-lg me-1"></i>Add bank account</a>{% endif %}
     </div>
 </div>
-{% include "accounting/_nav.html" %}
 <p class="small text-muted">Invoice payments land here automatically by payment method (cash, mobile money, bank/cheque). Expenses come out of the account chosen on the expense. To add another bank or mobile money wallet, create an Asset account with detail type "Cash &amp; bank".</p>
 <div class="row g-3">
 {% for row in rows %}
