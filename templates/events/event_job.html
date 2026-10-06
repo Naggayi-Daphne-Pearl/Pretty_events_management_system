@@ -45,7 +45,7 @@
         <div class="job-row">
             <div>
                 <div class="fw-semibold">{{ row.item.name }}</div>
-                <div class="meta">Booked {{ row.booked|intcomma }} · already out {{ row.issued|intcomma }}</div>
+                <div class="meta">Booked {{ row.booked|intcomma }} · issued {{ row.issued|intcomma }} · still out {{ row.out|intcomma }}</div>
             </div>
             <input type="number" inputmode="numeric" min="0" name="qty-{{ row.item.pk }}" value="{{ row.to_load }}" class="form-control qty" aria-label="{{ row.item.name }} to load">
         </div>

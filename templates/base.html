@@ -6,7 +6,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ COMPANY_NAME }}{% endblock %} · {{ COMPANY_NAME }}</title>
     <link rel="icon" type="image/png" href="{% static COMPANY_LOGO_STATIC_PATH %}">
-    <link rel="apple-touch-icon" href="{% static COMPANY_LOGO_STATIC_PATH %}">
+    <link rel="apple-touch-icon" href="{% static 'branding/icons/apple-touch-icon.png' %}">
+    <link rel="manifest" href="{% url 'manifest' %}">
+    <meta name="theme-color" content="#2B3490">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-title" content="Pretty Events">
     <script>
         // Theme follows the device's light/dark setting unless the user picked one in the
         // avatar menu (saved per browser). Runs before the page paints, so no flash.
@@ -217,6 +221,8 @@
         }
         .theme-toggle button.active { background: var(--panel-strong); color: var(--text-1); }
 
+        .amount-hint { font-size: 11.5px; color: var(--text-2); margin-top: 2px; min-height: 0; white-space: nowrap; }
+        .amount-hint:empty { display: none; }
         .password-wrap { position: relative; }
         .password-wrap input { padding-right: 44px; }
         .password-toggle {
@@ -558,6 +564,32 @@
             });
         } catch (e) {}
     })();
+    // Money fields are browser number inputs, which can't show thousands separators, so
+    // a live "UGX 1,250,000" line under each makes a missing or extra zero obvious.
+    (function peAmountHints() {
+        var MONEY = /(^|-)(unit_price|amount|default_rate|debit|credit)$/;
+        var fmt = new Intl.NumberFormat('en-US', {maximumFractionDigits: 2});
+        var currency = '{{ CURRENCY|default:"UGX"|escapejs }}';
+        function update(input) {
+            if (input.type !== 'number' || !MONEY.test(input.name || '')) return;
+            var hint = input.nextElementSibling;
+            if (!hint || !hint.classList.contains('amount-hint')) {
+                hint = document.createElement('div');
+                hint.className = 'amount-hint';
+                hint.setAttribute('aria-live', 'polite');
+                input.insertAdjacentElement('afterend', hint);
+            }
+            var value = parseFloat(input.value);
+            hint.textContent = (!isNaN(value) && Math.abs(value) >= 1000) ? currency + ' ' + fmt.format(value) : '';
+        }
+        document.addEventListener('input', function (e) { update(e.target); });
+        document.addEventListener('change', function (e) { update(e.target); });
+        document.querySelectorAll('input[type="number"]').forEach(update);
+    })();
+    // Lets phones install the app to the home screen (and show the offline page).
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function () { navigator.serviceWorker.register('/sw.js').catch(function () {}); });
+    }
     function peFocusSearch() {
         var input = document.querySelector('.topbar-search input');
         if (!input) return;

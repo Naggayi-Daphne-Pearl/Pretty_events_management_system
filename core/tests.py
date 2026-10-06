@@ -1427,3 +1427,18 @@ class DuplicateCustomerTests(BaseDataMixin, TestCase):
         response = self.client.post(reverse('customers:update', args=[self.customer.pk]), {
             'name': 'Jane Doe', 'phone': '0772123456', 'alt_phone': '', 'email': 'jane@example.com', 'address': '', 'notes': 'vip'})
         self.assertEqual(response.status_code, 302)
+
+
+class InstallableAppTests(TestCase):
+    def test_manifest_service_worker_and_offline_page_are_public(self):
+        import json
+        manifest = self.client.get('/manifest.webmanifest')
+        self.assertEqual(manifest['Content-Type'], 'application/manifest+json')
+        data = json.loads(manifest.content)
+        self.assertEqual((data['display'], data['scope'], data['theme_color']), ('standalone', '/', '#2B3490'))
+        self.assertEqual({i['sizes'] for i in data['icons']}, {'192x192', '512x512'})
+        sw = self.client.get('/sw.js')
+        self.assertEqual(sw['Content-Type'], 'application/javascript')
+        self.assertIn("mode !== 'navigate'", sw.content.decode())
+        self.assertContains(self.client.get('/offline/'), "You're offline")
+        self.assertContains(self.client.get(reverse('login')), 'rel="manifest"')
