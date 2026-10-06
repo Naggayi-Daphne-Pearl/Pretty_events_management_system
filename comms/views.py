@@ -151,7 +151,10 @@ def contact_customer(request, customer_pk, channel):
     if channel == CommunicationLog.Channel.WHATSAPP:
         if document:
             # The client can't log in, so send a signed link to the PDF itself.
-            text += f' View or download it here: {share_url(request, document)}'
+            if document._meta.model_name == 'quotation':
+                text += f' You can view and accept it here: {share_url(request, document)}'
+            else:
+                text += f' View or download it here: {share_url(request, document)}'
         target = whatsapp_url(customer.phone, text)
         note = f'Started a WhatsApp chat from the app: "{text}"'
     elif channel == CommunicationLog.Channel.CALL:

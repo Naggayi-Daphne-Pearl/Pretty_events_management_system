@@ -29,8 +29,10 @@ from .forms import (
 )
 from . import mobile_money
 from .models import Invoice, MobileMoneyTransaction, Payment, Quotation, Receipt, TaxGroup
-from .services import record_payment, sync_invoice_statuses
-from .sharing import read_token
+from .services import (
+    accept_quotation_online, quotation_acceptance_problem, record_payment, sync_invoice_statuses,
+)
+from .sharing import read_token, share_url
 from .tasks import send_or_queue
 
 
@@ -434,20 +436,58 @@ def receipt_pdf_context(receipt):
     }
 
 
-def shared_document(request, token):
-    """Public, link-only view of one PDF (see billing.sharing). No login: the signed token is the key."""
+def _shared(token):
+    """The document a share link points at, or None if the link is bad or expired."""
     found = read_token(token)
     if found is None:
-        return render(request, 'billing/share_expired.html', {'auth_page': True}, status=404)
+        return None
     kind, pk = found
-    if kind == 'quotation':
-        quotation = get_object_or_404(Quotation, pk=pk)
-        return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': quotation}, f'{quotation.number}.pdf')
-    if kind == 'invoice':
-        invoice = get_object_or_404(Invoice, pk=pk)
-        return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': invoice}, f'{invoice.number}.pdf')
-    receipt = get_object_or_404(Receipt, pk=pk)
-    return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt), f'{receipt.number}.pdf')
+    model = {'quotation': Quotation, 'invoice': Invoice, 'receipt': Receipt}[kind]
+    return model.objects.filter(pk=pk).first()
+
+
+def _share_expired(request):
+    return render(request, 'billing/share_expired.html', {'auth_page': True}, status=404)
+
+
+def shared_document(request, token):
+    """
+    Public, link-only view of one document (see billing.sharing); no login, the signed
+    token is the key. A quotation opens a page where the client can accept it;
+    invoices and receipts open straight as PDFs.
+    """
+    document = _shared(token)
+    if document is None:
+        return _share_expired(request)
+    if isinstance(document, Quotation):
+        return render(request, 'billing/shared_quotation.html', {
+            'auth_page': True, 'quotation': document, 'token': token,
+            'problem': quotation_acceptance_problem(document),
+            'invoice_url': share_url(request, document.invoice) if document.has_invoice else '',
+        })
+    return shared_document_pdf(request, token)
+
+
+def shared_document_pdf(request, token):
+    document = _shared(token)
+    if document is None:
+        return _share_expired(request)
+    if isinstance(document, Quotation):
+        return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': document}, f'{document.number}.pdf')
+    if isinstance(document, Invoice):
+        return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': document}, f'{document.number}.pdf')
+    return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(document), f'{document.number}.pdf')
+
+
+@require_POST
+def shared_quotation_accept(request, token):
+    quotation = _shared(token)
+    if not isinstance(quotation, Quotation):
+        return _share_expired(request)
+    if not quotation_acceptance_problem(quotation):
+        accept_quotation_online(quotation, accepted_by=request.POST.get('name', ''))
+        quotation.refresh_from_db()
+    return redirect('billing:shared_document', token=token)
 
 
 @login_required

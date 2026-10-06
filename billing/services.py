@@ -58,3 +58,49 @@ def record_payment(invoice, *, amount, method, paid_at=None, reference_number=''
         )
         advanced = invoice.event.advance_status_at_least(Event.Status.CONFIRMED)
     return payment, advanced
+
+
+def quotation_acceptance_problem(quotation):
+    """Why a client can't accept this quotation online right now, or '' if they can."""
+    from .models import Quotation
+    if quotation.has_invoice:
+        return 'already_accepted'
+    if quotation.status in (Quotation.Status.REJECTED, Quotation.Status.EXPIRED):
+        return 'closed'
+    if quotation.valid_until and quotation.valid_until < timezone.localdate():
+        return 'expired'
+    if quotation.event.status == Event.Status.CANCELLED:
+        return 'closed'
+    return ''
+
+
+def accept_quotation_online(quotation, accepted_by=''):
+    """
+    The client accepted from the shared link: turn the quotation into an invoice,
+    confirm the event, and record who accepted it and when for the staff.
+    Returns the invoice. Callers check quotation_acceptance_problem() first.
+    """
+    from comms.models import CommunicationLog
+    from core.models import ActivityLog
+
+    from .models import Quotation
+
+    who = accepted_by.strip()[:100] or 'the client'
+    with transaction.atomic():
+        quotation = Quotation.objects.select_for_update().get(pk=quotation.pk)
+        if quotation_acceptance_problem(quotation):
+            return getattr(quotation, 'invoice', None)
+        invoice = Invoice.create_from_quotation(quotation)
+        quotation.status = Quotation.Status.APPROVED
+        quotation.save(update_fields=['status'])
+        quotation.event.advance_status_at_least(Event.Status.CONFIRMED)
+        CommunicationLog.objects.create(
+            customer=quotation.event.customer, event=quotation.event,
+            channel=CommunicationLog.Channel.OTHER, direction=CommunicationLog.Direction.INBOUND,
+            message=f'Accepted quotation {quotation.number} online ({who}). Invoice {invoice.number} was created.',
+        )
+        ActivityLog.objects.create(
+            actor=None, action='quotation.accepted_online',
+            description=f'{quotation.event.customer.name} accepted {quotation.number} online; invoice {invoice.number} created',
+        )
+    return invoice

@@ -246,3 +246,52 @@ class TaxTests(TestCase):
         from accounting.models import Account
         self.assertEqual(Account.objects.filter(code__startswith='2100').count(), 1)
         self.assertEqual(Account.objects.get(code='2100').system_key, 'tax_payable')
+
+
+class OnlineQuotationAcceptanceTests(TestCase):
+    def setUp(self):
+        from .models import Quotation, QuotationLineItem
+        from .sharing import share_token
+        customer = Customer.objects.create(name='Jane Doe', phone='0772123456')
+        self.event = Event.objects.create(
+            customer=customer, event_type='Wedding', venue='Kampala', status=Event.Status.QUOTED,
+            event_date=timezone.localdate() + timedelta(days=10),
+        )
+        self.quote = Quotation.objects.create(event=self.event, status=Quotation.Status.SENT)
+        QuotationLineItem.objects.create(quotation=self.quote, description='Tent', quantity=1, unit_price=Decimal('250000'))
+        self.token = share_token(self.quote)
+
+    def test_client_sees_quote_and_accepts_it(self):
+        from comms.models import CommunicationLog
+        from .models import Quotation
+        page = self.client.get(reverse('billing:shared_document', args=[self.token]))
+        self.assertContains(page, 'Accept quotation')
+        self.assertContains(page, '250,000')
+        response = self.client.post(reverse('billing:shared_quotation_accept', args=[self.token]), {'name': 'Jane'}, follow=True)
+        self.assertContains(response, 'Accepted. Thank you!')
+        self.quote.refresh_from_db()
+        self.event.refresh_from_db()
+        self.assertEqual(self.quote.status, Quotation.Status.APPROVED)
+        self.assertTrue(self.quote.has_invoice)
+        self.assertEqual(self.event.status, Event.Status.CONFIRMED)
+        self.assertTrue(CommunicationLog.objects.filter(direction='inbound', message__contains='(Jane)').exists())
+
+    def test_accepting_twice_makes_one_invoice(self):
+        url = reverse('billing:shared_quotation_accept', args=[self.token])
+        self.client.post(url)
+        self.client.post(url)
+        self.assertEqual(Invoice.objects.count(), 1)
+
+    def test_expired_quotation_cannot_be_accepted(self):
+        self.quote.valid_until = timezone.localdate() - timedelta(days=1)
+        self.quote.save()
+        page = self.client.get(reverse('billing:shared_document', args=[self.token]))
+        self.assertContains(page, 'passed its valid-until date')
+        self.client.post(reverse('billing:shared_quotation_accept', args=[self.token]))
+        self.assertFalse(Invoice.objects.exists())
+
+    def test_pdf_link_still_works(self):
+        from unittest import mock
+        with mock.patch('billing.views.generate_pdf_bytes', return_value=None):
+            response = self.client.get(reverse('billing:shared_document_pdf', args=[self.token]))
+        self.assertContains(response, self.quote.number)
