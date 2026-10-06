@@ -346,7 +346,8 @@ def transfer_create(request):
 @login_required
 @permission_required('accounting.view_journalentry', raise_exception=True)
 def reports_index(request):
-    return render(request, 'accounting/reports_index.html')
+    # Financial statements now live on the one Reports page; keep this address working.
+    return redirect('reports:index')
 
 
 @login_required

@@ -17,3 +17,11 @@ def branding(request):
         'CURRENCY': settings.CURRENCY,
         'EMAIL_ENABLED': settings.EMAIL_ENABLED,
     }
+
+
+def navigation(request):
+    """Sidebar, tabs, "+ New" menu and phone bar for the signed-in user (see core.navigation)."""
+    if not getattr(request, 'user', None) or not request.user.is_authenticated:
+        return {}
+    from .navigation import build
+    return build(request)

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render
 
 from billing.models import Invoice
+from core.permissions import scope_events_to_assignments
 from billing.services import sync_invoice_statuses
 from events.models import Event
 from inventory.models import EquipmentItem
@@ -21,7 +22,7 @@ def event_summary(request):
     start = request.GET.get('start') or today.replace(day=1).isoformat()
     end = request.GET.get('end') or today.isoformat()
 
-    events = Event.objects.filter(event_date__gte=start, event_date__lte=end)
+    events = scope_events_to_assignments(Event.objects.all(), request.user).filter(event_date__gte=start, event_date__lte=end)
     by_status = []
     for value, label in Event.Status.choices:
         by_status.append({'label': label, 'count': events.filter(status=value).count()})

@@ -114,11 +114,6 @@
             /* Wide tables scroll sideways inside their card instead of stretching the page. */
             main .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
         }
-        .topbar-menu {
-            width: 40px; height: 40px; padding: 0; font-size: 22px; line-height: 1; flex-shrink: 0;
-            background: var(--panel); border: 1px solid var(--border); color: var(--text-1);
-        }
-        .topbar-menu:hover { background: var(--gold-soft); color: var(--text-1); }
         .sidebar-brand-mark {
             width: 34px; height: 34px; border-radius: 10px;
             background: linear-gradient(150deg, var(--gold), #8a6530);
@@ -137,20 +132,42 @@
         .sidebar .nav-link.active { background: var(--gold-soft); color: var(--sidebar-text-active); }
         .sidebar hr { border-color: var(--border); opacity: 1; margin: 10px 0; }
         .sidebar-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
-        .nav-section-label {
-            font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em;
-            color: var(--text-3);
+        .nav-badge {
+            min-width: 20px; height: 20px; padding: 0 6px; border-radius: 999px; font-size: 11px; font-weight: 700;
+            display: inline-flex; align-items: center; justify-content: center; background: var(--danger); color: #fff;
         }
-        .nav-section-toggle {
-            width: 100%; display: flex; align-items: center; justify-content: space-between;
-            background: none; border: none; padding: 14px .7rem 4px; cursor: pointer;
-            transition: color .15s ease;
+        .nav-badge-dot { position: absolute; top: -6px; right: -12px; min-width: 16px; height: 16px; font-size: 10px; padding: 0 4px; }
+
+        /* Tab row at the top of a section's main pages (Billing: Invoices | Quotations | ...). */
+        .section-tabs {
+            display: flex; gap: 4px; overflow-x: auto; margin: -4px 0 16px; padding-bottom: 2px;
+            border-bottom: 1px solid var(--border); scrollbar-width: none;
         }
-        .nav-section:first-of-type .nav-section-toggle { padding-top: 4px; }
-        .nav-section-toggle:hover .nav-section-label { color: var(--text-2); }
-        .nav-section-chevron { font-size: 10px; color: var(--text-3); transition: transform .15s ease; }
-        .nav-section-chevron.collapsed { transform: rotate(-90deg); }
-        .nav-section-items { margin-top: 2px; }
+        .section-tabs::-webkit-scrollbar { display: none; }
+        .section-tab {
+            flex-shrink: 0; padding: 8px 12px; font-size: 13.5px; font-weight: 600; text-decoration: none;
+            color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -3px;
+        }
+        .section-tab:hover { color: var(--text-1); }
+        .section-tab.active { color: var(--sidebar-text-active); border-bottom-color: var(--gold); }
+
+        /* Phone bottom bar. */
+        .bottom-bar {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 1030; display: flex;
+            background: var(--menu-bg); border-top: 1px solid var(--border);
+            padding: 4px 4px calc(4px + env(safe-area-inset-bottom));
+        }
+        .bottom-bar-item {
+            flex: 1; display: flex; flex-direction: column; align-items: center; gap: 1px; padding: 6px 2px;
+            background: none; border: none; color: var(--text-2); font-size: 11px; font-weight: 600; text-decoration: none;
+        }
+        .bottom-bar-item .position-relative { display: block; height: 22px; }
+        .bottom-bar-item i { font-size: 20px; line-height: 22px; }
+        .bottom-bar-item.active { color: var(--sidebar-text-active); }
+        @media (max-width: 767.98px) {
+            main { padding-bottom: 84px !important; }
+            .form-actions { bottom: 64px; }
+        }
 
         .breadcrumb-trail {
             display: flex; flex-wrap: wrap; align-items: center; gap: 4px;
@@ -307,130 +324,33 @@
             </a>
             <button type="button" class="btn-close d-md-none" data-bs-dismiss="offcanvas" data-bs-target="#pe-sidebar" aria-label="Close menu"></button>
         </div>
+        {% if nav_new %}
+        <div class="dropdown mb-3 px-1">
+            <button type="button" class="btn btn-primary w-100 d-flex align-items-center justify-content-center gap-1" data-bs-toggle="dropdown" aria-expanded="false">
+                <i class="bi bi-plus-lg"></i>New
+            </button>
+            <ul class="dropdown-menu w-100">
+                {% for item in nav_new %}
+                <li><a class="dropdown-item" href="{{ item.url }}"><i class="bi {{ item.icon }} me-2"></i>{{ item.label }}</a></li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
         <div class="sidebar-scroll">
         <ul class="nav nav-pills flex-column gap-1">
-            <li class="nav-item"><a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
+            {% for item in nav_items %}
+            <li class="nav-item">
+                <a href="{{ item.url }}" data-section="{{ item.key }}" class="nav-link d-flex align-items-center{% if item.active %} active{% endif %}"{% if item.active %} aria-current="page"{% endif %}>
+                    <i class="bi {{ item.icon }} me-2"></i><span class="flex-grow-1">{{ item.label }}</span>
+                    {% if item.badge %}<span class="nav-badge" title="{% if item.key == 'billing' %}Overdue invoices{% else %}Items low on stock{% endif %}">{{ item.badge }}</span>{% endif %}
+                </a>
+            </li>
+            {% endfor %}
         </ul>
-
-        {% if perms.customers.view_customer or perms.events.view_event or perms.comms.view_communicationlog %}
-        <div class="nav-section" data-section="clients-events" data-default-open="{% if request.resolver_match.app_name == 'customers' or request.resolver_match.app_name == 'events' or request.resolver_match.app_name == 'comms' %}true{% else %}false{% endif %}">
-            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
-                <span class="nav-section-label">Clients &amp; Events</span>
-                <i class="bi bi-chevron-down nav-section-chevron"></i>
-            </button>
-            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
-                {% if perms.customers.view_customer %}
-                <li class="nav-item"><a href="{% url 'customers:list' %}" class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}"><i class="bi bi-people me-2"></i>Customers</a></li>
-                {% endif %}
-                {% if perms.events.view_event %}
-                <li class="nav-item"><a href="{% url 'events:calendar' %}" class="nav-link {% if request.resolver_match.app_name == 'events' and request.resolver_match.url_name == 'calendar' %}active{% endif %}"><i class="bi bi-calendar3 me-2"></i>Calendar</a></li>
-                <li class="nav-item"><a href="{% url 'events:list' %}" class="nav-link {% if request.resolver_match.app_name == 'events' and request.resolver_match.url_name != 'calendar' %}active{% endif %}"><i class="bi bi-calendar-event me-2"></i>Events</a></li>
-                {% endif %}
-                {% if perms.comms.view_communicationlog %}
-                <li class="nav-item"><a href="{% url 'comms:list' %}" class="nav-link {% if request.resolver_match.app_name == 'comms' %}active{% endif %}"><i class="bi bi-chat-dots me-2"></i>Communication</a></li>
-                {% endif %}
-            </ul>
-        </div>
-        {% endif %}
-
-        {% if perms.billing.view_quotation or perms.billing.view_invoice or perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
-        <div class="nav-section" data-section="billing" data-default-open="{% if request.resolver_match.app_name == 'billing' or request.resolver_match.app_name == 'finance' %}true{% else %}false{% endif %}">
-            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
-                <span class="nav-section-label">Billing</span>
-                <i class="bi bi-chevron-down nav-section-chevron"></i>
-            </button>
-            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
-                {% if perms.billing.view_quotation %}
-                <li class="nav-item"><a href="{% url 'billing:quotation_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'quotation' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-file-earmark-text me-2"></i>Quotations</a></li>
-                {% endif %}
-                {% if perms.billing.view_invoice %}
-                <li class="nav-item"><a href="{% url 'billing:invoice_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'invoice' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt me-2"></i>Invoices</a></li>
-                {% endif %}
-                {% if perms.billing.view_receipt %}
-                <li class="nav-item"><a href="{% url 'billing:receipt_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'receipt' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt-cutoff me-2"></i>Receipts</a></li>
-                {% endif %}
-                {% if perms.billing.view_payment %}
-                <li class="nav-item"><a href="{% url 'billing:mobile_money' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'mobile_money' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-phone me-2"></i>Mobile Money</a></li>
-                {% endif %}
-                {% if perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
-                <li class="nav-item"><a href="{% url 'finance:summary' %}" class="nav-link {% if request.resolver_match.app_name == 'finance' %}active{% endif %}"><i class="bi bi-cash-coin me-2"></i>Finance</a></li>
-                {% endif %}
-            </ul>
-        </div>
-        {% endif %}
-
-        {% if perms.inventory.view_equipmentitem or perms.staffing.view_staffmember %}
-        <div class="nav-section" data-section="operations" data-default-open="{% if request.resolver_match.app_name == 'inventory' or request.resolver_match.app_name == 'staffing' %}true{% else %}false{% endif %}">
-            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
-                <span class="nav-section-label">Operations</span>
-                <i class="bi bi-chevron-down nav-section-chevron"></i>
-            </button>
-            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
-                {% if perms.inventory.view_equipmentitem %}
-                <li class="nav-item"><a href="{% url 'inventory:item_list' %}" class="nav-link {% if request.resolver_match.app_name == 'inventory' %}active{% endif %}"><i class="bi bi-box-seam me-2"></i>Inventory</a></li>
-                {% endif %}
-                {% if perms.staffing.view_staffmember %}
-                <li class="nav-item"><a href="{% url 'staffing:list' %}" class="nav-link {% if request.resolver_match.app_name == 'staffing' %}active{% endif %}"><i class="bi bi-person-badge me-2"></i>Staff</a></li>
-                {% endif %}
-            </ul>
-        </div>
-        {% endif %}
-
-        {% if perms.accounting.view_account or perms.accounting.view_journalentry %}
-        <div class="nav-section" data-section="accounting" data-default-open="{% if request.resolver_match.app_name == 'accounting' %}true{% else %}false{% endif %}">
-            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
-                <span class="nav-section-label">Accounting</span>
-                <i class="bi bi-chevron-down nav-section-chevron"></i>
-            </button>
-            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
-                {% with url_name=request.resolver_match.url_name in_acc=request.resolver_match.app_name %}
-                {% if perms.accounting.view_account %}
-                <li class="nav-item"><a href="{% url 'accounting:chart' %}" class="nav-link {% if in_acc == 'accounting' and url_name == 'chart' or in_acc == 'accounting' and 'account_' in url_name %}active{% endif %}"><i class="bi bi-diagram-3 me-2"></i>Chart of Accounts</a></li>
-                <li class="nav-item"><a href="{% url 'accounting:banking' %}" class="nav-link {% if in_acc == 'accounting' and url_name == 'banking' or in_acc == 'accounting' and url_name == 'transfer_create' %}active{% endif %}"><i class="bi bi-bank me-2"></i>Banking</a></li>
-                {% endif %}
-                {% if perms.accounting.view_journalentry %}
-                <li class="nav-item"><a href="{% url 'accounting:journal_list' %}" class="nav-link {% if in_acc == 'accounting' and 'journal' in url_name %}active{% endif %}"><i class="bi bi-journal-text me-2"></i>Journals</a></li>
-                {% if perms.accounting.view_periodclose %}
-                <li class="nav-item"><a href="{% url 'accounting:period_close' %}" class="nav-link {% if in_acc == 'accounting' and url_name == 'period_close' %}active{% endif %}"><i class="bi bi-lock me-2"></i>Close the Books</a></li>
-                {% endif %}
-                <li class="nav-item"><a href="{% url 'accounting:reports' %}" class="nav-link {% if in_acc == 'accounting' and url_name in 'reports,trial_balance,income_statement,balance_sheet' %}active{% endif %}"><i class="bi bi-bar-chart-line me-2"></i>Financial Reports</a></li>
-                {% endif %}
-                {% endwith %}
-            </ul>
-        </div>
-        {% endif %}
-
-        {% if perms.events.view_event or perms.billing.view_invoice or perms.inventory.view_equipmentitem or perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
-        <div class="nav-section" data-section="insights" data-default-open="{% if request.resolver_match.app_name == 'reports' %}true{% else %}false{% endif %}">
-            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
-                <span class="nav-section-label">Insights</span>
-                <i class="bi bi-chevron-down nav-section-chevron"></i>
-            </button>
-            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
-                <li class="nav-item"><a href="{% url 'reports:index' %}" class="nav-link {% if request.resolver_match.app_name == 'reports' %}active{% endif %}"><i class="bi bi-bar-chart me-2"></i>Reports</a></li>
-            </ul>
-        </div>
-        {% endif %}
-
-        {% if user.is_superuser %}
-        <div class="nav-section" data-section="administration" data-default-open="{% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete,activity_log' %}true{% else %}false{% endif %}">
-            <button type="button" class="nav-section-toggle" onclick="peToggleSection(this)">
-                <span class="nav-section-label">Administration</span>
-                <i class="bi bi-chevron-down nav-section-chevron"></i>
-            </button>
-            <ul class="nav nav-pills flex-column gap-1 nav-section-items">
-                <li class="nav-item"><a href="{% url 'role_list' %}" class="nav-link {% if request.resolver_match.url_name in 'role_list,role_create,role_update,role_delete' %}active{% endif %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; Permissions</a></li>
-                <li class="nav-item"><a href="{% url 'activity_log' %}" class="nav-link {% if request.resolver_match.url_name == 'activity_log' %}active{% endif %}"><i class="bi bi-clock-history me-2"></i>Activity Log</a></li>
-            </ul>
-        </div>
-        {% endif %}
         </div>
     </nav>
     <main class="flex-grow-1 p-3 p-md-4">
         <div class="topbar">
-            <button type="button" class="btn topbar-menu d-md-none me-auto" data-bs-toggle="offcanvas" data-bs-target="#pe-sidebar" aria-controls="pe-sidebar" aria-label="Open menu">
-                <i class="bi bi-list"></i>
-            </button>
             <form action="{% url 'search' %}" method="get" class="topbar-search" role="search">
                 <i class="bi bi-search"></i>
                 <input type="search" name="q" value="{% if request.resolver_match.url_name == 'search' %}{{ q }}{% endif %}" placeholder="Search names, phones, numbers…" aria-label="Search">
@@ -446,6 +366,10 @@
                     </li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>My Profile</a></li>
+                    {% if user.is_superuser %}
+                    <li><a class="dropdown-item" href="{% url 'role_list' %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; permissions</a></li>
+                    <li><a class="dropdown-item" href="{% url 'activity_log' %}"><i class="bi bi-clock-history me-2"></i>Activity log</a></li>
+                    {% endif %}
                     <li>
                         <div class="dropdown-item-text">
                             <div class="theme-toggle">
@@ -465,6 +389,11 @@
             </div>
         </div>
         {% block breadcrumbs %}{% endblock %}
+        {% if nav_tabs %}
+        <nav class="section-tabs" aria-label="{{ nav_section|capfirst }} pages" data-section="{{ nav_section }}">
+            {% for tab in nav_tabs %}<a href="{{ tab.url }}" class="section-tab{% if tab.active %} active{% endif %}"{% if tab.active %} aria-current="page"{% endif %}>{{ tab.label }}</a>{% endfor %}
+        </nav>
+        {% endif %}
         {% if messages %}
             {% for message in messages %}
                 <div class="alert alert-{{ message.tags|default:'info' }} alert-dismissible fade show" role="alert">
@@ -476,6 +405,16 @@
         {% block content %}{% endblock %}
     </main>
 </div>
+<nav class="bottom-bar d-md-none" aria-label="Quick navigation">
+    {% for item in nav_bottom %}
+    <a href="{{ item.url }}" data-section="{{ item.key }}" class="bottom-bar-item{% if item.active %} active{% endif %}">
+        <span class="position-relative"><i class="bi {{ item.icon }}"></i>{% if item.badge %}<span class="nav-badge nav-badge-dot">{{ item.badge }}</span>{% endif %}</span>
+        <span>{{ item.label }}</span>
+    </a>
+    {% endfor %}
+    <button type="button" class="bottom-bar-item" onclick="peFocusSearch()"><span class="position-relative"><i class="bi bi-search"></i></span><span>Search</span></button>
+    <button type="button" class="bottom-bar-item" data-bs-toggle="offcanvas" data-bs-target="#pe-sidebar" aria-controls="pe-sidebar"><span class="position-relative"><i class="bi bi-grid"></i></span><span>More</span></button>
+</nav>
 {% else %}
     {% block auth_content %}{% endblock %}
 {% endif %}
@@ -497,26 +436,25 @@
     }
     peSyncThemeButtons();
 
-    function peToggleSection(btn) {
-        var section = btn.closest('.nav-section');
-        var items = section.querySelector('.nav-section-items');
-        var chevron = section.querySelector('.nav-section-chevron');
-        var willOpen = items.hidden;
-        items.hidden = !willOpen;
-        chevron.classList.toggle('collapsed', !willOpen);
-        try { localStorage.setItem('pe-nav-' + section.dataset.section, willOpen ? '1' : '0'); } catch (e) {}
-    }
-    (function peInitSections() {
-        document.querySelectorAll('.nav-section').forEach(function (section) {
-            var items = section.querySelector('.nav-section-items');
-            var chevron = section.querySelector('.nav-section-chevron');
-            var saved = null;
-            try { saved = localStorage.getItem('pe-nav-' + section.dataset.section); } catch (e) {}
-            var open = saved !== null ? saved === '1' : section.dataset.defaultOpen === 'true';
-            items.hidden = !open;
-            chevron.classList.toggle('collapsed', !open);
-        });
+    // Each section remembers the tab you last used, so "Billing" reopens on Quotations
+    // if that's where you were. Saved per browser; falls back to the section's first tab.
+    (function peRememberTabs() {
+        var tabs = document.querySelector('.section-tabs');
+        var active = tabs && tabs.querySelector('.section-tab.active');
+        try {
+            if (active) localStorage.setItem('pe-tab-' + tabs.dataset.section, active.getAttribute('href'));
+            document.querySelectorAll('.nav-link[data-section], .bottom-bar-item[data-section]').forEach(function (link) {
+                var saved = localStorage.getItem('pe-tab-' + link.dataset.section);
+                if (saved && saved.charAt(0) === '/') link.setAttribute('href', saved);
+            });
+        } catch (e) {}
     })();
+    function peFocusSearch() {
+        var input = document.querySelector('.topbar-search input');
+        if (!input) return;
+        window.scrollTo({top: 0, behavior: 'smooth'});
+        input.focus();
+    }
 </script>
 <script>
     // Loading state for form submits: pages are server-rendered, so the only real wait is
