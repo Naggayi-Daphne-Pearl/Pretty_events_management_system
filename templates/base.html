@@ -8,10 +8,13 @@
     <link rel="icon" type="image/png" href="{% static COMPANY_LOGO_STATIC_PATH %}">
     <link rel="apple-touch-icon" href="{% static COMPANY_LOGO_STATIC_PATH %}">
     <script>
+        // Theme follows the device's light/dark setting unless the user picked one in the
+        // avatar menu (saved per browser). Runs before the page paints, so no flash.
         (function () {
             var saved = null;
             try { saved = localStorage.getItem('pe-theme'); } catch (e) {}
-            var theme = saved || 'light';
+            var dark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+            var theme = (saved === 'light' || saved === 'dark') ? saved : (dark ? 'dark' : 'light');
             document.documentElement.setAttribute('data-theme', theme);
         })();
     </script>
@@ -184,6 +187,14 @@
             font-size: 12px; font-weight: 600; padding: 7px 14px; border-radius: 999px; cursor: pointer;
         }
         .theme-toggle button.active { background: var(--panel-strong); color: var(--text-1); }
+
+        .password-wrap { position: relative; }
+        .password-wrap input { padding-right: 44px; }
+        .password-toggle {
+            position: absolute; top: 0; right: 0; height: 100%; width: 42px; border: none; background: none;
+            color: var(--text-2); display: flex; align-items: center; justify-content: center; font-size: 17px;
+        }
+        .password-toggle:hover, .password-toggle:focus-visible { color: var(--text-1); }
 
         .role-chip-group { display: flex; flex-wrap: wrap; gap: 8px; }
         .role-chip {
@@ -368,9 +379,10 @@
                     <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>My Profile</a></li>
                     <li>
                         <div class="dropdown-item-text">
-                            <div class="theme-toggle">
-                                <button type="button" id="pe-theme-light" onclick="peSetTheme('light')">Light</button>
-                                <button type="button" id="pe-theme-dark" onclick="peSetTheme('dark')">Dark</button>
+                            <div class="theme-toggle" role="group" aria-label="Theme">
+                                <button type="button" data-theme-choice="auto" onclick="peSetTheme('auto')" title="Follow this device's setting">Auto</button>
+                                <button type="button" data-theme-choice="light" onclick="peSetTheme('light')">Light</button>
+                                <button type="button" data-theme-choice="dark" onclick="peSetTheme('dark')">Dark</button>
                             </div>
                         </div>
                     </li>
@@ -416,21 +428,58 @@
 {% endif %}
 <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
-    function peSetTheme(theme) {
+    var peDarkQuery = window.matchMedia ? window.matchMedia('(prefers-color-scheme: dark)') : null;
+    function peThemeChoice() {
+        var saved = null;
+        try { saved = localStorage.getItem('pe-theme'); } catch (e) {}
+        return (saved === 'light' || saved === 'dark') ? saved : 'auto';
+    }
+    function peApplyTheme() {
+        var choice = peThemeChoice();
+        var theme = choice === 'auto' ? (peDarkQuery && peDarkQuery.matches ? 'dark' : 'light') : choice;
         document.documentElement.setAttribute('data-theme', theme);
-        try { localStorage.setItem('pe-theme', theme); } catch (e) {}
-        peSyncThemeButtons();
+        document.querySelectorAll('[data-theme-choice]').forEach(function (btn) {
+            btn.classList.toggle('active', btn.dataset.themeChoice === choice);
+        });
     }
-    function peSyncThemeButtons() {
-        var theme = document.documentElement.getAttribute('data-theme') || 'light';
-        var light = document.getElementById('pe-theme-light');
-        var dark = document.getElementById('pe-theme-dark');
-        if (light && dark) {
-            light.classList.toggle('active', theme === 'light');
-            dark.classList.toggle('active', theme === 'dark');
-        }
+    function peSetTheme(choice) {
+        try {
+            if (choice === 'auto') localStorage.removeItem('pe-theme');
+            else localStorage.setItem('pe-theme', choice);
+        } catch (e) {}
+        peApplyTheme();
     }
-    peSyncThemeButtons();
+    // On Auto, switch live when the device changes (e.g. phone dark mode at night).
+    if (peDarkQuery && peDarkQuery.addEventListener) peDarkQuery.addEventListener('change', peApplyTheme);
+    peApplyTheme();
+
+    // Show/hide button on every password field (login, reset, set password, profile).
+    document.querySelectorAll('input[type="password"]').forEach(function (input) {
+        var wrap = document.createElement('div');
+        wrap.className = 'password-wrap';
+        input.parentNode.insertBefore(wrap, input);
+        wrap.appendChild(input);
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.className = 'password-toggle';
+        btn.setAttribute('aria-label', 'Show password');
+        btn.setAttribute('aria-pressed', 'false');
+        btn.innerHTML = '<i class="bi bi-eye"></i>';
+        btn.addEventListener('click', function () {
+            var show = input.type === 'password';
+            input.type = show ? 'text' : 'password';
+            btn.setAttribute('aria-label', show ? 'Hide password' : 'Show password');
+            btn.setAttribute('aria-pressed', show ? 'true' : 'false');
+            btn.innerHTML = show ? '<i class="bi bi-eye-slash"></i>' : '<i class="bi bi-eye"></i>';
+            input.focus();
+        });
+        wrap.appendChild(btn);
+    });
+    // Never submit with the password left visible in the field's type (some browsers
+    // won't offer to save it otherwise).
+    document.addEventListener('submit', function (e) {
+        e.target.querySelectorAll('.password-wrap input').forEach(function (input) { input.type = 'password'; });
+    }, true);
 
     // Each section remembers the tab you last used, so "Billing" reopens on Quotations
     // if that's where you were. Saved per browser; falls back to the section's first tab.

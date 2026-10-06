@@ -1179,3 +1179,18 @@ class NavigationTests(BaseDataMixin, TestCase):
         self.assertEqual(self.nav(self.user, reverse('role_create'))['nav_section'], 'admin')
         staff = self.role_user(['view_event', 'view_customer'], email='plain@example.com')
         self.assertNotIn('Administration', [i['label'] for i in self.nav(staff)['nav_items']])
+
+
+class ThemeAndLoginPageTests(TestCase):
+    def test_login_page_has_no_theme_switch(self):
+        response = self.client.get(reverse('login'))
+        self.assertNotContains(response, 'theme-toggle')
+        self.assertContains(response, 'prefers-color-scheme')  # follows the device instead
+        self.assertContains(response, 'password-toggle')        # show/hide button script
+
+    def test_signed_in_users_can_pick_auto_light_or_dark(self):
+        user = get_user_model().objects.create_user('u', 'u@example.com', 'pw')
+        self.client.force_login(user)
+        response = self.client.get(reverse('dashboard'))
+        for choice in ('auto', 'light', 'dark'):
+            self.assertContains(response, f'data-theme-choice="{choice}"')
