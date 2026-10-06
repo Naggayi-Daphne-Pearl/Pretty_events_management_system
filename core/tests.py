@@ -1034,3 +1034,88 @@ class DocumentNumberTests(BaseDataMixin, TestCase):
         except RuntimeError:
             pass
         self.assertEqual(self.make_invoice().number, f'INV-{year}-00001')
+
+
+class ResetBusinessDataTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from datetime import date
+        from django.core.management import call_command
+        from accounting.models import Account, JournalEntry, PeriodClose
+        from accounting.services import reverse_entry, save_entry
+        from billing.models import MobileMoneyTransaction
+        from billing.services import record_payment
+        from finance.models import ExpenseCategory, ExpenseRecord
+        call_command('setup_chart_of_accounts', verbosity=0)
+
+        self.item = EquipmentItem.objects.create(name='Tent', total_quantity=5)
+        quote = Quotation.objects.create(event=self.event)
+        QuotationLineItem.objects.create(quotation=quote, equipment_item=self.item, description='Tent', quantity=2, unit_price=Decimal('1000'))
+        invoice = Invoice.create_from_quotation(quote)
+        record_payment(invoice, amount=Decimal('1000'), method='cash')
+        self.category = ExpenseCategory.objects.create(name='Transport')
+        ExpenseRecord.objects.create(amount=Decimal('500'), category=self.category, date=timezone.localdate())
+        issue = EquipmentIssue.objects.create(event=self.event, equipment_item=self.item, quantity_issued=2, issued_at=timezone.localdate())
+        EquipmentReturn.objects.create(issue=issue, quantity_returned=1, returned_at=timezone.localdate())
+        self.staff = StaffMember.objects.create(full_name='Crew Member')
+        EventAssignment.objects.create(event=self.event, staff_member=self.staff)
+        CommunicationLog.objects.create(customer=self.customer, channel='call', direction='outbound', message='hi')
+        cash = Account.objects.get(system_key='cash')
+        other = Account.objects.filter(account_type='equity').first()
+        old = save_entry(JournalEntry(date=date(2026, 1, 5)), [{'account': cash, 'debit': 10}, {'account': other, 'credit': 10}])
+        reverse_entry(old, date=date(2026, 1, 6), user=self.user)
+        PeriodClose.objects.create(closed_through=date(2026, 1, 31))
+        MobileMoneyTransaction.objects.create(provider='generic', transaction_id='T1', amount=Decimal('5'))
+
+    def run_reset(self, *args):
+        from io import StringIO
+        from django.core.management import call_command
+        out = StringIO()
+        call_command('reset_business_data', *args, stdout=out)
+        return out.getvalue()
+
+    def test_dry_run_changes_nothing(self):
+        output = self.run_reset()
+        self.assertIn('Nothing was deleted', output)
+        self.assertTrue(Customer.objects.exists())
+        self.assertTrue(Invoice.objects.exists())
+
+    def test_clears_business_data_keeps_setup_and_restarts_numbers(self):
+        from accounting.models import Account, JournalEntry, PeriodClose
+        from billing.models import MobileMoneyTransaction
+        from finance.models import ExpenseCategory, ExpenseRecord, IncomeRecord
+        from .models import ActivityLog
+        accounts_before = Account.objects.count()
+
+        self.run_reset('--confirm')
+
+        for model in (Customer, Event, Quotation, Invoice, Payment, IncomeRecord, ExpenseRecord, JournalEntry,
+                      PeriodClose, EquipmentIssue, EquipmentReturn, EventAssignment, CommunicationLog,
+                      MobileMoneyTransaction):
+            self.assertFalse(model.objects.exists(), model.__name__)
+        self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
+        self.assertEqual(Account.objects.count(), accounts_before)
+        self.assertTrue(ExpenseCategory.objects.filter(pk=self.category.pk).exists())
+        self.assertTrue(EquipmentItem.objects.filter(pk=self.item.pk).exists())
+        self.assertTrue(StaffMember.objects.filter(pk=self.staff.pk).exists())
+        self.assertEqual(list(ActivityLog.objects.values_list('action', flat=True)), ['system.reset'])
+
+        # Fresh numbering for documents and journals.
+        year = timezone.localdate().year
+        customer = Customer.objects.create(name='Real Client', phone='0700000000')
+        event = Event.objects.create(customer=customer, event_type='Wedding', venue='X', event_date=timezone.localdate())
+        invoice = Invoice.objects.create(event=event)
+        self.assertEqual(invoice.number, f'INV-{year}-00001')
+        self.assertEqual(Quotation.objects.create(event=event).number, f'QUO-{year}-00001')
+        from accounting.services import save_entry
+        cash = Account.objects.get(system_key='cash')
+        entry = save_entry(JournalEntry(date=timezone.localdate()), [
+            {'account': cash, 'debit': 1}, {'account': Account.objects.filter(account_type='equity').first(), 'credit': 1},
+        ])
+        self.assertEqual(entry.number, f'JE-{year}-00001')
+
+    def test_optional_equipment_and_staff(self):
+        self.run_reset('--confirm', '--include-equipment', '--include-staff')
+        self.assertFalse(EquipmentItem.objects.exists())
+        self.assertFalse(StaffMember.objects.exists())
+        self.assertTrue(get_user_model().objects.filter(pk=self.user.pk).exists())
