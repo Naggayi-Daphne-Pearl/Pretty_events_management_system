@@ -1,19 +1,22 @@
 import calendar
 from datetime import date, timedelta
+from urllib.parse import urlencode
 
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
+from django.core.exceptions import PermissionDenied
 from django.db import transaction
 from django.db.models.functions import Coalesce
-from django.shortcuts import get_object_or_404, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
-from core.activity import log_model_activity
+from comms.outreach import call_url, whatsapp_url
+from core.activity import log_activity, log_model_activity
 from core.deletion import confirm_and_delete, count_label
 from core.pagination import paginate
 from core.permissions import scope_events_to_assignments
@@ -205,6 +208,58 @@ def event_packing_list(request, pk):
         'event': event, 'rows': rows,
         'assignments': event.assignments.select_related('staff_member'),
     }, f'packing-list-{event.event_date:%Y-%m-%d}-{event.pk}.pdf')
+
+
+@login_required
+@permission_required('events.view_event', raise_exception=True)
+def event_job(request, pk):
+    """
+    The job sheet for the day, built for a phone: where to go, who to call, who's on
+    the crew, and the loading/return checklist, which records equipment issues and
+    returns directly.
+    """
+    from inventory.services import job_rows, load_items, return_items
+
+    event = get_object_or_404(
+        scope_events_to_assignments(Event.objects.select_related('customer'), request.user).prefetch_related(
+            'invoices__line_items', 'quotations__line_items', 'equipment_issues__returns',
+        ),
+        pk=pk,
+    )
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        quantities = {}
+        for key, value in request.POST.items():
+            if key.startswith('qty-') and key[4:].isdigit():
+                try:
+                    quantities[int(key[4:])] = max(int(value or 0), 0)
+                except ValueError:
+                    pass
+        if action == 'load' and request.user.has_perm('inventory.add_equipmentissue'):
+            problems = load_items(event, quantities, request.user)
+            done = 'Loaded items recorded as out for this event.'
+        elif action == 'return' and request.user.has_perm('inventory.add_equipmentreturn'):
+            problems = return_items(event, quantities, request.user, request.POST.get('condition_notes', ''))
+            done = 'Returned items recorded. Thank you!'
+        else:
+            raise PermissionDenied
+        if problems:
+            for problem in problems:
+                messages.error(request, problem)
+        else:
+            log_activity(request, f'event.job_{action}', f'{done} ({event})')
+            messages.success(request, done)
+        return redirect('events:job', pk=event.pk)
+
+    customer = event.customer
+    return render(request, 'events/event_job.html', {
+        'event': event,
+        'rows': job_rows(event),
+        'crew': event.assignments.select_related('staff_member'),
+        'map_url': 'https://www.google.com/maps/search/?' + urlencode({'api': 1, 'query': event.venue}),
+        'phone_url': call_url(customer.phone),
+        'whatsapp_url': whatsapp_url(customer.phone, f'Hello {customer.name}, this is the {settings.COMPANY_LEGAL_NAME} team for your {event.event_type}.'),
+    })
 
 
 def next_step_for(event, ctx, user):

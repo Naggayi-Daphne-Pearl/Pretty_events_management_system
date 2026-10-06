@@ -1,0 +1,84 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Job · {{ event.customer.name }}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:detail' event.pk %}">{{ event.event_type }} — {{ event.customer.name }}</a><span class="sep">/</span><span class="current">Job sheet</span></nav>
+{% endblock %}
+{% block extra_head %}
+<style>
+    .job { max-width: 720px; }
+    .job-actions { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+    .job-actions .btn { display: flex; flex-direction: column; align-items: center; gap: 2px; padding: 10px 4px; font-size: 13px; }
+    .job-actions .btn i { font-size: 20px; }
+    .job-row { display: flex; align-items: center; justify-content: space-between; gap: 10px; padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .job-row:last-child { border-bottom: none; }
+    .job-row .qty { width: 92px; flex-shrink: 0; text-align: center; font-size: 17px; }
+    .job-row .meta { font-size: 12.5px; color: var(--text-2); }
+</style>
+{% endblock %}
+{% block content %}
+<div class="job">
+    <h3 class="mb-1">{{ event.event_type }} — {{ event.customer.name }}</h3>
+    <div class="mb-3">
+        <span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span>
+        <span class="ms-1 fw-semibold">{{ event.event_date|date:"D j M Y" }}{% if event.end_date and event.end_date != event.event_date %} – {{ event.end_date|date:"D j M" }}{% endif %}</span>
+    </div>
+
+    <div class="card p-3 mb-3">
+        <div class="mb-2"><i class="bi bi-geo-alt me-1"></i><strong>{{ event.venue }}</strong>{% if event.guest_count %} · {{ event.guest_count|intcomma }} guests{% endif %}</div>
+        <div class="job-actions">
+            <a href="{{ map_url }}" target="_blank" rel="noopener" class="btn btn-outline-primary"><i class="bi bi-map"></i>Directions</a>
+            {% if phone_url %}<a href="{{ phone_url }}" class="btn btn-outline-primary"><i class="bi bi-telephone"></i>Call client</a>{% endif %}
+            {% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-outline-success"><i class="bi bi-whatsapp"></i>WhatsApp</a>{% endif %}
+        </div>
+        {% if crew %}<div class="small mt-3"><strong>Crew:</strong> {% for a in crew %}{{ a.staff_member.full_name }}{% if a.role_on_event %} ({{ a.role_on_event }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>{% endif %}
+        {% if event.notes %}<div class="small mt-2"><strong>Notes:</strong> {{ event.notes|linebreaksbr }}</div>{% endif %}
+    </div>
+
+    {% if perms.inventory.add_equipmentissue and rows %}
+    <form method="post" class="card p-3 mb-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="load">
+        <h6 class="mb-1"><i class="bi bi-truck me-1"></i>Loading</h6>
+        <p class="small text-muted mb-1">Enter how many of each item are going on the truck, then save.</p>
+        {% for row in rows %}
+        <div class="job-row">
+            <div>
+                <div class="fw-semibold">{{ row.item.name }}</div>
+                <div class="meta">Booked {{ row.booked|intcomma }} · already out {{ row.issued|intcomma }}</div>
+            </div>
+            <input type="number" inputmode="numeric" min="0" name="qty-{{ row.item.pk }}" value="{{ row.to_load }}" class="form-control qty" aria-label="{{ row.item.name }} to load">
+        </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary w-100 mt-2">Save loaded items</button>
+    </form>
+    {% endif %}
+
+    {% if perms.inventory.add_equipmentreturn %}
+    {% with out_rows=rows|dictsortreversed:"out" %}
+    {% if out_rows.0.out %}
+    <form method="post" class="card p-3 mb-3">
+        {% csrf_token %}
+        <input type="hidden" name="action" value="return">
+        <h6 class="mb-1"><i class="bi bi-box-arrow-in-left me-1"></i>Returning</h6>
+        <p class="small text-muted mb-1">Count what's back in the store and save. Anything not entered stays recorded as out.</p>
+        {% for row in out_rows %}{% if row.out %}
+        <div class="job-row">
+            <div>
+                <div class="fw-semibold">{{ row.item.name }}</div>
+                <div class="meta">Still out {{ row.out|intcomma }}</div>
+            </div>
+            <input type="number" inputmode="numeric" min="0" max="{{ row.out }}" name="qty-{{ row.item.pk }}" value="{{ row.out }}" class="form-control qty" aria-label="{{ row.item.name }} returned">
+        </div>
+        {% endif %}{% endfor %}
+        <label class="form-label mt-2" for="condition_notes">Damage or missing items (optional)</label>
+        <input type="text" id="condition_notes" name="condition_notes" maxlength="255" class="form-control mb-2" placeholder="e.g. 2 chairs broken">
+        <button type="submit" class="btn btn-primary w-100">Save returned items</button>
+    </form>
+    {% endif %}
+    {% endwith %}
+    {% endif %}
+
+    {% if not rows %}<div class="card p-3 text-muted small">No equipment is booked or out for this event yet.</div>{% endif %}
+</div>
+{% endblock %}

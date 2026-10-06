@@ -41,7 +41,8 @@ def starter_roles():
     # Field Staff are further scoped to "their" assigned events by the
     # 'view_assigned_events_only' permission; ticking it on any role does the same.
     field = list(perms_for(Event, VIEW_ONLY)) + list(perms_for(EventAssignment, VIEW_ONLY))
-    field += list(perms_for(EquipmentIssue, VIEW_ONLY))
+    # Field crews record loading and returns from the job sheet on their phones.
+    field += list(perms_for(EquipmentIssue, ('view', 'add'))) + list(perms_for(EquipmentReturn, ('add',)))
     field += list(Permission.objects.select_related('content_type').filter(
         content_type__app_label='events', codename='view_assigned_events_only',
     ))

@@ -1326,3 +1326,46 @@ class PaymentReminderTests(BaseDataMixin, TestCase):
         invoice = self.make_invoice('1000')
         Payment.objects.create(invoice=invoice, amount=Decimal('1000'))
         self.assertNotContains(self.client.get(reverse('billing:invoice_detail', args=[invoice.pk])), 'Send payment reminder')
+
+
+class JobSheetTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from io import StringIO
+        from django.contrib.auth.models import Group
+        from django.core.management import call_command
+        call_command('setup_groups', stdout=StringIO())
+        self.event.status = Event.Status.CONFIRMED
+        self.event.save()
+        self.chairs = EquipmentItem.objects.create(name='Chair', total_quantity=100)
+        invoice = self.make_invoice()
+        InvoiceLineItem.objects.create(invoice=invoice, equipment_item=self.chairs, description='Chairs', quantity=80, unit_price=1)
+        self.crew = get_user_model().objects.create_user('crew', 'crew@example.com', 'pw')
+        self.crew.groups.add(Group.objects.get(name='Field Staff'))
+        staff = StaffMember.objects.create(full_name='Crew Member', user=self.crew)
+        EventAssignment.objects.create(event=self.event, staff_member=staff)
+        self.client.force_login(self.crew)
+        self.url = reverse('events:job', args=[self.event.pk])
+
+    def test_crew_loads_and_returns_from_their_phone(self):
+        page = self.client.get(self.url)
+        self.assertContains(page, 'Directions')
+        self.assertContains(page, 'value="80"')  # booked quantity pre-filled
+        self.client.post(self.url, {'action': 'load', f'qty-{self.chairs.pk}': '80'})
+        self.assertEqual(EquipmentItem.objects.with_availability().get(pk=self.chairs.pk).available_quantity, 20)
+        self.client.post(self.url, {'action': 'return', f'qty-{self.chairs.pk}': '78', 'condition_notes': '2 chairs broken'})
+        issue = EquipmentIssue.objects.get()
+        self.assertEqual(issue.quantity_outstanding, 2)
+        self.assertEqual(issue.returns.get().condition_notes, '2 chairs broken')
+
+    def test_cannot_load_more_than_in_store_or_return_more_than_out(self):
+        response = self.client.post(self.url, {'action': 'load', f'qty-{self.chairs.pk}': '150'}, follow=True)
+        self.assertContains(response, 'Only 100 pieces of Chair are in the store')
+        self.assertFalse(EquipmentIssue.objects.exists())
+        self.client.post(self.url, {'action': 'load', f'qty-{self.chairs.pk}': '10'})
+        response = self.client.post(self.url, {'action': 'return', f'qty-{self.chairs.pk}': '11'}, follow=True)
+        self.assertContains(response, 'Only 10 of Chair are still out')
+
+    def test_other_crews_jobs_are_hidden(self):
+        other = Event.objects.create(customer=self.customer, event_type='Other', venue='Y', event_date=timezone.localdate())
+        self.assertEqual(self.client.get(reverse('events:job', args=[other.pk])).status_code, 404)
