@@ -1403,3 +1403,27 @@ class DashboardExtrasTests(BaseDataMixin, TestCase):
         self.assertEqual(ctx['income_this_month'], Decimal('100000'))
         self.assertEqual(ctx['due_this_week'], Decimal('70000'))
         self.assertEqual((ctx['items_out_this_week'], ctx['events_out_this_week']), (40, 1))
+
+
+class DuplicateCustomerTests(BaseDataMixin, TestCase):
+    def post_customer(self, phone, **extra):
+        data = {'name': 'Jane D.', 'phone': phone, 'alt_phone': '', 'email': '', 'address': '', 'notes': ''}
+        data.update(extra)
+        return self.client.post(reverse('customers:create'), data)
+
+    def test_same_number_typed_differently_is_caught(self):
+        response = self.post_customer('+256 772 123-456')
+        self.assertContains(response, 'This phone number is already on file')
+        self.assertContains(response, 'Jane Doe')
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_can_save_anyway_and_new_numbers_pass(self):
+        self.assertEqual(self.post_customer('0772123456', confirm_duplicate='on').status_code, 302)
+        self.assertEqual(self.post_customer('0700999888').status_code, 302)
+        self.assertEqual(Customer.objects.count(), 3)
+
+    def test_editing_without_changing_the_phone_is_not_blocked(self):
+        Customer.objects.create(name='Twin', phone='0772 123 456')
+        response = self.client.post(reverse('customers:update', args=[self.customer.pk]), {
+            'name': 'Jane Doe', 'phone': '0772123456', 'alt_phone': '', 'email': 'jane@example.com', 'address': '', 'notes': 'vip'})
+        self.assertEqual(response.status_code, 302)
