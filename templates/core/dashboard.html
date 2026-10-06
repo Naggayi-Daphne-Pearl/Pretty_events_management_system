@@ -12,6 +12,61 @@
     {% if perms.accounting.view_journalentry %}<a href="{% url 'reports:index' %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-bar-chart-line me-1"></i>Financial reports</a>{% endif %}
 </div>
 
+{% if setup %}
+<div class="card p-3 mb-4" id="setup-checklist">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h6 class="mb-0"><i class="bi bi-flag me-2"></i>Getting started <span class="text-muted fw-normal">({{ setup.done }} of {{ setup.total }} done)</span></h6>
+        <button type="button" class="btn-close" aria-label="Hide for now" title="Hide for now" onclick="try{localStorage.setItem('pe-hide-setup','1')}catch(e){}; this.closest('.card').remove();"></button>
+    </div>
+    {% for step in setup.steps %}
+    <a href="{{ step.url }}" class="d-flex align-items-center gap-2 py-1 text-decoration-none" style="color: var(--text-1);">
+        <i class="bi {% if step.done %}bi-check-circle-fill text-success{% else %}bi-circle text-muted{% endif %}"></i>
+        <span{% if step.done %} class="text-muted text-decoration-line-through"{% endif %}>{{ step.label }}{% if step.optional %} <span class="small text-muted">(optional)</span>{% endif %}</span>
+    </a>
+    {% endfor %}
+</div>
+<script>try { if (localStorage.getItem('pe-hide-setup')) document.getElementById('setup-checklist').remove(); } catch (e) {}</script>
+{% endif %}
+
+{% if income_this_month is not None or due_this_week is not None or items_out_this_week is not None %}
+<div class="row g-3 mb-4">
+    {% if income_this_month is not None %}
+    <div class="col-6 col-lg-4">
+        <div class="card stat-card p-3 h-100">
+            <div class="text-muted small">Income this month</div>
+            <div class="fs-4 fw-semibold">{{ CURRENCY }} {{ income_this_month|floatformat:0|intcomma }}</div>
+            <div class="small {% if income_change is not None and income_change < 0 %}text-danger{% else %}text-success{% endif %}">
+                {% if income_change is None %}<span class="text-muted">Nothing to compare with last month</span>
+                {% else %}<i class="bi {% if income_change < 0 %}bi-arrow-down-right{% else %}bi-arrow-up-right{% endif %}"></i> {{ income_change }}% vs same point last month{% endif %}
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {% if due_this_week is not None %}
+    <div class="col-6 col-lg-4">
+        <a href="{% url 'billing:invoice_list' %}" class="text-decoration-none">
+        <div class="card stat-card p-3 h-100">
+            <div class="text-muted small">Payments due this week</div>
+            <div class="fs-4 fw-semibold" style="color: var(--text-1);">{{ CURRENCY }} {{ due_this_week|floatformat:0|intcomma }}</div>
+            <div class="small text-muted">{{ due_this_week_count }} invoice{{ due_this_week_count|pluralize }}</div>
+        </div>
+        </a>
+    </div>
+    {% endif %}
+    {% if items_out_this_week is not None %}
+    <div class="col-12 col-lg-4">
+        <a href="{% url 'events:calendar' %}" class="text-decoration-none">
+        <div class="card stat-card p-3 h-100">
+            <div class="text-muted small">Equipment going out this week</div>
+            <div class="fs-4 fw-semibold" style="color: var(--text-1);">{{ items_out_this_week|intcomma }} item{{ items_out_this_week|pluralize }}</div>
+            <div class="small text-muted">for {{ events_out_this_week }} confirmed event{{ events_out_this_week|pluralize }}</div>
+        </div>
+        </a>
+    </div>
+    {% endif %}
+</div>
+{% endif %}
+
 {% if my_assignments is not None %}
 <div class="card p-3 mb-4">
     <h6 class="mb-2"><i class="bi bi-person-workspace me-2"></i>My jobs (next 2 weeks)</h6>

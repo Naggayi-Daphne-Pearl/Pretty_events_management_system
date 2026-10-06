@@ -1369,3 +1369,37 @@ class JobSheetTests(BaseDataMixin, TestCase):
     def test_other_crews_jobs_are_hidden(self):
         other = Event.objects.create(customer=self.customer, event_type='Other', venue='Y', event_date=timezone.localdate())
         self.assertEqual(self.client.get(reverse('events:job', args=[other.pk])).status_code, 404)
+
+
+class DashboardExtrasTests(BaseDataMixin, TestCase):
+    def test_setup_checklist_until_required_steps_done(self):
+        from staffing.models import StaffMember as Staff
+        response = self.client.get('/')
+        self.assertContains(response, 'Getting started')
+        EquipmentItem.objects.create(name='Tent', total_quantity=2, default_rate=Decimal('50000'))
+        Staff.objects.create(full_name='Crew', user=get_user_model().objects.create_user('c', 'c@example.com', 'pw'))
+        from accounting.models import Account, JournalEntry
+        from accounting.services import save_entry
+        from django.core.management import call_command
+        call_command('setup_chart_of_accounts', verbosity=0)
+        save_entry(JournalEntry(date=timezone.localdate(), source=JournalEntry.Source.OPENING), [
+            {'account': Account.objects.get(system_key='cash'), 'debit': 1},
+            {'account': Account.objects.get(system_key='opening_balance_equity'), 'credit': 1},
+        ])
+        self.assertNotContains(self.client.get('/'), 'Getting started')  # taxes are optional
+
+    def test_week_and_month_numbers(self):
+        from finance.models import IncomeRecord
+        today = timezone.localdate()
+        IncomeRecord.objects.create(amount=Decimal('118000'), tax_amount=Decimal('18000'), date=today)
+        invoice = self.make_invoice('70000')
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=today + timedelta(days=3))
+        self.event.status = Event.Status.CONFIRMED
+        self.event.event_date = today + timedelta(days=2)
+        self.event.save()
+        InvoiceLineItem.objects.create(invoice=invoice, equipment_item=EquipmentItem.objects.create(name='Chair', total_quantity=50),
+                                       description='Chairs', quantity=40, unit_price=0)
+        ctx = self.client.get('/').context
+        self.assertEqual(ctx['income_this_month'], Decimal('100000'))
+        self.assertEqual(ctx['due_this_week'], Decimal('70000'))
+        self.assertEqual((ctx['items_out_this_week'], ctx['events_out_this_week']), (40, 1))
