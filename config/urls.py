@@ -5,7 +5,7 @@ from django.urls import include, path
 from core.emailing import email_enabled_required
 from core.forms import EmailAuthenticationForm, EmailPasswordResetForm, EmailSetPasswordForm
 from core.views import (
-    activity_log, activity_log_export, dashboard, profile, role_delete, role_form, role_list, user_send_reset,
+    activity_log, activity_log_export, dashboard, profile, search, role_delete, role_form, role_list, user_send_reset,
     user_set_password,
 )
 
@@ -43,6 +43,7 @@ urlpatterns = [
         form_class=EmailSetPasswordForm, template_name='registration/invite_accept.html', extra_context=AUTH_PAGE,
     ), name='invite_accept'),
     path('accounts/<int:pk>/send-reset/', user_send_reset, name='user_send_reset'),
+    path('search/', search, name='search'),
     path('profile/', profile, name='profile'),
     path('roles/', role_list, name='role_list'),
     path('roles/new/', role_form, name='role_create'),

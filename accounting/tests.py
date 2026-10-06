@@ -361,3 +361,86 @@ class ExpenseFormAccountTests(LedgerTestMixin, TestCase):
         self.add_expense(expense_account=self.rent.pk)
         self.client.post(reverse('accounting:account_delete', args=[self.rent.pk]))
         self.assertTrue(Account.objects.filter(pk=self.rent.pk).exists())
+
+
+class PeriodCloseAndReversalTests(TestCase):
+    def setUp(self):
+        from datetime import date
+        from django.contrib.auth import get_user_model
+        from django.core.management import call_command
+        call_command('setup_chart_of_accounts', verbosity=0)
+        self.user = get_user_model().objects.create_superuser('acct', 'acct@example.com', 'pw')
+        self.client.force_login(self.user)
+        self.cash = Account.objects.get(system_key='cash')
+        self.capital = Account.objects.filter(account_type='equity').first()
+        self.old_day = date(2026, 1, 15)
+        self.entry = save_entry(JournalEntry(date=self.old_day, memo='Owner put in cash', created_by=self.user), [
+            {'account': self.cash, 'debit': 500000}, {'account': self.capital, 'credit': 500000},
+        ])
+
+    def close_through(self, day):
+        return self.client.post(reverse('accounting:period_close'), {'closed_through': day.isoformat(), 'note': 'Jan done'})
+
+    def test_closed_period_blocks_changes_everywhere(self):
+        from datetime import date
+        from django.core.exceptions import ValidationError
+        self.close_through(date(2026, 1, 31))
+        with self.assertRaises(ValidationError):
+            save_entry(JournalEntry(date=self.old_day), [
+                {'account': self.cash, 'debit': 1}, {'account': self.capital, 'credit': 1},
+            ])
+        from django.db import transaction
+        with self.assertRaises(ValidationError), transaction.atomic():
+            self.entry.delete()
+        self.assertTrue(JournalEntry.objects.filter(pk=self.entry.pk).exists())
+        # The delete page explains instead of deleting.
+        response = self.client.post(reverse('accounting:journal_delete', args=[self.entry.pk]))
+        self.assertContains(response, 'closed period')
+        self.assertTrue(JournalEntry.objects.filter(pk=self.entry.pk).exists())
+        # The edit page sends you back instead of showing a form that can only fail.
+        response = self.client.get(reverse('accounting:journal_update', args=[self.entry.pk]))
+        self.assertRedirects(response, self.entry.get_absolute_url())
+        # Forms say why, rather than erroring.
+        response = self.client.post(reverse('accounting:transfer_create'), {
+            'from_account': self.cash.pk, 'to_account': Account.objects.get(system_key='bank').pk,
+            'amount': '100', 'date': '2026-01-20',
+        })
+        self.assertContains(response, 'The books are closed through 31 Jan 2026')
+
+    def test_reopening_is_recorded_and_unlocks(self):
+        from datetime import date
+        from accounting.locks import locked_through
+        from accounting.models import PeriodClose
+        self.close_through(date(2026, 1, 31))
+        self.close_through(date(2025, 12, 31))
+        self.assertEqual(locked_through(), date(2025, 12, 31))
+        self.assertEqual(PeriodClose.objects.count(), 2)
+        self.entry.delete()  # January is open again
+
+    def test_reversal_swaps_sides_and_records_who(self):
+        from datetime import date
+        self.close_through(date(2026, 1, 31))
+        response = self.client.post(reverse('accounting:journal_reverse', args=[self.entry.pk]), {'date': '2026-02-03'})
+        reversal = JournalEntry.objects.get(reverses=self.entry)
+        self.assertRedirects(response, reversal.get_absolute_url())
+        self.assertEqual((reversal.date, reversal.created_by, reversal.source), (date(2026, 2, 3), self.user, 'reversal'))
+        lines = {(l.account_id, l.debit, l.credit) for l in reversal.lines.all()}
+        self.assertEqual(lines, {(self.cash.pk, 0, 500000), (self.capital.pk, 500000, 0)})
+        # Can't reverse twice, or into the closed period.
+        self.client.post(reverse('accounting:journal_reverse', args=[self.entry.pk]), {'date': '2026-02-04'})
+        self.assertEqual(JournalEntry.objects.filter(reverses=self.entry).count(), 1)
+        page = self.client.get(self.entry.get_absolute_url())
+        self.assertContains(page, f'Reversed by')
+        self.assertContains(page, reversal.number)
+
+    def test_reversal_dated_in_closed_period_is_refused(self):
+        from datetime import date
+        self.close_through(date(2026, 1, 31))
+        self.client.post(reverse('accounting:journal_reverse', args=[self.entry.pk]), {'date': '2026-01-20'})
+        self.assertFalse(JournalEntry.objects.filter(reverses=self.entry).exists())
+
+    def test_cannot_close_today_or_the_future(self):
+        from django.utils import timezone
+        from accounting.models import PeriodClose
+        self.close_through(timezone.localdate())
+        self.assertFalse(PeriodClose.objects.exists())

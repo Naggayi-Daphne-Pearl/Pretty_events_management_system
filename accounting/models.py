@@ -118,6 +118,7 @@ class JournalEntry(TimeStampedModel):
         TRANSFER = 'transfer', 'Transfer'
         INCOME = 'income', 'Income record'
         EXPENSE = 'expense', 'Expense record'
+        REVERSAL = 'reversal', 'Reversal'
 
     AUTO_SOURCES = {Source.INCOME, Source.EXPENSE}
 
@@ -131,6 +132,10 @@ class JournalEntry(TimeStampedModel):
     )
     expense_record = models.OneToOneField(
         'finance.ExpenseRecord', on_delete=models.CASCADE, null=True, blank=True, related_name='journal_entry',
+    )
+    reverses = models.OneToOneField(
+        'self', on_delete=models.PROTECT, null=True, blank=True, related_name='reversed_by',
+        help_text='The entry this one cancels out. Its created_by/created_at say who reversed it and when.',
     )
     created_by = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='journal_entries_created',
@@ -165,6 +170,15 @@ class JournalEntry(TimeStampedModel):
     def source_record(self):
         return self.income_record or self.expense_record
 
+    @property
+    def is_reversed(self):
+        return hasattr(self, 'reversed_by')
+
+    @property
+    def can_be_reversed(self):
+        """Manual-type entries only: auto entries follow their income/expense record instead."""
+        return not self.is_auto and self.source != self.Source.REVERSAL and not self.is_reversed
+
 
 class JournalLine(models.Model):
     entry = models.ForeignKey(JournalEntry, on_delete=models.CASCADE, related_name='lines')
@@ -186,3 +200,25 @@ class JournalLine(models.Model):
     def __str__(self):
         side = f'Dr {self.debit}' if self.debit else f'Cr {self.credit}'
         return f'{self.account} {side}'
+
+
+class PeriodClose(models.Model):
+    """
+    "The books are closed through <date>": no journal dated on or before it can be
+    added, changed or deleted, so filed figures can't drift. Corrections go in as new
+    entries (e.g. a reversal) in an open period. Each close or reopen is a new row, so
+    the history of who closed what, and when, is kept. The newest row is in force.
+    """
+    closed_through = models.DateField()
+    note = models.CharField(max_length=255, blank=True)
+    created_at = models.DateTimeField(auto_now_add=True)
+    created_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+    )
+
+    class Meta:
+        ordering = ['-created_at', '-pk']
+        get_latest_by = ['created_at', 'pk']
+
+    def __str__(self):
+        return f'Closed through {self.closed_through:%d %b %Y}'

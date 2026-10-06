@@ -789,3 +789,248 @@ class ConvertedQuotationFlowTests(BaseDataMixin, TestCase):
         invoice = Invoice.objects.get(pk=invoice.pk)
         self.assertEqual(invoice.total, Decimal('400000'))
         self.assertEqual(invoice.status, Invoice.Status.PAID)
+
+
+class OverdueInvoiceTests(BaseDataMixin, TestCase):
+    def test_past_due_unpaid_invoice_becomes_overdue(self):
+        from billing.services import sync_invoice_statuses
+        invoice = self.make_invoice()
+        invoice.due_date = timezone.localdate() - timedelta(days=1)
+        invoice.save()
+        self.assertEqual(sync_invoice_statuses(), 1)
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.OVERDUE)
+
+    def test_paying_in_full_clears_overdue(self):
+        invoice = self.make_invoice('50000')
+        invoice.due_date = timezone.localdate() - timedelta(days=1)
+        invoice.save()
+        invoice.refresh_status()
+        self.assertEqual(invoice.status, Invoice.Status.OVERDUE)
+        Payment.objects.create(invoice=invoice, amount=Decimal('50000'))
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.PAID)
+
+    def test_moving_due_date_forward_clears_overdue(self):
+        invoice = self.make_invoice()
+        invoice.due_date = timezone.localdate() - timedelta(days=1)
+        invoice.save()
+        invoice.refresh_status()
+        invoice.due_date = timezone.localdate() + timedelta(days=7)
+        invoice.save()
+        invoice.refresh_status()
+        self.assertEqual(invoice.status, Invoice.Status.UNPAID)
+
+    def test_invoice_list_shows_overdue(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=timezone.localdate() - timedelta(days=3))
+        response = self.client.get(reverse('billing:invoice_list'), {'status': 'overdue'})
+        self.assertContains(response, invoice.number)
+
+
+class AvailabilityQueryTests(BaseDataMixin, TestCase):
+    def test_annotated_availability_matches_property(self):
+        today = timezone.localdate()
+        item = EquipmentItem.objects.create(name='Chair', total_quantity=8)
+        issue = EquipmentIssue.objects.create(event=self.event, equipment_item=item, quantity_issued=7, issued_at=today)
+        EquipmentReturn.objects.create(issue=issue, quantity_returned=3, returned_at=today)
+        EquipmentItem.objects.create(name='Tent', total_quantity=20)
+
+        annotated = EquipmentItem.objects.with_availability().get(pk=item.pk)
+        plain = EquipmentItem.objects.get(pk=item.pk)
+        self.assertEqual(annotated.available_quantity, 4)
+        self.assertEqual(plain.available_quantity, 4)
+        self.assertEqual([i.name for i in EquipmentItem.objects.low_stock()], ['Chair'])
+
+    def test_dashboard_query_count_does_not_grow_with_items(self):
+        today = timezone.localdate()
+        for n in range(3):
+            item = EquipmentItem.objects.create(name=f'Item {n}', total_quantity=2)
+            EquipmentIssue.objects.create(event=self.event, equipment_item=item, quantity_issued=1, issued_at=today)
+        self.client.get(reverse('dashboard'))  # warm up session/permission caches
+        with self.assertNumQueries(self._dashboard_queries()):
+            for n in range(3, 8):
+                item = EquipmentItem.objects.create(name=f'Item {n}', total_quantity=2)
+            self.client.get(reverse('dashboard'))
+
+    def _dashboard_queries(self):
+        from django.db import connection
+        from django.test.utils import CaptureQueriesContext
+        with CaptureQueriesContext(connection) as ctx:
+            self.client.get(reverse('dashboard'))
+        return len(ctx.captured_queries) + 5  # + the 5 creates inside the block
+
+
+class SearchTests(BaseDataMixin, TestCase):
+    def test_finds_customer_by_phone_in_any_format(self):
+        Customer.objects.create(name='Other Person', phone='0700 000 001')
+        for query in ['0772123456', '+256 772 123456', '772-123']:
+            response = self.client.get(reverse('search'), {'q': query})
+            self.assertRedirects(response, self.customer.get_absolute_url(), msg_prefix=query)
+
+    def test_document_number_jumps_straight_to_it(self):
+        invoice = self.make_invoice()
+        response = self.client.get(reverse('search'), {'q': invoice.number})
+        self.assertRedirects(response, invoice.get_absolute_url())
+
+    def test_lists_several_kinds_of_match(self):
+        self.make_invoice()
+        response = self.client.get(reverse('search'), {'q': 'Jane'})
+        self.assertEqual(response.status_code, 200)
+        titles = [s['title'] for s in response.context['sections']]
+        self.assertEqual(titles, ['Customers', 'Events', 'Invoices'])
+
+    def test_field_staff_only_find_their_own_events(self):
+        from django.contrib.auth.models import Group, Permission
+        user = get_user_model().objects.create_user('field', 'field@example.com', 'pw')
+        group = Group.objects.create(name='Field')
+        group.permissions.set(Permission.objects.filter(codename__in=['view_event', 'view_assigned_events_only']))
+        user.groups.add(group)
+        self.client.force_login(user)
+        response = self.client.get(reverse('search'), {'q': 'Wedding'})
+        self.assertEqual(response.context['sections'], [])
+
+
+class EventProgressTests(BaseDataMixin, TestCase):
+    def test_checklist_ticks_follow_the_records(self):
+        invoice = self.make_invoice('100000')
+        Payment.objects.create(invoice=invoice, amount=Decimal('40000'))
+        response = self.client.get(reverse('events:detail', args=[self.event.pk]))
+        steps = {s['label']: s for s in response.context['progress']}
+        self.assertTrue(steps['Quoted']['done'])
+        self.assertTrue(steps['Deposit']['done'])
+        self.assertFalse(steps['Paid in full']['done'])
+        self.assertIn('60,000', steps['Paid in full']['detail'])
+        self.assertFalse(steps['Equipment back']['done'])
+
+    def test_packing_list_renders_booked_items(self):
+        item = EquipmentItem.objects.create(name='Chiavari chair', total_quantity=100)
+        invoice = self.make_invoice()
+        InvoiceLineItem.objects.create(invoice=invoice, equipment_item=item, description='Chairs', quantity=80, unit_price=Decimal('1000'))
+        from unittest import mock
+        # Render the HTML fallback instead of a PDF so the content can be checked.
+        with mock.patch('billing.views.generate_pdf_bytes', return_value=None):
+            response = self.client.get(reverse('events:packing_list', args=[self.event.pk]))
+        self.assertContains(response, 'Packing list')
+        self.assertContains(response, 'Chiavari chair')
+        self.assertContains(response, '80 pieces')
+
+
+class DashboardRoleTests(BaseDataMixin, TestCase):
+    def test_staff_see_their_own_upcoming_jobs(self):
+        self.event.event_date = timezone.localdate() + timedelta(days=3)
+        self.event.save()
+        later = Event.objects.create(customer=self.customer, event_type='Far off', venue='X',
+                                     event_date=timezone.localdate() + timedelta(days=40))
+        staff = StaffMember.objects.create(full_name='Field Worker', user=self.user)
+        EventAssignment.objects.create(event=self.event, staff_member=staff, role_on_event='Driver')
+        EventAssignment.objects.create(event=later, staff_member=staff)
+        response = self.client.get(reverse('dashboard'))
+        self.assertEqual([a.event for a in response.context['my_assignments']], [self.event])
+        self.assertContains(response, 'My jobs')
+
+    def test_overdue_shortcut(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=timezone.localdate() - timedelta(days=1))
+        response = self.client.get(reverse('dashboard'))
+        self.assertContains(response, '1 overdue invoice')
+
+
+class ShareLinkTests(BaseDataMixin, TestCase):
+    def test_whatsapp_message_carries_a_working_pdf_link(self):
+        from unittest import mock
+        from urllib.parse import unquote
+        invoice = self.make_invoice()
+        response = self.client.post(
+            reverse('comms:contact', args=[self.customer.pk, 'whatsapp']), {'document': f'invoice:{invoice.pk}'},
+        )
+        target = unquote(response['Location'])
+        self.assertIn('/billing/shared/', target)
+        path = '/billing/shared/' + target.split('/billing/shared/')[1].split()[0]
+
+        self.client.logout()
+        with mock.patch('billing.views.generate_pdf_bytes', return_value=None):
+            response = self.client.get(path)
+        self.assertContains(response, invoice.number)
+
+    def test_tampered_or_expired_links_are_refused(self):
+        from billing.sharing import share_token
+        invoice = self.make_invoice()
+        token = share_token(invoice)
+        self.client.logout()
+        self.assertEqual(self.client.get(reverse('billing:shared_document', args=[token[:-2] + 'xx'])).status_code, 404)
+        with override_settings(SHARE_LINK_DAYS=-1):
+            self.assertEqual(self.client.get(reverse('billing:shared_document', args=[token])).status_code, 404)
+
+
+@override_settings(EMAIL_ENABLED=True, EMAIL_BACKEND='django.core.mail.backends.locmem.EmailBackend')
+class DocumentEmailTaskTests(BaseDataMixin, TestCase):
+    def post_email(self, invoice):
+        from .once import FIELD_NAME
+        token = issue_token(self.user)
+        return self.client.post(reverse('billing:invoice_email', args=[invoice.pk]), {
+            'to_email': 'client@example.com', 'message': 'Here it is', FIELD_NAME: token,
+        }, follow=True)
+
+    def test_sends_immediately_by_default_and_logs_it(self):
+        from django.core import mail
+        invoice = self.make_invoice()
+        response = self.post_email(invoice)
+        self.assertContains(response, f'Invoice {invoice.number} emailed to client@example.com')
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(mail.outbox[0].subject, f'Invoice {invoice.number} from PRETTY EVENTS LTD.')
+        self.assertTrue(CommunicationLog.objects.filter(message__contains=invoice.number).exists())
+
+    def test_with_a_worker_the_email_is_queued_then_sent_by_it(self):
+        from django.core import mail
+        from django.core.management import call_command
+        invoice = self.make_invoice()
+        with override_settings(TASKS={'default': {'BACKEND': 'django_tasks_db.DatabaseBackend'}}):
+            response = self.post_email(invoice)
+            self.assertContains(response, 'is being emailed to client@example.com')
+            self.assertEqual(len(mail.outbox), 0)
+            call_command('db_worker', '--batch', '--no-startup-delay', verbosity=0)
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertTrue(CommunicationLog.objects.filter(message__contains=invoice.number).exists())
+
+    def test_failure_is_reported_and_recorded(self):
+        from unittest import mock
+        from .models import ActivityLog
+        invoice = self.make_invoice()
+        with mock.patch('billing.tasks.send_pdf_email', return_value=False):
+            response = self.post_email(invoice)
+        self.assertContains(response, 'Could not send the email')
+        self.assertTrue(ActivityLog.objects.filter(action='invoice.email_failed').exists())
+
+
+class DocumentNumberTests(BaseDataMixin, TestCase):
+    def test_numbers_run_in_order_per_type(self):
+        year = timezone.localdate().year
+        first, second = self.make_invoice(), self.make_invoice()
+        quote = Quotation.objects.create(event=self.event)
+        self.assertEqual(first.number, f'INV-{year}-00001')
+        self.assertEqual(second.number, f'INV-{year}-00002')
+        self.assertEqual(quote.number, f'QUO-{year}-00001')
+
+    def test_numbering_restarts_each_year(self):
+        from datetime import date
+        from unittest import mock
+        self.make_invoice()
+        with mock.patch('billing.models.timezone.localdate', return_value=date(2099, 1, 1)):
+            self.assertEqual(self.make_invoice().number, 'INV-2099-00001')
+
+    def test_continues_after_numbers_from_the_old_scheme(self):
+        year = timezone.localdate().year
+        Invoice.objects.create(event=self.event, number=f'INV-{year}-00042')
+        self.assertEqual(self.make_invoice().number, f'INV-{year}-00043')
+
+    def test_a_failed_save_does_not_use_up_a_number(self):
+        from django.db import transaction
+        year = timezone.localdate().year
+        try:
+            with transaction.atomic():
+                self.make_invoice()
+                raise RuntimeError('save failed after numbering')
+        except RuntimeError:
+            pass
+        self.assertEqual(self.make_invoice().number, f'INV-{year}-00001')

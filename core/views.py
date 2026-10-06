@@ -9,12 +9,14 @@ from django.contrib.auth.forms import PasswordChangeForm
 from django.contrib.auth.models import Group, Permission
 from django.core.exceptions import PermissionDenied
 from django.db.models import Count, Q
+from django.db.models.functions import Coalesce
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.http import require_POST
 
 from billing.models import Invoice
+from billing.services import sync_invoice_statuses
 from events.models import Event
 from events.services import sync_event_statuses
 from inventory.models import EquipmentItem
@@ -24,6 +26,7 @@ from .emailing import email_enabled_required
 from .activity import log_activity
 from .forms import SelfPasswordChangeForm, StaffSetPasswordForm
 from .models import ActivityLog
+from .search import search_everything
 from .pagination import PER_PAGE_OPTIONS, paginate, per_page_from
 from .permissions import grouped_permissions, scope_events_to_assignments
 
@@ -67,18 +70,43 @@ def dashboard(request):
         context['upcoming_month_count'] = upcoming_month.count()
 
     if request.user.has_perm('billing.view_invoice'):
+        sync_invoice_statuses(today)
         unpaid_invoices = Invoice.objects.exclude(
             status__in=[Invoice.Status.PAID, Invoice.Status.CANCELLED],
-        ).select_related('event__customer')
+        ).select_related('event__customer').prefetch_related('line_items', 'payments')
         context['unpaid_invoices'] = unpaid_invoices.order_by('due_date')[:10]
         context['unpaid_count'] = unpaid_invoices.count()
         context['unpaid_total'] = sum((inv.balance_due for inv in unpaid_invoices), 0)
 
+    # "My jobs": a field worker's own upcoming assignments, first thing on their dashboard.
+    staff = getattr(request.user, 'staff_profile', None)
+    if staff is not None:
+        context['my_assignments'] = list(
+            staff.assignments.select_related('event__customer').filter(
+                event__event_date__lte=today + timedelta(days=14),
+            ).annotate(last=Coalesce('event__end_date', 'event__event_date')).filter(
+                last__gte=today,
+            ).exclude(event__status=Event.Status.CANCELLED).order_by('event__event_date')
+        )
+
+    if request.user.has_perm('billing.view_invoice'):
+        context['overdue_count'] = Invoice.objects.filter(status=Invoice.Status.OVERDUE).count()
+
     if request.user.has_perm('inventory.view_equipmentitem'):
-        low_stock = [item for item in EquipmentItem.objects.all() if item.available_quantity <= 5]
-        context['low_stock_items'] = low_stock[:10]
+        context['low_stock_items'] = EquipmentItem.objects.low_stock()[:10]
 
     return render(request, 'core/dashboard.html', context)
+
+
+@login_required
+def search(request):
+    query = request.GET.get('q', '').strip()
+    sections = search_everything(request.user, query)
+    total = sum(len(section['results']) for section in sections)
+    # A single hit (typically a typed-in INV-/QUO-/RCT- number or a phone number) goes straight there.
+    if total == 1:
+        return redirect(sections[0]['results'][0].get_absolute_url())
+    return render(request, 'core/search.html', {'q': query, 'sections': sections, 'total': total})
 
 
 # ---------- Roles & Permissions (superuser-only) ----------

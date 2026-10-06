@@ -12,6 +12,7 @@ from events.models import Event
 
 from .forms import EquipmentCategoryForm, EquipmentIssueForm, EquipmentItemForm, EquipmentReturnForm
 from .models import EquipmentCategory, EquipmentIssue, EquipmentItem
+from .services import availability, upcoming_bookings
 
 
 class EquipmentCategoryListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
@@ -66,7 +67,7 @@ class EquipmentItemListView(LoginRequiredMixin, PermissionRequiredMixin, ListVie
     template_name = 'inventory/item_list.html'
 
     def get_queryset(self):
-        return super().get_queryset().select_related('category')
+        return super().get_queryset().select_related('category').with_availability()
 
 
 class EquipmentItemDetailView(LoginRequiredMixin, PermissionRequiredMixin, DetailView):
@@ -77,6 +78,12 @@ class EquipmentItemDetailView(LoginRequiredMixin, PermissionRequiredMixin, Detai
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['issues'] = self.object.issues.select_related('event__customer').all()
+        bookings = upcoming_bookings(self.object)
+        for row in bookings:
+            event = row['event']
+            # Free on the event's dates once every confirmed booking (this one included) is counted.
+            row['free'] = availability(event.event_date, event.last_day).get(self.object.pk, 0)
+        ctx['bookings'] = bookings
         return ctx
 
 

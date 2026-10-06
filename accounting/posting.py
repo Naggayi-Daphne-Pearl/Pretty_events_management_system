@@ -10,6 +10,7 @@ Outstanding Payments report.
 from django.db import transaction
 
 from .chart import system_account
+from .locks import is_locked
 from .models import JournalEntry
 from .services import save_entry
 
@@ -92,6 +93,13 @@ def post_history(rebuild=False):
     if not rebuild:
         incomes = incomes.filter(journal_entry__isnull=True)
         expenses = expenses.filter(journal_entry__isnull=True)
-    income_count = sum(1 for r in incomes if sync_income_record(r))
-    expense_count = sum(1 for r in expenses if sync_expense_record(r))
+    income_count = sum(1 for r in incomes if _post_unless_locked(sync_income_record, r))
+    expense_count = sum(1 for r in expenses if _post_unless_locked(sync_expense_record, r))
     return income_count, expense_count
+
+
+def _post_unless_locked(sync, record):
+    """Records dated in a closed period are left as they are (this runs on every deploy)."""
+    if is_locked(record.date):
+        return None
+    return sync(record)

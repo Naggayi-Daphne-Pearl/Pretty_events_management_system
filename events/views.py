@@ -1,10 +1,14 @@
+import calendar
+from datetime import date, timedelta
+
 from django.conf import settings
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
 from django.db import transaction
-from django.shortcuts import get_object_or_404
+from django.db.models.functions import Coalesce
+from django.shortcuts import get_object_or_404, render
 from django.urls import reverse, reverse_lazy
 from django.utils import timezone
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
@@ -14,6 +18,7 @@ from core.deletion import confirm_and_delete, count_label
 from core.pagination import paginate
 from core.permissions import scope_events_to_assignments
 from customers.models import Customer
+from inventory.services import event_shortages, warn_if_short
 
 from .forms import EventForm
 from .models import Event
@@ -60,6 +65,61 @@ class EventListView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEventsS
         return ctx
 
 
+@login_required
+@permission_required('events.view_event', raise_exception=True)
+def event_calendar(request):
+    """
+    Month view of bookings, the main planning screen. ?month=YYYY-MM picks the month;
+    cancelled events are hidden unless ?cancelled=1. Multi-day events show on each day.
+    """
+    today = timezone.localdate()
+    try:
+        year, month = (int(part) for part in request.GET.get('month', '').split('-'))
+        first = date(year, month, 1)
+    except ValueError:
+        first = today.replace(day=1)
+    days_in_month = calendar.monthrange(first.year, first.month)[1]
+    last = first.replace(day=days_in_month)
+    grid_start = first - timedelta(days=first.weekday())
+    grid_end = last + timedelta(days=6 - last.weekday())
+
+    show_cancelled = request.GET.get('cancelled') == '1'
+    events = scope_events_to_assignments(Event.objects.select_related('customer'), request.user).filter(
+        event_date__lte=grid_end,
+    ).annotate(last=Coalesce('end_date', 'event_date')).filter(last__gte=grid_start)
+    if not show_cancelled:
+        events = events.exclude(status=Event.Status.CANCELLED)
+    events = list(events.order_by('event_date', 'pk'))
+
+    by_day = {}
+    for event in events:
+        day = max(event.event_date, grid_start)
+        while day <= min(event.last_day, grid_end):
+            by_day.setdefault(day, []).append(event)
+            day += timedelta(days=1)
+
+    weeks, day = [], grid_start
+    while day <= grid_end:
+        weeks.append([
+            {'date': d, 'in_month': d.month == first.month, 'is_today': d == today, 'events': by_day.get(d, [])}
+            for d in (day + timedelta(days=i) for i in range(7))
+        ])
+        day += timedelta(days=7)
+
+    prev_month = (first - timedelta(days=1)).replace(day=1)
+    next_month = last + timedelta(days=1)
+    return render(request, 'events/event_calendar.html', {
+        'month': first,
+        'weeks': weeks,
+        'agenda': [cell for week in weeks for cell in week if cell['in_month'] and cell['events']],
+        'prev_month': prev_month.strftime('%Y-%m'),
+        'next_month': next_month.strftime('%Y-%m'),
+        'this_month': today.strftime('%Y-%m'),
+        'show_cancelled': show_cancelled,
+        'month_count': len({e.pk for e in events if e.event_date <= last and e.last_day >= first}),
+    })
+
+
 class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEventsScopeMixin, DetailView):
     model = Event
     permission_required = 'events.view_event'
@@ -81,8 +141,70 @@ class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEvent
         ctx['comms_page'] = paginate(
             self.request, event.communication_logs.select_related('logged_by'), per_page=10, param='comms_page',
         )
+        ctx['assignments'] = list(ctx['assignments'])
+        ctx['progress'] = progress_steps(event, ctx)
         ctx['next_step'] = next_step_for(event, ctx, self.request.user)
+        if event.status not in (Event.Status.CANCELLED, Event.Status.COMPLETED):
+            ctx['shortages'] = event_shortages(event)
         return ctx
+
+
+def progress_steps(event, ctx):
+    """
+    The booking's checklist, shown as a row of steps on the event page:
+    [{'label', 'done', 'detail'}]. Ticks are worked out from the records, not stored.
+    """
+    invoices = [i for i in ctx['invoices'] if i.status != i.Status.CANCELLED]
+    issues = ctx['equipment_issues']
+    paid = sum((i.amount_paid for i in invoices), 0)
+    owed = sum((i.balance_due for i in invoices), 0)
+    out = sum(i.quantity_outstanding for i in issues)
+    past_confirmed = event.status in (Event.Status.CONFIRMED, Event.Status.IN_PROGRESS, Event.Status.COMPLETED)
+    return [
+        {'label': 'Quoted', 'done': bool(ctx['quotations'] or invoices),
+         'detail': ctx['quotations'][0].number if ctx['quotations'] else ''},
+        {'label': 'Confirmed', 'done': past_confirmed, 'detail': invoices[0].number if invoices else ''},
+        {'label': 'Deposit', 'done': paid > 0,
+         'detail': f'{settings.CURRENCY} {paid:,.0f} paid' if paid else ''},
+        {'label': 'Crew assigned', 'done': bool(ctx['assignments']),
+         'detail': f'{len(ctx["assignments"])} assigned' if ctx['assignments'] else ''},
+        {'label': 'Equipment out', 'done': bool(issues), 'detail': f'{len(issues)} issue(s)' if issues else ''},
+        {'label': 'Equipment back', 'done': bool(issues) and out == 0, 'detail': f'{out} still out' if out else ''},
+        {'label': 'Paid in full', 'done': bool(invoices) and owed <= 0,
+         'detail': f'{settings.CURRENCY} {owed:,.0f} due' if owed > 0 else ''},
+    ]
+
+
+@login_required
+@permission_required('events.view_event', raise_exception=True)
+def event_packing_list(request, pk):
+    """Printable list for loading the truck: booked and issued items with tick columns."""
+    from billing.views import render_pdf
+    from inventory.models import EquipmentItem
+    from inventory.services import booked_quantities
+
+    event = get_object_or_404(
+        scope_events_to_assignments(Event.objects.select_related('customer'), request.user).prefetch_related(
+            'invoices__line_items', 'quotations__line_items', 'equipment_issues__returns',
+        ),
+        pk=pk,
+    )
+    booked = booked_quantities(event)
+    issued, outstanding = {}, {}
+    for issue in event.equipment_issues.all():
+        issued[issue.equipment_item_id] = issued.get(issue.equipment_item_id, 0) + issue.quantity_issued
+        outstanding[issue.equipment_item_id] = outstanding.get(issue.equipment_item_id, 0) + issue.quantity_outstanding
+    item_ids = set(booked) | set(issued)
+    items = EquipmentItem.objects.filter(pk__in=item_ids).select_related('category').order_by('category__name', 'name')
+    rows = [
+        {'item': item, 'booked': booked.get(item.pk, 0), 'issued': issued.get(item.pk, 0),
+         'outstanding': outstanding.get(item.pk, 0)}
+        for item in items
+    ]
+    return render_pdf(request, 'pdf/packing_list_pdf.html', {
+        'event': event, 'rows': rows,
+        'assignments': event.assignments.select_related('staff_member'),
+    }, f'packing-list-{event.event_date:%Y-%m-%d}-{event.pk}.pdf')
 
 
 def next_step_for(event, ctx, user):
@@ -196,6 +318,7 @@ class EventUpdateView(
     def form_valid(self, form):
         response = super().form_valid(form)
         log_model_activity(self.request, self.object, 'updated')
+        warn_if_short(self.request, self.object)
         return response
 
 

@@ -3,41 +3,64 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.messages.views import SuccessMessageMixin
 from django.contrib import messages
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
+from django.db import transaction
 from django.db.models import Q
-from django.http import HttpResponse
+from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
 from django.urls import reverse
+from django.views.decorators.csrf import csrf_exempt
+from django.views.decorators.http import require_POST
 from django.views.generic import DetailView, ListView
 
-from comms.models import CommunicationLog
 from core.activity import log_activity, log_model_activity
 from core.deletion import confirm_and_delete, count_label
-from core.emailing import email_enabled_required, send_pdf_email
+from core.emailing import email_enabled_required
 from core.once import claim_token
+from core.pagination import paginate
 from core.utils import amount_in_words
 from events.models import Event
-from finance.models import IncomeRecord
 from inventory.models import EquipmentItem
+from inventory.services import availability_for_event, warn_if_short
 
 from .forms import (
     EmailDocumentForm, InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm,
     QuotationLineItemFormSet,
 )
-from .models import Invoice, Payment, Quotation, Receipt
+from . import mobile_money
+from .models import Invoice, MobileMoneyTransaction, Payment, Quotation, Receipt
+from .services import record_payment, sync_invoice_statuses
+from .sharing import read_token
+from .tasks import send_or_queue
 
 
-def equipment_items_json():
+def equipment_items_json(event=None):
     """Feeds the line-item table's "pick an inventory item" auto-fill JS —
-    see quotation_form.html / invoice_form.html."""
+    see quotation_form.html / invoice_form.html. With an event, "available" is what
+    is free on the event's dates after other confirmed bookings, not just today."""
+    items = EquipmentItem.objects.with_availability()
+    if event is None:
+        return {
+            str(item.pk): {
+                'name': item.name,
+                'rate': str(item.default_rate) if item.default_rate is not None else '',
+                'available': item.available_quantity,
+                'unit': item.unit,
+                'when': 'right now',
+            }
+            for item in items
+        }
+    free = availability_for_event(event)
+    when = 'on this event\'s dates'
     return {
         str(item.pk): {
             'name': item.name,
             'rate': str(item.default_rate) if item.default_rate is not None else '',
-            'available': item.available_quantity,
+            'available': max(free.get(item.pk, item.total_quantity), 0),
             'unit': item.unit,
+            'when': when,
         }
-        for item in EquipmentItem.objects.all()
+        for item in items
     }
 
 
@@ -102,24 +125,24 @@ def quotation_create(request, event_pk):
     if request.method == 'POST':
         form = QuotationForm(request.POST, instance=quotation)
         formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')
-        if form.is_valid():
-            quotation = form.save(commit=False)
-            quotation.event = event
-            quotation.created_by = request.user
-            quotation.save()
-            formset = QuotationLineItemFormSet(request.POST, instance=quotation, prefix='line_items')
-            if formset.is_valid():
+        # Check the lines too before saving anything, so a rejected form never leaves
+        # an empty quotation behind.
+        form_ok = form.is_valid()
+        if formset.is_valid() and form_ok:
+            with transaction.atomic():
+                quotation = form.save()
+                formset.instance = quotation
                 formset.save()
-                log_model_activity(request, quotation, 'created', extra=f'for event "{event}"')
-                if event.advance_status_at_least(Event.Status.QUOTED):
-                    messages.info(request, f'Event status advanced to "{event.get_status_display()}".')
-                messages.success(request, f'Quotation {quotation.number} created.')
-                return redirect('billing:quotation_detail', pk=quotation.pk)
+            log_model_activity(request, quotation, 'created', extra=f'for event "{event}"')
+            if event.advance_status_at_least(Event.Status.QUOTED):
+                messages.info(request, f'Event status advanced to "{event.get_status_display()}".')
+            messages.success(request, f'Quotation {quotation.number} created.')
+            return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
         form = QuotationForm(instance=quotation)
         formset = QuotationLineItemFormSet(instance=quotation, prefix='line_items')
     return render(request, 'billing/quotation_form.html', {
-        'form': form, 'formset': formset, 'event': event, 'equipment_items': equipment_items_json(),
+        'form': form, 'formset': formset, 'event': event, 'equipment_items': equipment_items_json(event),
     })
 
 
@@ -147,7 +170,7 @@ def quotation_update(request, pk):
         formset = QuotationLineItemFormSet(instance=quotation, prefix='line_items')
     return render(request, 'billing/quotation_form.html', {
         'form': form, 'formset': formset, 'event': quotation.event, 'object': quotation,
-        'equipment_items': equipment_items_json(),
+        'equipment_items': equipment_items_json(quotation.event),
     })
 
 
@@ -181,6 +204,7 @@ def quotation_convert(request, pk):
     log_model_activity(request, invoice, 'created', extra=f'from quotation {quotation.number}')
     if quotation.event.advance_status_at_least(Event.Status.CONFIRMED):
         messages.info(request, f'Event status advanced to "{quotation.event.get_status_display()}".')
+        warn_if_short(request, quotation.event)
     messages.success(request, f'Invoice {invoice.number} created from {quotation.number}.')
     return redirect('billing:invoice_detail', pk=invoice.pk)
 
@@ -205,30 +229,14 @@ def quotation_email(request, pk):
                 messages.info(request, 'That email was already sent. It was not sent again.')
                 return redirect('billing:quotation_detail', pk=quotation.pk)
             to_email = form.cleaned_data['to_email']
-            pdf_bytes = generate_pdf_bytes(request, 'pdf/quotation_pdf.html', {'quotation': quotation})
-            sent = send_pdf_email(
-                to_email=to_email,
-                subject=f'Quotation {quotation.number} from {settings.COMPANY_LEGAL_NAME}',
-                body=form.cleaned_data['message'],
-                pdf_bytes=pdf_bytes,
-                filename=f'{quotation.number}.pdf',
-            )
-            if not sent:
+            outcome = send_or_queue(request, quotation, to_email, form.cleaned_data['message'])
+            if outcome == 'failed':
                 messages.error(request, 'Could not send the email: the mail server could not be reached. Please try again, and tell your administrator if it keeps failing.')
                 return render(request, 'billing/quotation_email_form.html', {'form': form, 'object': quotation})
-            if quotation.status == Quotation.Status.DRAFT:
-                quotation.status = Quotation.Status.SENT
-                quotation.save(update_fields=['status'])
-            CommunicationLog.objects.create(
-                customer=customer,
-                event=quotation.event,
-                channel=CommunicationLog.Channel.EMAIL,
-                direction=CommunicationLog.Direction.OUTBOUND,
-                message=f'Emailed quotation {quotation.number} to {to_email}',
-                logged_by=request.user,
-            )
-            log_model_activity(request, quotation, 'emailed', extra=f'to {to_email}')
-            messages.success(request, f'Quotation {quotation.number} emailed to {to_email}.')
+            if outcome == 'queued':
+                messages.success(request, f'Quotation {quotation.number} is being emailed to {to_email}. It shows in the Communication log once sent.')
+            else:
+                messages.success(request, f'Quotation {quotation.number} emailed to {to_email}.')
             return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
         form = EmailDocumentForm(initial={
@@ -252,6 +260,7 @@ class InvoiceListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
     template_name = 'billing/invoice_list.html'
 
     def get_queryset(self):
+        sync_invoice_statuses()
         qs = super().get_queryset().select_related('event__customer')
         status = self.request.GET.get('status')
         if status:
@@ -294,7 +303,7 @@ def invoice_update(request, pk):
         form = InvoiceForm(instance=invoice)
         formset = InvoiceLineItemFormSet(instance=invoice, prefix='line_items')
     return render(request, 'billing/invoice_form.html', {
-        'form': form, 'formset': formset, 'object': invoice, 'equipment_items': equipment_items_json(),
+        'form': form, 'formset': formset, 'object': invoice, 'equipment_items': equipment_items_json(invoice.event),
     })
 
 
@@ -308,25 +317,15 @@ def invoice_add_payment(request, pk):
             if not claim_token(request):
                 messages.info(request, 'That payment was already recorded. It was not recorded again.')
                 return redirect('billing:invoice_detail', pk=invoice.pk)
-            payment = form.save(commit=False)
-            payment.invoice = invoice
-            payment.received_by = request.user
-            payment.save()
-            log_model_activity(request, payment, 'created', extra=f'on invoice {invoice.number}')
-            # A payment IS income — record it automatically so Finance/P&L totals are
-            # correct without staff having to separately re-enter every invoice payment
-            # as an income record too (that would just be error-prone double-entry).
-            IncomeRecord.objects.create(
-                amount=payment.amount,
-                source=IncomeRecord.Source.INVOICE_PAYMENT,
-                date=payment.paid_at,
-                event=invoice.event,
-                payment=payment,
-                description=f'Payment on invoice {invoice.number}',
-                recorded_by=request.user,
+            data = form.cleaned_data
+            payment, advanced = record_payment(
+                invoice, amount=data['amount'], method=data['method'], paid_at=data['paid_at'],
+                reference_number=data['reference_number'], notes=data['notes'], received_by=request.user,
             )
-            if invoice.event.advance_status_at_least(Event.Status.CONFIRMED):
+            log_model_activity(request, payment, 'created', extra=f'on invoice {invoice.number}')
+            if advanced:
                 messages.info(request, f'Event status advanced to "{invoice.event.get_status_display()}".')
+                warn_if_short(request, invoice.event)
             messages.success(request, f'Payment of {settings.CURRENCY} {payment.amount:,.0f} recorded. Receipt {payment.receipt.number} is ready: send it to the client below.')
             return redirect('billing:receipt_detail', pk=payment.receipt.pk)
         # Re-render the invoice page with the bound form so the actual field
@@ -357,27 +356,14 @@ def invoice_email(request, pk):
                 messages.info(request, 'That email was already sent. It was not sent again.')
                 return redirect('billing:invoice_detail', pk=invoice.pk)
             to_email = form.cleaned_data['to_email']
-            pdf_bytes = generate_pdf_bytes(request, 'pdf/invoice_pdf.html', {'invoice': invoice})
-            sent = send_pdf_email(
-                to_email=to_email,
-                subject=f'Invoice {invoice.number} from {settings.COMPANY_LEGAL_NAME}',
-                body=form.cleaned_data['message'],
-                pdf_bytes=pdf_bytes,
-                filename=f'{invoice.number}.pdf',
-            )
-            if not sent:
+            outcome = send_or_queue(request, invoice, to_email, form.cleaned_data['message'])
+            if outcome == 'failed':
                 messages.error(request, 'Could not send the email: the mail server could not be reached. Please try again, and tell your administrator if it keeps failing.')
                 return render(request, 'billing/invoice_email_form.html', {'form': form, 'object': invoice})
-            CommunicationLog.objects.create(
-                customer=customer,
-                event=invoice.event,
-                channel=CommunicationLog.Channel.EMAIL,
-                direction=CommunicationLog.Direction.OUTBOUND,
-                message=f'Emailed invoice {invoice.number} to {to_email}',
-                logged_by=request.user,
-            )
-            log_model_activity(request, invoice, 'emailed', extra=f'to {to_email}')
-            messages.success(request, f'Invoice {invoice.number} emailed to {to_email}.')
+            if outcome == 'queued':
+                messages.success(request, f'Invoice {invoice.number} is being emailed to {to_email}. It shows in the Communication log once sent.')
+            else:
+                messages.success(request, f'Invoice {invoice.number} emailed to {to_email}.')
             return redirect('billing:invoice_detail', pk=invoice.pk)
     else:
         form = EmailDocumentForm(initial={
@@ -448,6 +434,22 @@ def receipt_pdf_context(receipt):
     }
 
 
+def shared_document(request, token):
+    """Public, link-only view of one PDF (see billing.sharing). No login: the signed token is the key."""
+    found = read_token(token)
+    if found is None:
+        return render(request, 'billing/share_expired.html', {'auth_page': True}, status=404)
+    kind, pk = found
+    if kind == 'quotation':
+        quotation = get_object_or_404(Quotation, pk=pk)
+        return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': quotation}, f'{quotation.number}.pdf')
+    if kind == 'invoice':
+        invoice = get_object_or_404(Invoice, pk=pk)
+        return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': invoice}, f'{invoice.number}.pdf')
+    receipt = get_object_or_404(Receipt, pk=pk)
+    return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt), f'{receipt.number}.pdf')
+
+
 @login_required
 @permission_required('billing.view_receipt', raise_exception=True)
 def receipt_pdf(request, pk):
@@ -470,27 +472,14 @@ def receipt_email(request, pk):
                 messages.info(request, 'That email was already sent. It was not sent again.')
                 return redirect('billing:receipt_detail', pk=receipt.pk)
             to_email = form.cleaned_data['to_email']
-            pdf_bytes = generate_pdf_bytes(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt))
-            sent = send_pdf_email(
-                to_email=to_email,
-                subject=f'Receipt {receipt.number} from {settings.COMPANY_LEGAL_NAME}',
-                body=form.cleaned_data['message'],
-                pdf_bytes=pdf_bytes,
-                filename=f'{receipt.number}.pdf',
-            )
-            if not sent:
+            outcome = send_or_queue(request, receipt, to_email, form.cleaned_data['message'])
+            if outcome == 'failed':
                 messages.error(request, 'Could not send the email: the mail server could not be reached. Please try again, and tell your administrator if it keeps failing.')
                 return render(request, 'billing/receipt_email_form.html', {'form': form, 'object': receipt})
-            CommunicationLog.objects.create(
-                customer=customer,
-                event=invoice.event,
-                channel=CommunicationLog.Channel.EMAIL,
-                direction=CommunicationLog.Direction.OUTBOUND,
-                message=f'Emailed receipt {receipt.number} to {to_email}',
-                logged_by=request.user,
-            )
-            log_model_activity(request, receipt, 'emailed', extra=f'to {to_email}')
-            messages.success(request, f'Receipt {receipt.number} emailed to {to_email}.')
+            if outcome == 'queued':
+                messages.success(request, f'Receipt {receipt.number} is being emailed to {to_email}. It shows in the Communication log once sent.')
+            else:
+                messages.success(request, f'Receipt {receipt.number} emailed to {to_email}.')
             return redirect('billing:receipt_detail', pk=receipt.pk)
     else:
         balance_line = (
@@ -508,3 +497,66 @@ def receipt_email(request, pk):
             ),
         })
     return render(request, 'billing/receipt_email_form.html', {'form': form, 'object': receipt})
+
+
+# ---------- Mobile money ----------
+
+@csrf_exempt
+@require_POST
+def mobile_money_webhook(request, provider):
+    """Provider callback. Authenticated by HMAC signature, not by login (see billing.mobile_money)."""
+    if not settings.MOBILE_MONEY_WEBHOOK_SECRET:
+        raise Http404
+    if not mobile_money.signature_ok(request.body, request.headers.get('X-Signature', '')):
+        return JsonResponse({'error': 'bad signature'}, status=403)
+    try:
+        txn, created = mobile_money.receive(provider, mobile_money.parse_body(request.body))
+    except mobile_money.WebhookError as exc:
+        return JsonResponse({'error': str(exc)}, status=400)
+    return JsonResponse({'status': txn.status, 'duplicate': not created})
+
+
+@login_required
+@permission_required('billing.view_payment', raise_exception=True)
+def mobile_money_list(request):
+    unmatched = MobileMoneyTransaction.objects.filter(status=MobileMoneyTransaction.Status.UNMATCHED)
+    recent = MobileMoneyTransaction.objects.exclude(status=MobileMoneyTransaction.Status.UNMATCHED).select_related(
+        'payment__invoice__event__customer', 'payment__receipt', 'allocated_by',
+    )
+    return render(request, 'billing/mobile_money_list.html', {
+        'unmatched': unmatched,
+        'page': paginate(request, recent, per_page=25),
+        'open_invoices': Invoice.objects.exclude(
+            status__in=[Invoice.Status.PAID, Invoice.Status.CANCELLED],
+        ).select_related('event__customer').prefetch_related('line_items', 'payments').order_by('-created_at'),
+        'webhook_enabled': bool(settings.MOBILE_MONEY_WEBHOOK_SECRET),
+    })
+
+
+@require_POST
+@login_required
+@permission_required('billing.add_payment', raise_exception=True)
+def mobile_money_allocate(request, pk):
+    txn = get_object_or_404(MobileMoneyTransaction, pk=pk)
+    if txn.status != MobileMoneyTransaction.Status.UNMATCHED:
+        messages.info(request, f'{txn} was already dealt with.')
+        return redirect('billing:mobile_money')
+    if request.POST.get('action') == 'ignore':
+        txn.status = MobileMoneyTransaction.Status.IGNORED
+        txn.allocated_by = request.user
+        txn.save(update_fields=['status', 'allocated_by', 'updated_at'])
+        log_activity(request, 'mobile_money.ignored', f'Marked {txn} as not an invoice payment')
+        messages.success(request, f'{txn} marked as not an invoice payment.')
+        return redirect('billing:mobile_money')
+    invoice = Invoice.objects.exclude(status=Invoice.Status.CANCELLED).filter(pk=request.POST.get('invoice')).first()
+    if invoice is None:
+        messages.error(request, 'Pick the invoice this payment is for.')
+        return redirect('billing:mobile_money')
+    with transaction.atomic():
+        txn = MobileMoneyTransaction.objects.select_for_update().get(pk=txn.pk)
+        if txn.status != MobileMoneyTransaction.Status.UNMATCHED:
+            messages.info(request, f'{txn} was already dealt with.')
+            return redirect('billing:mobile_money')
+        payment = mobile_money.apply_to_invoice(txn, invoice, user=request.user)
+    messages.success(request, f'{txn} recorded on invoice {invoice.number}. Receipt {payment.receipt.number} is ready.')
+    return redirect('billing:mobile_money')

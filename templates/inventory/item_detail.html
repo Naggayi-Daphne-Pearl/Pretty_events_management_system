@@ -29,6 +29,24 @@
         </div>
     </div>
     <div class="col-lg-8">
+        <div class="card p-3 mb-3">
+            <h6 class="mb-2">Booked for upcoming events <span class="text-muted fw-normal small">(confirmed, next 90 days)</span></h6>
+            <table class="table table-sm">
+                <thead><tr><th>Event</th><th>Dates</th><th>Booked</th><th>Free those days</th></tr></thead>
+                <tbody>
+                {% for row in bookings %}
+                    <tr>
+                        <td><a href="{% url 'events:detail' row.event.pk %}">{{ row.event.customer.name }} · {{ row.event.event_type }}</a></td>
+                        <td>{{ row.event.event_date|date:"D j M" }}{% if row.event.end_date and row.event.end_date != row.event.event_date %} – {{ row.event.end_date|date:"D j M" }}{% endif %}</td>
+                        <td>{{ row.quantity|intcomma }}</td>
+                        <td>{% if row.free < 0 %}<span class="text-danger fw-semibold">{{ row.free|intcomma }} (overbooked)</span>{% else %}{{ row.free|intcomma }}{% endif %}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-3">Not booked for any confirmed event in the next 90 days.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
         <div class="card p-3">
             <h6 class="mb-2">Issue history</h6>
             <table class="table table-sm">

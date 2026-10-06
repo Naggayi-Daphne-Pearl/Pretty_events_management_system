@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Close the books{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'accounting:journal_list' %}">Journals</a><span class="sep">/</span><span class="current">Close the books</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-1">Close the books</h3>
+<p class="text-muted small mb-3" style="max-width: 760px;">
+    Once a period is closed (for example after the monthly figures or the year-end accounts are done), nothing dated in it
+    can be added, edited or deleted: journals, payments, income or expenses. Mistakes found later are corrected with a new
+    entry in an open period, such as a reversal, so the closed figures never change behind anyone's back.
+</p>
+<div class="row g-3">
+    <div class="col-lg-5">
+        <div class="card p-3">
+            <div class="mb-3">
+                {% if locked_through %}
+                <div class="fs-5 fw-semibold"><i class="bi bi-lock me-2"></i>Closed through {{ locked_through|date:"d M Y" }}</div>
+                <div class="small text-muted">Everything dated on or before this is locked.</div>
+                {% else %}
+                <div class="fs-5 fw-semibold"><i class="bi bi-unlock me-2"></i>No period is closed</div>
+                {% endif %}
+            </div>
+            {% if perms.accounting.add_periodclose %}
+            <form method="post">
+                {% csrf_token %}
+                <label class="form-label" for="closed_through">Close everything up to and including</label>
+                <input type="date" class="form-control mb-2" id="closed_through" name="closed_through" value="{{ suggested|date:'Y-m-d' }}" required>
+                <label class="form-label" for="note">Note (optional)</label>
+                <input type="text" class="form-control mb-3" id="note" name="note" maxlength="255" placeholder="e.g. September accounts filed">
+                <button type="submit" class="btn btn-primary">Close the books</button>
+                <div class="form-text">Picking an earlier date than the current one reopens the days in between. That is recorded too.</div>
+            </form>
+            {% endif %}
+        </div>
+    </div>
+    <div class="col-lg-7">
+        <div class="card p-3">
+            <h6 class="mb-2">History</h6>
+            <table class="table table-sm">
+                <thead><tr><th>When</th><th>Who</th><th>Closed through</th><th>Note</th></tr></thead>
+                <tbody>
+                {% for row in history %}
+                <tr>
+                    <td>{{ row.created_at|date:"d M Y H:i" }}</td>
+                    <td>{{ row.created_by.get_full_name|default:row.created_by.email|default:"—" }}</td>
+                    <td>{{ row.closed_through|date:"d M Y" }}{% if forloop.first %} <span class="badge bg-secondary">current</span>{% endif %}</td>
+                    <td>{{ row.note }}</td>
+                </tr>
+                {% empty %}
+                <tr><td colspan="4" class="text-center text-muted py-3">The books have never been closed.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

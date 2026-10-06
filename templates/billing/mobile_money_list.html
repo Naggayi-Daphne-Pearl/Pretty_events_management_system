@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Mobile Money{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Mobile Money</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-1">Mobile Money</h3>
+<p class="text-muted small mb-3">
+    Payments reported by MTN / Airtel. Ones whose reference names an invoice (e.g. “INV-2026-00012”) are recorded on it automatically;
+    the rest wait here for you to match.
+    {% if not webhook_enabled %}<br><strong>Not connected yet:</strong> set MOBILE_MONEY_WEBHOOK_SECRET and give the provider the webhook address to start receiving payments.{% endif %}
+</p>
+
+<div class="card p-3 mb-3">
+    <h6 class="mb-2">Needs matching to an invoice <span class="text-muted fw-normal">({{ unmatched|length }})</span></h6>
+    <table class="table align-middle">
+        <thead><tr><th>Received</th><th>From</th><th>Reference typed</th><th class="text-end">Amount</th><th>Record on invoice</th></tr></thead>
+        <tbody>
+        {% for txn in unmatched %}
+            <tr>
+                <td>{{ txn.received_at|date:"j M Y H:i" }}<div class="small text-muted">{{ txn.provider|upper }} · {{ txn.transaction_id }}</div></td>
+                <td>{{ txn.payer_name|default:"—" }}<div class="small text-muted">{{ txn.payer_phone }}</div></td>
+                <td>{{ txn.reference|default:"—" }}</td>
+                <td class="text-end">{{ txn.currency }} {{ txn.amount|floatformat:0|intcomma }}</td>
+                <td>
+                    {% if perms.billing.add_payment %}
+                    <form method="post" action="{% url 'billing:mobile_money_allocate' txn.pk %}" class="d-flex gap-1 flex-wrap">
+                        {% csrf_token %}
+                        <select name="invoice" class="form-select form-select-sm" style="min-width: 220px;">
+                            <option value="">Choose invoice…</option>
+                            {% for inv in open_invoices %}
+                            <option value="{{ inv.pk }}">{{ inv.number }} · {{ inv.event.customer.name }} · {{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }} due</option>
+                            {% endfor %}
+                        </select>
+                        <button type="submit" class="btn btn-sm btn-primary">Record</button>
+                        <button type="submit" name="action" value="ignore" class="btn btn-sm btn-outline-secondary" title="Not an invoice payment (e.g. a refund or personal transfer)">Not a payment</button>
+                    </form>
+                    {% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="5" class="text-center text-muted py-3">Nothing waiting. All received payments are matched.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="card p-3">
+    <h6 class="mb-2">Handled</h6>
+    <table class="table align-middle">
+        <thead><tr><th>Received</th><th>From</th><th class="text-end">Amount</th><th>Outcome</th></tr></thead>
+        <tbody>
+        {% for txn in page %}
+            <tr>
+                <td>{{ txn.received_at|date:"j M Y H:i" }}<div class="small text-muted">{{ txn.provider|upper }} · {{ txn.transaction_id }}</div></td>
+                <td>{{ txn.payer_name|default:txn.payer_phone|default:"—" }}</td>
+                <td class="text-end">{{ txn.currency }} {{ txn.amount|floatformat:0|intcomma }}</td>
+                <td>
+                    {% if txn.payment %}
+                        <a href="{% url 'billing:invoice_detail' txn.payment.invoice.pk %}">{{ txn.payment.invoice.number }}</a> · <a href="{% url 'billing:receipt_detail' txn.payment.receipt.pk %}">{{ txn.payment.receipt.number }}</a>
+                    {% else %}{{ txn.get_status_display }}{% endif %}
+                    <div class="small text-muted">{% if txn.allocated_by %}by {{ txn.allocated_by.get_full_name|default:txn.allocated_by.email }}{% else %}automatically{% endif %}</div>
+                </td>
+            </tr>
+        {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-3">No mobile money payments yet.</td></tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% include "partials/_pagination.html" with page_obj=page %}
+</div>
+{% endblock %}

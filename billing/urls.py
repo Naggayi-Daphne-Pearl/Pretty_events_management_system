@@ -26,4 +26,10 @@ urlpatterns = [
     path('receipts/<int:pk>/', views.ReceiptDetailView.as_view(), name='receipt_detail'),
     path('receipts/<int:pk>/email/', views.receipt_email, name='receipt_email'),
     path('receipts/<int:pk>/pdf/', views.receipt_pdf, name='receipt_pdf'),
+
+    path('shared/<str:token>/', views.shared_document, name='shared_document'),
+
+    path('mobile-money/', views.mobile_money_list, name='mobile_money'),
+    path('mobile-money/<int:pk>/allocate/', views.mobile_money_allocate, name='mobile_money_allocate'),
+    path('mobile-money/webhook/<slug:provider>/', views.mobile_money_webhook, name='mobile_money_webhook'),
 ]

@@ -1,0 +1,91 @@
+{% extends "base.html" %}
+{% block title %}Calendar{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">Events</a><span class="sep">/</span><span class="current">Calendar</span></nav>
+{% endblock %}
+{% block extra_head %}
+<style>
+    .cal-toolbar { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 10px; margin-bottom: 14px; }
+    .cal-grid { display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); border-top: 1px solid var(--border); border-left: 1px solid var(--border); border-radius: 12px; overflow: hidden; }
+    .cal-head { font-size: .72rem; text-transform: uppercase; letter-spacing: .04em; color: var(--text-3); font-weight: 600; padding: 8px 10px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); }
+    .cal-cell { min-height: 112px; padding: 6px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); display: flex; flex-direction: column; gap: 4px; min-width: 0; }
+    .cal-cell.out { background: rgba(127,127,127,0.05); }
+    .cal-cell.out .cal-day { color: var(--text-3); }
+    .cal-day { font-size: 12px; font-weight: 600; color: var(--text-2); align-self: flex-start; padding: 1px 7px; border-radius: 999px; }
+    .cal-cell.today .cal-day { background: var(--gold); color: #1c1409; }
+    .cal-event { display: block; font-size: 12px; line-height: 1.3; padding: 3px 7px; border-radius: 7px; text-decoration: none; color: var(--text-1); border-left: 3px solid var(--st); background: color-mix(in srgb, var(--st) 14%, transparent); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .cal-event:hover { color: var(--text-1); background: color-mix(in srgb, var(--st) 24%, transparent); }
+    .st-inquiry { --st: #8b8fa3; }
+    .st-quoted { --st: #5b8def; }
+    .st-confirmed { --st: var(--gold); }
+    .st-in_progress { --st: #b06ad8; }
+    .st-completed { --st: var(--ok); }
+    .st-cancelled { --st: var(--danger); text-decoration: line-through; }
+    .cal-legend { display: flex; flex-wrap: wrap; gap: 12px; font-size: 12px; color: var(--text-2); }
+    .cal-legend span::before { content: ''; display: inline-block; width: 10px; height: 10px; border-radius: 3px; background: var(--st); margin-right: 5px; vertical-align: -1px; }
+    .agenda-day { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .agenda-day:last-child { border-bottom: none; }
+    .agenda-date { font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-2); margin-bottom: 6px; }
+    .agenda-date.today { color: var(--gold); }
+    .agenda-day .cal-event { white-space: normal; font-size: 14px; padding: 8px 10px; margin-bottom: 6px; }
+</style>
+{% endblock %}
+{% block content %}
+<div class="cal-toolbar">
+    <h3 class="mb-0">{{ month|date:"F Y" }}</h3>
+    <div class="d-flex flex-wrap gap-2 align-items-center">
+        <div class="btn-group">
+            <a href="?month={{ prev_month }}{% if show_cancelled %}&cancelled=1{% endif %}" class="btn btn-sm btn-outline-secondary" aria-label="Previous month"><i class="bi bi-chevron-left"></i></a>
+            <a href="?month={{ this_month }}{% if show_cancelled %}&cancelled=1{% endif %}" class="btn btn-sm btn-outline-secondary">Today</a>
+            <a href="?month={{ next_month }}{% if show_cancelled %}&cancelled=1{% endif %}" class="btn btn-sm btn-outline-secondary" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
+        </div>
+        <a href="{% url 'events:list' %}" class="btn btn-sm btn-outline-secondary"><i class="bi bi-list-ul me-1"></i>List</a>
+        {% if perms.events.add_event %}
+        <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Event</a>
+        {% endif %}
+    </div>
+</div>
+
+<div class="card p-3">
+    <div class="d-flex flex-wrap justify-content-between align-items-center gap-2 mb-3">
+        <div class="cal-legend">
+            <span class="st-inquiry">Inquiry</span><span class="st-quoted">Quoted</span><span class="st-confirmed">Confirmed</span>
+            <span class="st-in_progress">In progress</span><span class="st-completed">Completed</span>
+            {% if show_cancelled %}<span class="st-cancelled">Cancelled</span>{% endif %}
+        </div>
+        <div class="small">
+            {{ month_count }} event{{ month_count|pluralize }} this month ·
+            {% if show_cancelled %}<a href="?month={{ month|date:'Y-m' }}">Hide cancelled</a>{% else %}<a href="?month={{ month|date:'Y-m' }}&cancelled=1">Show cancelled</a>{% endif %}
+        </div>
+    </div>
+
+    {# Month grid from md up; a day-by-day agenda on phones, where 7 columns are too narrow to read. #}
+    <div class="cal-grid d-none d-md-grid">
+        <div class="cal-head">Mon</div><div class="cal-head">Tue</div><div class="cal-head">Wed</div><div class="cal-head">Thu</div><div class="cal-head">Fri</div><div class="cal-head">Sat</div><div class="cal-head">Sun</div>
+        {% for week in weeks %}{% for cell in week %}
+        <div class="cal-cell{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}">
+            <span class="cal-day">{{ cell.date.day }}</span>
+            {% for event in cell.events %}
+            <a href="{% url 'events:detail' event.pk %}" class="cal-event st-{{ event.status }}" title="{{ event.customer.name }} · {{ event.event_type }} · {{ event.venue }} ({{ event.get_status_display }})">{{ event.customer.name }} · {{ event.event_type }}</a>
+            {% endfor %}
+        </div>
+        {% endfor %}{% endfor %}
+    </div>
+
+    <div class="d-md-none">
+        {% for cell in agenda %}
+        <div class="agenda-day">
+            <div class="agenda-date{% if cell.is_today %} today{% endif %}">{{ cell.date|date:"D j M" }}{% if cell.is_today %} · Today{% endif %}</div>
+            {% for event in cell.events %}
+            <a href="{% url 'events:detail' event.pk %}" class="cal-event st-{{ event.status }}">
+                <strong>{{ event.customer.name }}</strong> · {{ event.event_type }}<br>
+                <span class="small">{{ event.venue }} · {{ event.get_status_display }}</span>
+            </a>
+            {% endfor %}
+        </div>
+        {% empty %}
+        <p class="text-muted text-center py-4 mb-0">No events in {{ month|date:"F" }}.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
