@@ -18,7 +18,7 @@ from customers.models import Customer
 from .forms import CommunicationLogForm
 from .models import CommunicationLog
 from billing.sharing import share_url
-from .outreach import call_url, default_message, email_url, whatsapp_url
+from .outreach import call_url, default_message, email_url, reminder_message, whatsapp_url
 
 
 class ExternalAppRedirect(HttpResponseRedirect):
@@ -146,7 +146,8 @@ def contact_customer(request, customer_pk, channel):
     customer = get_object_or_404(Customer, pk=customer_pk)
     document = _resolve_document(customer, request.POST.get('document'))
     event = _document_event(document) if document else _customer_event(customer, request.POST.get('event'))
-    text = default_message(customer, event=event, document=document)
+    is_reminder = request.POST.get('purpose') == 'reminder' and isinstance(document, Invoice) and document.balance_due > 0
+    text = reminder_message(customer, document) if is_reminder else default_message(customer, event=event, document=document)
 
     if channel == CommunicationLog.Channel.WHATSAPP:
         if document:
@@ -172,7 +173,8 @@ def contact_customer(request, customer_pk, channel):
         return redirect(_safe_next(request, customer.get_absolute_url()))
 
     if document:
-        note += f' (about {document._meta.verbose_name} {document.number})'
+        note = ('Sent a payment reminder by WhatsApp' if is_reminder else note) + \
+            f' (about {document._meta.verbose_name} {document.number})'
     log = CommunicationLog.objects.create(
         customer=customer, event=event, channel=channel,
         direction=CommunicationLog.Direction.OUTBOUND, message=note, logged_by=request.user,

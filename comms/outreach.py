@@ -1,12 +1,30 @@
 from urllib.parse import quote, urlencode
 
 from django.conf import settings
+from django.utils import timezone
 
 from core.phone import to_international
 
 
 def _money(amount):
     return f'{settings.CURRENCY} {amount:,.0f}'
+
+
+def reminder_message(customer, invoice):
+    """A polite payment reminder for an invoice with money still owed."""
+    event = invoice.event
+    if invoice.due_date and invoice.due_date < timezone.localdate():
+        when = f'was due on {invoice.due_date:%d %b %Y}'
+    elif invoice.due_date:
+        when = f'is due on {invoice.due_date:%d %b %Y}'
+    else:
+        when = 'is still open'
+    return (
+        f'Hello {customer.name}, this is {settings.COMPANY_LEGAL_NAME}. A friendly reminder that invoice '
+        f'{invoice.number} for your {event.event_type} on {event.event_date:%d %b %Y} {when}, with a balance of '
+        f'{_money(invoice.balance_due)}. You can pay by mobile money, bank or cash; please share the reference '
+        f'once paid so we can send your receipt. Thank you.'
+    )
 
 
 def default_message(customer, event=None, document=None):

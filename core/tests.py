@@ -1304,3 +1304,25 @@ class NotificationTests(BaseDataMixin, TestCase):
         field = get_user_model().objects.create_user('f', 'f@example.com', 'pw')
         self.assertEqual(self.bell(field), [])
         self.assertContains(self.client.get('/'), '1 overdue invoice')
+
+
+class PaymentReminderTests(BaseDataMixin, TestCase):
+    def test_reminder_states_balance_and_links_the_invoice(self):
+        from urllib.parse import unquote
+        invoice = self.make_invoice('300000')
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=timezone.localdate() - timedelta(days=4), status=Invoice.Status.OVERDUE)
+        page = self.client.get(reverse('billing:invoice_detail', args=[invoice.pk]))
+        self.assertContains(page, 'Send payment reminder')
+        response = self.client.post(reverse('comms:contact', args=[self.customer.pk, 'whatsapp']),
+                                    {'document': f'invoice:{invoice.pk}', 'purpose': 'reminder'})
+        text = unquote(response['Location'])
+        self.assertIn('friendly reminder', text)
+        self.assertIn('was due on', text)
+        self.assertIn('UGX 300,000', text)
+        self.assertIn('/billing/shared/', text)
+        self.assertTrue(CommunicationLog.objects.filter(message__startswith='Sent a payment reminder').exists())
+
+    def test_no_reminder_button_when_paid(self):
+        invoice = self.make_invoice('1000')
+        Payment.objects.create(invoice=invoice, amount=Decimal('1000'))
+        self.assertNotContains(self.client.get(reverse('billing:invoice_detail', args=[invoice.pk])), 'Send payment reminder')

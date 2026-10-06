@@ -15,6 +15,7 @@
         <a href="{% url 'billing:invoice_pdf' object.pk %}" target="_blank" class="btn btn-outline-primary btn-sm">Download PDF</a>
         {% if EMAIL_ENABLED and perms.billing.change_invoice %}<a href="{% url 'billing:invoice_email' object.pk %}" class="btn btn-outline-primary btn-sm">Email to Client</a>{% endif %}
         {% include "comms/_contact_buttons.html" with customer=object.event.customer event=object.event doc_kind="invoice" doc_pk=object.pk hide_email=EMAIL_ENABLED %}
+        {% include "billing/_reminder_button.html" with invoice=object %}
         {% if perms.billing.delete_invoice and not object.payments.exists %}<a href="{% url 'billing:invoice_delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>{% endif %}
     </div>
 </div>
