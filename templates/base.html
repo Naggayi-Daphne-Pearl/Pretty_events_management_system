@@ -39,26 +39,36 @@
             --bs-secondary-color: var(--text-2);
             --bs-tertiary-color: var(--text-3);
 
-            /* light ("white glass") theme */
-            --bg: radial-gradient(1200px 600px at 15% -10%, #fdf9f4 0%, #f3ede6 45%, #ece4da 100%);
-            --panel: rgba(255,255,255,0.72);
-            --panel-strong: rgba(255,255,255,0.92);
-            --border: rgba(20,14,8,0.09);
-            --blur: 18px;
+            /* light theme: white, in the logo's colours */
+            --bg: #ffffff;
+            --panel: #ffffff;
+            --panel-strong: #ffffff;
+            --border: rgba(15,20,45,0.11);
+            --blur: 0px;
+            --card-shadow: 0 1px 3px rgba(15,20,45,0.05);
 
-            --gold: #b7883f;
-            --gold-soft: rgba(183,136,63,0.14);
-            --blush: #c98a94;
-            --text-1: rgba(20,14,10,0.92);
-            --text-2: rgba(20,14,10,0.62);
-            --text-3: rgba(20,14,10,0.40);
-            --ok: #2f9e6c;
-            --ok-soft: rgba(47,158,108,0.12);
+            /* Brand, from the logo: navy (PRETTY) leads, orange (EVENTS / centre tent)
+               accents, sky blue (side tents) for small touches. *-text variants are the
+               shades that stay readable as text on this theme's background. */
+            --primary: #2B3490;
+            --primary-hover: #222a78;
+            --primary-text: #2B3490;
+            --primary-soft: rgba(43,52,144,0.08);
+            --on-primary: #ffffff;
+            --accent: #E8681F;
+            --accent-text: #B9500F;
+            --accent-soft: rgba(232,104,31,0.18);
+            --sky: #00A8E8;
+            --text-1: rgba(15,20,45,0.92);
+            --text-2: rgba(15,20,45,0.64);
+            --text-3: rgba(15,20,45,0.58);
+            --ok: #1f7a52;
+            --ok-soft: rgba(31,122,82,0.10);
             --warn: #b9852f;
             --danger: #c94f4f;
             --danger-soft: rgba(201,79,79,0.12);
-            --sidebar-text: rgba(20,14,10,0.72);
-            --sidebar-text-active: #8a611f;
+            --sidebar-text: rgba(15,20,45,0.74);
+            --sidebar-text-active: var(--primary-text);
             /* Solid (not glass-translucent) surface for things that float over arbitrary
                page content — dropdowns, popovers — where legibility matters more than the
                frosted look, and there's no guarantee of a plain background behind them. */
@@ -71,9 +81,16 @@
             --panel-strong: rgba(255,255,255,0.09);
             --border: rgba(255,255,255,0.12);
 
-            --gold: #D8B27C;
-            --gold-soft: rgba(216,178,124,0.16);
-            --blush: #E3B7BE;
+            --card-shadow: none;
+            --primary: #3D47C2;
+            --primary-hover: #4954d6;
+            --primary-text: #A9B0FF;
+            --primary-soft: rgba(140,150,255,0.16);
+            --on-primary: #ffffff;
+            --accent: #F27A36;
+            --accent-text: #F79A5E;
+            --accent-soft: rgba(242,122,54,0.24);
+            --sky: #3CC4F5;
             --text-1: rgba(255,255,255,0.94);
             --text-2: rgba(255,255,255,0.94);
             --text-3: rgba(255,255,255,0.94);
@@ -83,7 +100,7 @@
             --danger: #E28080;
             --danger-soft: rgba(226,128,128,0.16);
             --sidebar-text: rgba(255,255,255,0.94);
-            --sidebar-text-active: var(--gold);
+            --sidebar-text-active: var(--primary-text);
             --menu-bg: #221c2b;
         }
 
@@ -100,7 +117,7 @@
            for a uniform look instead of clashing with the surrounding sans-serif text. */
         h1, h2, h3, .page-title { font-family: var(--serif); font-weight: 500; letter-spacing: 0.1px; }
         h4, h5, h6 { font-family: var(--sans); font-weight: 700; }
-        a { color: var(--gold); }
+        a { color: var(--accent-text); }
         /* .small/<small> is a Bootstrap FONT-SIZE utility, not a "de-emphasized" one — most
            detail pages use it just to shrink dense info panels, so it must stay full-brightness
            text (var(--text-1)), inherited by default. Only .text-muted means "secondary text". */
@@ -126,20 +143,25 @@
         }
         .sidebar-brand-mark {
             width: 34px; height: 34px; border-radius: 10px;
-            background: linear-gradient(150deg, var(--gold), #8a6530);
+            background: var(--primary);
             display: flex; align-items: center; justify-content: center;
-            font-family: var(--serif); font-weight: 600; font-size: 15px; color: #1c1409;
+            font-family: var(--serif); font-weight: 600; font-size: 15px; color: var(--on-primary);
             flex-shrink: 0;
         }
         .sidebar-brand-name { font-family: var(--serif); font-size: 16px; font-weight: 500; color: var(--text-1); }
         .sidebar-brand-logo { height: 44px; width: auto; }
+        /* Two versions of the transparent logo: the dark theme's has white lettering
+           where the original is navy, which would vanish on black. */
+        .logo-for-dark { display: none; }
+        :root[data-theme="dark"] .logo-for-light { display: none; }
+        :root[data-theme="dark"] .logo-for-dark { display: inline-block; }
         .sidebar-brand-sub { font-size: 11px; color: var(--text-3); }
         .sidebar .nav-link {
             color: var(--sidebar-text); font-weight: 500; font-size: 14px;
             border-radius: 10px; padding: .55rem .7rem; transition: background .15s ease, color .15s ease;
         }
-        .sidebar .nav-link:hover { background: var(--gold-soft); color: var(--text-1); }
-        .sidebar .nav-link.active { background: var(--gold-soft); color: var(--sidebar-text-active); }
+        .sidebar .nav-link:hover { background: var(--primary-soft); color: var(--text-1); }
+        .sidebar .nav-link.active { background: var(--primary-soft); color: var(--sidebar-text-active); font-weight: 600; }
         .sidebar hr { border-color: var(--border); opacity: 1; margin: 10px 0; }
         .sidebar-scroll { flex: 1 1 auto; min-height: 0; overflow-y: auto; margin-bottom: 8px; }
         .nav-badge {
@@ -159,7 +181,7 @@
             color: var(--text-2); border-bottom: 2px solid transparent; margin-bottom: -3px;
         }
         .section-tab:hover { color: var(--text-1); }
-        .section-tab.active { color: var(--sidebar-text-active); border-bottom-color: var(--gold); }
+        .section-tab.active { color: var(--primary-text); border-bottom-color: var(--accent); }
 
         /* Phone bottom bar. */
         .bottom-bar {
@@ -184,7 +206,7 @@
             font-size: 12.5px; margin-bottom: 10px;
         }
         .breadcrumb-trail a { color: var(--text-2); text-decoration: none; font-weight: 600; }
-        .breadcrumb-trail a:hover { color: var(--gold); text-decoration: underline; }
+        .breadcrumb-trail a:hover { color: var(--accent-text); text-decoration: underline; }
         .breadcrumb-trail .sep { color: var(--text-3); }
         .breadcrumb-trail .current { color: var(--text-3); font-weight: 500; }
 
@@ -210,9 +232,9 @@
             font-size: 13px; font-weight: 600; color: var(--text-2); cursor: pointer;
             transition: background .15s ease, color .15s ease, border-color .15s ease;
         }
-        .role-chip input { accent-color: var(--gold); margin: 0 !important; float: none !important; }
-        .role-chip:hover { border-color: var(--gold); color: var(--text-1); }
-        .role-chip:has(input:checked) { background: var(--gold-soft); border-color: var(--gold); color: var(--gold); }
+        .role-chip input { accent-color: var(--primary); margin: 0 !important; float: none !important; }
+        .role-chip:hover { border-color: var(--primary-text); color: var(--text-1); }
+        .role-chip:has(input:checked) { background: var(--primary-soft); border-color: var(--primary-text); color: var(--primary-text); }
 
         .topbar { display: flex; align-items: center; justify-content: flex-end; gap: 14px; margin-bottom: 18px; }
         .topbar-search {
@@ -228,9 +250,9 @@
         .topbar-search input::placeholder { color: var(--text-3); }
         .avatar {
             width: 36px; height: 36px; border-radius: 50%; border: none;
-            background: linear-gradient(150deg, var(--blush), #8a5560);
+            background: linear-gradient(150deg, var(--sky), var(--primary));
             display: flex; align-items: center; justify-content: center;
-            font-size: 13px; font-weight: 600; color: #2a1418; flex-shrink: 0;
+            font-size: 13px; font-weight: 600; color: #ffffff; flex-shrink: 0;
         }
 
         .dropdown-menu {
@@ -242,7 +264,7 @@
         .dropdown-item {
             color: var(--text-1); border-radius: 8px; font-size: 13.5px; padding: 8px 10px;
         }
-        .dropdown-item:hover, .dropdown-item:focus { background: var(--gold-soft); color: var(--text-1); }
+        .dropdown-item:hover, .dropdown-item:focus { background: var(--primary-soft); color: var(--text-1); }
         .dropdown-item-text { padding: 4px 10px; }
 
         .customer-search-wrap { position: relative; }
@@ -252,13 +274,13 @@
             max-height: 220px; overflow-y: auto; box-shadow: 0 12px 32px rgba(0,0,0,0.18);
         }
         .customer-search-result { padding: 8px 12px; cursor: pointer; font-size: 13.5px; color: var(--text-1); }
-        .customer-search-result:hover { background: var(--gold-soft); }
+        .customer-search-result:hover { background: var(--primary-soft); }
 
         .card {
             color: var(--text-1);
             background: var(--panel); border: 1px solid var(--border); border-radius: 16px;
             backdrop-filter: blur(var(--blur)); -webkit-backdrop-filter: blur(var(--blur));
-            box-shadow: none;
+            box-shadow: var(--card-shadow);
         }
         /* .stat-card intentionally gets no special border — plain .card look, per feedback
            that the left accent border clashed with the rounded corners. */
@@ -272,18 +294,21 @@
         .table > :not(caption) > * > * { background: transparent; color: var(--text-1); }
 
         .badge { font-weight: 600; font-size: .72rem; padding: .4em .7em; border-radius: 20px; }
-        .badge.bg-secondary { background: var(--gold-soft) !important; color: var(--gold) !important; }
+        .badge.bg-secondary { background: var(--primary-soft) !important; color: var(--primary-text) !important; }
         .badge.bg-success { background: rgba(47,158,108,0.14) !important; color: var(--ok) !important; }
         .badge.bg-danger { background: rgba(201,79,79,0.14) !important; color: var(--danger) !important; }
         .badge-status { text-transform: capitalize; }
 
         .btn { font-family: var(--sans); font-weight: 600; border-radius: 10px; }
         .btn-primary {
-            background: linear-gradient(150deg, var(--gold), #8a6530); border-color: transparent; color: #1c1409;
+            background: var(--primary); border-color: var(--primary); color: var(--on-primary);
         }
-        .btn-primary:hover, .btn-primary:focus { background: linear-gradient(150deg, #c99a52, #8a6530); color: #1c1409; }
-        .btn-outline-primary { color: var(--gold); border-color: var(--gold); }
-        .btn-outline-primary:hover { background: var(--gold-soft); color: var(--gold); border-color: var(--gold); }
+        .btn-primary:hover, .btn-primary:focus, .btn-primary:active, .btn-primary.show {
+            background: var(--primary-hover) !important; border-color: var(--primary-hover) !important; color: var(--on-primary) !important;
+        }
+        .btn-primary:focus-visible { box-shadow: 0 0 0 .2rem var(--accent-soft); }
+        .btn-outline-primary { color: var(--primary-text); border-color: var(--primary-text); }
+        .btn-outline-primary:hover { background: var(--primary-soft); color: var(--primary-text); border-color: var(--primary-text); }
         .btn-outline-secondary { color: var(--text-2); border-color: var(--border); }
         .btn-outline-secondary:hover { background: var(--panel-strong); color: var(--text-1); border-color: var(--border); }
         .btn-outline-success { color: var(--ok); border-color: var(--ok); }
@@ -297,8 +322,8 @@
             border-radius: 9px;
         }
         .form-control:focus, .form-select:focus {
-            background: var(--panel-strong); color: var(--text-1); border-color: var(--gold);
-            box-shadow: 0 0 0 .2rem var(--gold-soft);
+            background: var(--panel-strong); color: var(--text-1); border-color: var(--accent);
+            box-shadow: 0 0 0 .2rem var(--accent-soft);
         }
         .form-control::placeholder { color: var(--text-3); }
         .form-label { font-size: .82rem; color: var(--text-2); font-weight: 600; }
@@ -308,7 +333,7 @@
         .alert-danger, .alert-warning {
             border-left: 3px solid var(--danger); background: var(--danger-soft); color: var(--danger);
         }
-        .alert-info { border-left: 3px solid var(--gold); }
+        .alert-info { border-left: 3px solid var(--sky); }
 
         /* Force warnings/alerts to read as red — overrides Bootstrap's default amber
            .text-warning (used for the inline "over-quoted" stock warning, etc.). */
@@ -319,9 +344,9 @@
 
         .page-link { background: var(--panel-strong); border-color: var(--border); color: var(--text-1); }
         .page-item.disabled .page-link { background: transparent; color: var(--text-3); }
-        .page-item.active .page-link { background: var(--gold); border-color: var(--gold); color: #1c1409; font-weight: 600; }
-        .page-link:hover { background: var(--gold-soft); color: var(--text-1); }
-        .page-link:focus { box-shadow: 0 0 0 .2rem var(--gold-soft); }
+        .page-item.active .page-link { background: var(--primary); border-color: var(--primary); color: var(--on-primary); font-weight: 600; }
+        .page-link:hover { background: var(--primary-soft); color: var(--text-1); }
+        .page-link:focus { box-shadow: 0 0 0 .2rem var(--accent-soft); }
         .list-group-item { background: transparent; border-color: var(--border); color: var(--text-1); }
 
         /* min-width: 0 lets the flex child shrink below its content, so wide tables scroll
@@ -343,7 +368,8 @@
     <nav class="sidebar offcanvas-md offcanvas-start d-flex flex-column p-3" id="pe-sidebar" tabindex="-1" aria-label="Main menu">
         <div class="d-flex align-items-center justify-content-between mb-4 px-1">
             <a href="{% url 'dashboard' %}" class="text-decoration-none d-flex align-items-center gap-2">
-                <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo">
+                <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo logo-for-light">
+                <img src="{% static COMPANY_LOGO_DARK_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo logo-for-dark">
                 <div class="sidebar-brand-sub">operations</div>
             </a>
             <button type="button" class="btn-close d-md-none" data-bs-dismiss="offcanvas" data-bs-target="#pe-sidebar" aria-label="Close menu"></button>
