@@ -266,6 +266,18 @@
         }
         .dropdown-item:hover, .dropdown-item:focus { background: var(--primary-soft); color: var(--text-1); }
         .dropdown-item-text { padding: 4px 10px; }
+        .bell-btn {
+            position: relative; width: 40px; height: 40px; padding: 0; border-radius: 11px; font-size: 18px;
+            background: var(--panel); border: 1px solid var(--border); color: var(--text-1);
+        }
+        .bell-btn:hover { background: var(--primary-soft); color: var(--text-1); }
+        .bell-btn .nav-badge-dot { top: -6px; right: -6px; }
+        .notif-menu { width: 340px; max-width: calc(100vw - 32px); }
+        .notif-item { display: flex; gap: 10px; align-items: flex-start; white-space: normal; }
+        .notif-item i { font-size: 16px; margin-top: 1px; }
+        .notif-danger i { color: var(--danger); }
+        .notif-warn i { color: var(--accent-text); }
+        .notif-ok i { color: var(--ok); }
 
         .customer-search-wrap { position: relative; }
         .customer-search-results {
@@ -405,6 +417,19 @@
                 <i class="bi bi-search"></i>
                 <input type="search" name="q" value="{% if request.resolver_match.url_name == 'search' %}{{ q }}{% endif %}" placeholder="Search names, phones, numbers…" aria-label="Search">
             </form>
+            <div class="dropdown">
+                <button type="button" class="btn bell-btn" data-bs-toggle="dropdown" aria-expanded="false" aria-label="Notifications{% if notifications %} ({{ notifications|length }}){% endif %}">
+                    <i class="bi bi-bell"></i>{% if notifications %}<span class="nav-badge nav-badge-dot">{{ notifications|length }}</span>{% endif %}
+                </button>
+                <div class="dropdown-menu dropdown-menu-end notif-menu">
+                    <div class="dropdown-header fw-semibold" style="color: var(--text-1);">Needs attention</div>
+                    {% for n in notifications %}
+                    <a class="dropdown-item notif-item notif-{{ n.level }}" href="{{ n.url }}"><i class="bi {{ n.icon }}"></i><span>{{ n.text }}</span></a>
+                    {% empty %}
+                    <div class="dropdown-item-text small text-muted py-2"><i class="bi bi-check2-circle me-1"></i>All clear. Nothing needs attention.</div>
+                    {% endfor %}
+                </div>
+            </div>
             <div class="dropdown">
                 <button type="button" class="avatar btn p-0" data-bs-toggle="dropdown" aria-expanded="false" title="{{ user.get_full_name|default:user.username }}">
                     {{ user.username|slice:":2"|upper }}

@@ -1265,3 +1265,42 @@ class DailyJobsTests(BaseDataMixin, TestCase):
         with mock.patch('core.daily.run_daily_jobs', side_effect=RuntimeError('boom')):
             response = self.client.get(reverse('customers:list'))
         self.assertEqual(response.status_code, 200)
+
+
+class NotificationTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+
+    def bell(self, user=None):
+        from .notifications import collect
+        return [n['text'] for n in collect(user or self.user)]
+
+    def test_lists_what_needs_attention(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(status=Invoice.Status.OVERDUE)
+        item = EquipmentItem.objects.create(name='Tent', total_quantity=3)
+        past = Event.objects.create(customer=self.customer, event_type='Party', venue='X',
+                                    event_date=timezone.localdate() - timedelta(days=3), status=Event.Status.COMPLETED)
+        EquipmentIssue.objects.create(event=past, equipment_item=item, quantity_issued=2, issued_at=past.event_date)
+        texts = self.bell()
+        self.assertIn('1 overdue invoice', texts)
+        self.assertIn('Equipment not back from 1 finished event', texts)
+        self.assertIn('1 item low on stock', texts)
+
+    def test_double_booking_shows_up(self):
+        item = EquipmentItem.objects.create(name='Round table', total_quantity=10)
+        for _ in range(2):
+            event = Event.objects.create(customer=self.customer, event_type='Wedding', venue='X',
+                                         event_date=timezone.localdate() + timedelta(days=5), status=Event.Status.CONFIRMED)
+            invoice = Invoice.objects.create(event=event)
+            InvoiceLineItem.objects.create(invoice=invoice, equipment_item=item, description='t', quantity=8, unit_price=1)
+        self.assertTrue(any(t.startswith('Double-booked: Round table') for t in self.bell()))
+
+    def test_bell_respects_roles_and_renders(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(status=Invoice.Status.OVERDUE)
+        field = get_user_model().objects.create_user('f', 'f@example.com', 'pw')
+        self.assertEqual(self.bell(field), [])
+        self.assertContains(self.client.get('/'), '1 overdue invoice')
