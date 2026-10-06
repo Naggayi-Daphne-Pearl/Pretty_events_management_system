@@ -1194,3 +1194,74 @@ class ThemeAndLoginPageTests(TestCase):
         response = self.client.get(reverse('dashboard'))
         for choice in ('auto', 'light', 'dark'):
             self.assertContains(response, f'data-theme-choice="{choice}"')
+
+
+class SetupGroupsTests(TestCase):
+    def run_setup(self, *args):
+        from io import StringIO
+        from django.core.management import call_command
+        call_command('setup_groups', *args, stdout=StringIO())
+
+    def test_client_changes_survive_the_next_deploy(self):
+        from django.contrib.auth.models import Group, Permission
+        self.run_setup()
+        office = Group.objects.get(name='Office Staff')
+        removed = Permission.objects.get(codename='delete_customer')
+        extra = Permission.objects.get(codename='add_expenserecord')
+        office.permissions.remove(removed)
+        office.permissions.add(extra)
+        Group.objects.get(name='Field Staff').delete()
+
+        self.run_setup()  # what every deploy does
+        office.refresh_from_db()
+        self.assertNotIn(removed, office.permissions.all())
+        self.assertIn(extra, office.permissions.all())
+        self.assertFalse(Group.objects.filter(name='Field Staff').exists())
+
+    def test_defaults_for_new_features_still_arrive_once(self):
+        from django.contrib.auth.models import Group, Permission
+        from .models import RoleDefault
+        self.run_setup()
+        perm = Permission.objects.get(codename='view_periodclose')
+        accountant = Group.objects.get(name='Accountant')
+        # Pretend this permission is new: never applied before.
+        accountant.permissions.remove(perm)
+        RoleDefault.objects.filter(group_name='Accountant', permission='accounting.view_periodclose').delete()
+        self.run_setup()
+        self.assertIn(perm, accountant.permissions.all())
+
+    def test_reset_restores_the_starters(self):
+        from django.contrib.auth.models import Group, Permission
+        self.run_setup()
+        Group.objects.get(name='Field Staff').delete()
+        office = Group.objects.get(name='Office Staff')
+        office.permissions.remove(Permission.objects.get(codename='delete_customer'))
+        self.run_setup('--reset')
+        self.assertTrue(Group.objects.filter(name='Field Staff').exists())
+        self.assertTrue(office.permissions.filter(codename='delete_customer').exists())
+
+
+class DailyJobsTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from . import daily
+        daily._last_checked = None
+
+    def test_first_request_of_the_day_runs_jobs_once(self):
+        from . import daily
+        from .models import DailyJobRun
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=timezone.localdate() - timedelta(days=2))
+        self.client.get(reverse('customers:list'))  # a page that doesn't sync on its own
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.OVERDUE)
+        self.assertEqual(DailyJobRun.objects.count(), 1)
+        daily._last_checked = None  # another worker process
+        self.assertIsNone(daily.run_if_due())
+        self.assertEqual(DailyJobRun.objects.count(), 1)
+
+    def test_a_failing_job_never_breaks_the_page(self):
+        from unittest import mock
+        with mock.patch('core.daily.run_daily_jobs', side_effect=RuntimeError('boom')):
+            response = self.client.get(reverse('customers:list'))
+        self.assertEqual(response.status_code, 200)

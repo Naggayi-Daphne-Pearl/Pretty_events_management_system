@@ -10,78 +10,105 @@ from finance.models import ExpenseCategory, ExpenseRecord, IncomeRecord
 from inventory.models import EquipmentCategory, EquipmentIssue, EquipmentItem, EquipmentReturn
 from staffing.models import EventAssignment, StaffMember
 
+from core.models import RoleDefault
+
 ALL_ACTIONS = ('add', 'change', 'delete', 'view')
 VIEW_ONLY = ('view',)
 
 
 def perms_for(model, actions=ALL_ACTIONS):
     codenames = [f'{action}_{model._meta.model_name}' for action in actions]
-    return Permission.objects.filter(
+    return Permission.objects.select_related('content_type').filter(
         content_type__app_label=model._meta.app_label,
         codename__in=codenames,
     )
 
 
+def starter_roles():
+    """The four starter roles and the permissions each gets by default."""
+    office = list(perms_for(Customer)) + list(perms_for(Event))
+    for model in (Quotation, QuotationLineItem, Invoice, InvoiceLineItem, Payment, Receipt):
+        office += list(perms_for(model))
+    for model in (EquipmentCategory, EquipmentItem, EquipmentIssue, EquipmentReturn):
+        office += list(perms_for(model))
+    for model in (StaffMember, EventAssignment):
+        office += list(perms_for(model))
+    office += list(perms_for(CommunicationLog))
+    for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
+        office += list(perms_for(model, VIEW_ONLY))
+
+    # Field Staff are further scoped to "their" assigned events by the
+    # 'view_assigned_events_only' permission; ticking it on any role does the same.
+    field = list(perms_for(Event, VIEW_ONLY)) + list(perms_for(EventAssignment, VIEW_ONLY))
+    field += list(perms_for(EquipmentIssue, VIEW_ONLY))
+    field += list(Permission.objects.select_related('content_type').filter(
+        content_type__app_label='events', codename='view_assigned_events_only',
+    ))
+
+    # Accountant: full accounting + income/expense records, read-only operational records.
+    accountant = list(perms_for(Account)) + list(perms_for(JournalEntry)) + list(perms_for(PeriodClose))
+    for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
+        accountant += list(perms_for(model))
+    for model in (Customer, Event, Quotation, Invoice, Payment, Receipt):
+        accountant += list(perms_for(model, VIEW_ONLY))
+
+    return {
+        # Admin/Owner: everything in the business apps.
+        'Admin': list(Permission.objects.select_related('content_type').filter(content_type__app_label__in=[
+            'customers', 'events', 'billing', 'inventory', 'finance', 'staffing', 'comms', 'accounting',
+        ])),
+        'Office Staff': office,
+        'Field Staff': field,
+        'Accountant': accountant,
+    }
+
+
 class Command(BaseCommand):
     help = (
-        'Seed three starter role groups (Admin, Office Staff, Field Staff) with sensible '
-        'permission checkboxes ticked. Roles themselves are fully dynamic afterwards — a '
-        'superuser can rename these, delete them, or create entirely new ones (with any '
-        'permission combination) from Django admin under Users > Groups. This command is '
-        'just a convenience so the app isn\'t empty on first setup.'
+        'Create the starter roles (Admin, Office Staff, Field Staff, Accountant) with sensible '
+        'permissions. Runs on every deploy but applies each default only once: roles and '
+        'permissions the client changes in Roles & permissions are left alone, and only defaults '
+        'for new features are added. Use --reset to put the starter roles back to their defaults.'
     )
 
-    def handle(self, *args, **options):
-        # Admin/Owner: full access to every model. Superusers already bypass permission
-        # checks, but this group lets a non-superuser be granted the same access explicitly.
-        admin_group, _ = Group.objects.get_or_create(name='Admin')
-        admin_perms = Permission.objects.filter(
-            content_type__app_label__in=[
-                'customers', 'events', 'billing', 'inventory', 'finance', 'staffing', 'comms', 'accounting',
-            ]
-        )
-        admin_group.permissions.set(admin_perms)
+    def add_arguments(self, parser):
+        parser.add_argument('--reset', action='store_true',
+                            help='Recreate the starter roles and set their permissions to the defaults exactly.')
 
-        # Office Staff: full CRUD on customers/events/billing/inventory/staffing/comms,
-        # view-only on finance (income/expense summaries are an owner-level concern).
-        office_group, _ = Group.objects.get_or_create(name='Office Staff')
-        office_perms = list(perms_for(Customer)) + list(perms_for(Event))
-        for model in (Quotation, QuotationLineItem, Invoice, InvoiceLineItem, Payment, Receipt):
-            office_perms += list(perms_for(model))
-        for model in (EquipmentCategory, EquipmentItem, EquipmentIssue, EquipmentReturn):
-            office_perms += list(perms_for(model))
-        for model in (StaffMember, EventAssignment):
-            office_perms += list(perms_for(model))
-        office_perms += list(perms_for(CommunicationLog))
-        for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
-            office_perms += list(perms_for(model, VIEW_ONLY))
-        office_group.permissions.set(office_perms)
+    def handle(self, *args, reset=False, **options):
+        added = 0
+        for name, perms in starter_roles().items():
+            if reset:
+                group, _ = Group.objects.get_or_create(name=name)
+                group.permissions.set(perms)
+                RoleDefault.objects.get_or_create(group_name=name, permission='')
+                RoleDefault.objects.bulk_create(
+                    [RoleDefault(group_name=name, permission=self.key(p)) for p in perms], ignore_conflicts=True,
+                )
+                continue
 
-        # Field Staff: view-only, and further scoped to "their" assigned events by the
-        # 'view_assigned_events_only' permission — ticking that same checkbox on ANY group
-        # (not just one literally named "Field Staff") gets the same row-level restriction,
-        # since the views check the permission, not the group name.
-        field_group, _ = Group.objects.get_or_create(name='Field Staff')
-        field_perms = list(perms_for(Event, VIEW_ONLY)) + list(perms_for(EventAssignment, VIEW_ONLY))
-        field_perms += list(perms_for(EquipmentIssue, VIEW_ONLY))
-        field_perms += list(Permission.objects.filter(
-            content_type__app_label='events', codename='view_assigned_events_only',
-        ))
-        field_group.permissions.set(field_perms)
+            group = Group.objects.filter(name=name).first()
+            if group is None:
+                if RoleDefault.objects.filter(group_name=name, permission='').exists():
+                    continue  # created before and since deleted by the client: leave it deleted
+                group = Group.objects.create(name=name)
+            RoleDefault.objects.get_or_create(group_name=name, permission='')
 
-        # Accountant: runs the books. Full accounting + income/expense records, and
-        # read-only access to the operational records the books are built from.
-        accountant_group, _ = Group.objects.get_or_create(name='Accountant')
-        accountant_perms = list(perms_for(Account)) + list(perms_for(JournalEntry)) + list(perms_for(PeriodClose))
-        for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
-            accountant_perms += list(perms_for(model))
-        for model in (Customer, Event, Quotation, Invoice, Payment, Receipt):
-            accountant_perms += list(perms_for(model, VIEW_ONLY))
-        accountant_group.permissions.set(accountant_perms)
+            applied = set(RoleDefault.objects.filter(group_name=name).values_list('permission', flat=True))
+            new = [p for p in perms if self.key(p) not in applied]
+            if new:
+                group.permissions.add(*new)
+                RoleDefault.objects.bulk_create(
+                    [RoleDefault(group_name=name, permission=self.key(p)) for p in new], ignore_conflicts=True,
+                )
+                added += len(new)
 
         self.stdout.write(self.style.SUCCESS(
-            'Groups ready: Admin, Office Staff, Field Staff, Accountant. '
-            'Assign users to a group in Django admin (Users > edit > Groups). '
-            'To add a new role, create a Group there and tick whichever permissions it needs — '
-            'no code changes required.'
+            'Starter roles reset to their defaults.' if reset else
+            f'Starter roles checked; {added} new default permission(s) applied. '
+            'Changes made in Roles & permissions are kept.'
         ))
+
+    @staticmethod
+    def key(permission):
+        return f'{permission.content_type.app_label}.{permission.codename}'
