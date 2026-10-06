@@ -2,7 +2,7 @@ from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
 from accounting.models import Account, JournalEntry, PeriodClose
-from billing.models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem, Receipt
+from billing.models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem, Receipt, TaxGroup
 from comms.models import CommunicationLog
 from customers.models import Customer
 from events.models import Event
@@ -34,6 +34,7 @@ def starter_roles():
     for model in (StaffMember, EventAssignment):
         office += list(perms_for(model))
     office += list(perms_for(CommunicationLog))
+    office += list(perms_for(TaxGroup, VIEW_ONLY))
     for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
         office += list(perms_for(model, VIEW_ONLY))
 
@@ -47,6 +48,7 @@ def starter_roles():
 
     # Accountant: full accounting + income/expense records, read-only operational records.
     accountant = list(perms_for(Account)) + list(perms_for(JournalEntry)) + list(perms_for(PeriodClose))
+    accountant += list(perms_for(TaxGroup))
     for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
         accountant += list(perms_for(model))
     for model in (Customer, Event, Quotation, Invoice, Payment, Receipt):

@@ -1,5 +1,9 @@
 {% extends "pdf/_line_items.html" %}
 {% load humanize %}
 {% block totals %}
+{% if quotation.tax_rate %}
+<tr class="subtotal"><td></td><td>Subtotal</td><td></td><td></td><td class="num">{{ quotation.subtotal|floatformat:0|intcomma }}</td></tr>
+<tr class="subtotal"><td></td><td>{{ quotation.tax_label }}</td><td></td><td></td><td class="num">{{ quotation.tax_amount|floatformat:0|intcomma }}</td></tr>
+{% endif %}
 <tr class="grand"><td></td><td>Grand total ({{ CURRENCY }})</td><td></td><td></td><td class="num">{{ quotation.total|floatformat:0|intcomma }}</td></tr>
 {% endblock %}

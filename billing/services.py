@@ -1,3 +1,5 @@
+from decimal import Decimal
+
 from django.db import transaction
 from django.utils import timezone
 
@@ -35,6 +37,9 @@ def record_payment(invoice, *, amount, method, paid_at=None, reference_number=''
     from finance.models import IncomeRecord
 
     with transaction.atomic():
+        # The tax share of this payment, in proportion to the invoice's tax in its total.
+        total = invoice.total
+        tax_share = (amount * invoice.tax_amount / total).quantize(Decimal('0.01')) if total and invoice.tax_amount else 0
         payment = Payment.objects.create(
             invoice=invoice, amount=amount, method=method, paid_at=paid_at or timezone.localdate(),
             reference_number=reference_number, notes=notes, received_by=received_by,
@@ -49,6 +54,7 @@ def record_payment(invoice, *, amount, method, paid_at=None, reference_number=''
             payment=payment,
             description=f'Payment on invoice {invoice.number}',
             recorded_by=received_by,
+            tax_amount=tax_share,
         )
         advanced = invoice.event.advance_status_at_least(Event.Status.CONFIRMED)
     return payment, advanced

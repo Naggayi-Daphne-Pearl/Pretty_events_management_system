@@ -8,10 +8,10 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import DetailView, ListView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.activity import log_activity, log_model_activity
 from core.deletion import confirm_and_delete, count_label
@@ -24,11 +24,11 @@ from inventory.models import EquipmentItem
 from inventory.services import availability_for_event, warn_if_short
 
 from .forms import (
-    EmailDocumentForm, InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm,
-    QuotationLineItemFormSet,
+    EmailDocumentForm, InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm, QuotationLineItemFormSet,
+    TaxGroupForm,
 )
 from . import mobile_money
-from .models import Invoice, MobileMoneyTransaction, Payment, Quotation, Receipt
+from .models import Invoice, MobileMoneyTransaction, Payment, Quotation, Receipt, TaxGroup
 from .services import record_payment, sync_invoice_statuses
 from .sharing import read_token
 from .tasks import send_or_queue
@@ -560,3 +560,33 @@ def mobile_money_allocate(request, pk):
         payment = mobile_money.apply_to_invoice(txn, invoice, user=request.user)
     messages.success(request, f'{txn} recorded on invoice {invoice.number}. Receipt {payment.receipt.number} is ready.')
     return redirect('billing:mobile_money')
+
+
+# ---------- Taxes ----------
+
+class TaxGroupListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = TaxGroup
+    permission_required = 'billing.view_taxgroup'
+    template_name = 'billing/tax_list.html'
+
+
+class TaxGroupFormMixin(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin):
+    model = TaxGroup
+    form_class = TaxGroupForm
+    template_name = 'billing/tax_form.html'
+    success_url = reverse_lazy('billing:tax_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'updated' if self.kwargs.get('pk') else 'created')
+        return response
+
+
+class TaxGroupCreateView(TaxGroupFormMixin, CreateView):
+    permission_required = 'billing.add_taxgroup'
+    success_message = 'Tax "%(name)s" added. Choose it on quotations and invoices that should include it.'
+
+
+class TaxGroupUpdateView(TaxGroupFormMixin, UpdateView):
+    permission_required = 'billing.change_taxgroup'
+    success_message = 'Tax "%(name)s" saved. Documents already issued keep the rate they were issued with.'

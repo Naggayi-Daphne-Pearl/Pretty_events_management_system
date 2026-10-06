@@ -70,6 +70,7 @@
                     <tr class="border-top"><th>Total Income</th><th class="text-end">{{ CURRENCY }} {{ total_income|floatformat:0|intcomma }}</th></tr>
                 </tfoot>
             </table>
+            {% if tax_collected %}<p class="small text-muted mb-2">Excludes {{ CURRENCY }} {{ tax_collected|floatformat:0|intcomma }} tax collected on invoices, which is owed to the government (Taxes Payable).</p>{% endif %}
 
             <div class="small text-muted text-uppercase mb-1 mt-3" style="letter-spacing:.04em;">Expenses</div>
             <table class="table table-sm mb-2">

@@ -45,7 +45,8 @@ SECTIONS = (
         Tab('Customers', 'customers:list', ('customers.view_customer',)),
         Tab('Contact log', 'comms:list', ('comms.view_communicationlog',)),
     )),
-    Section('billing', 'Billing', 'bi-receipt', apps=('billing',), tabs=(
+    Section('billing', 'Billing', 'bi-receipt', apps=('billing',),
+            exclude=('billing:tax_list', 'billing:tax_create', 'billing:tax_update'), tabs=(
         Tab('Invoices', 'billing:invoice_list', ('billing.view_invoice',)),
         Tab('Quotations', 'billing:quotation_list', ('billing.view_quotation',)),
         Tab('Receipts', 'billing:receipt_list', ('billing.view_receipt',)),
@@ -58,6 +59,7 @@ SECTIONS = (
     Section('staff', 'Staff', 'bi-person-badge', url_name='staffing:list', perms=('staffing.view_staffmember',),
             apps=('staffing',)),
     Section('finance', 'Finance', 'bi-cash-coin', apps=('finance', 'accounting'),
+            pages=('billing:tax_list', 'billing:tax_create', 'billing:tax_update'),
             exclude=('accounting:reports', 'accounting:trial_balance', 'accounting:income_statement',
                      'accounting:balance_sheet'),
             tabs=(
@@ -68,6 +70,7 @@ SECTIONS = (
                 Tab('Journals', 'accounting:journal_list', ('accounting.view_journalentry',)),
                 Tab('Accounts', 'accounting:chart', ('accounting.view_account',)),
                 Tab('Close books', 'accounting:period_close', ('accounting.view_periodclose',)),
+                Tab('Taxes', 'billing:tax_list', ('billing.view_taxgroup',), also=('billing:tax_create', 'billing:tax_update')),
             )),
     Section('reports', 'Reports', 'bi-bar-chart-line', url_name='reports:index', apps=('reports',),
             pages=('accounting:reports', 'accounting:trial_balance', 'accounting:income_statement',
