@@ -1134,7 +1134,8 @@ class NavigationTests(BaseDataMixin, TestCase):
 
     def test_owner_sees_eight_flat_items(self):
         labels = [i['label'] for i in self.nav(self.user)['nav_items']]
-        self.assertEqual(labels, ['Dashboard', 'Events', 'Customers', 'Billing', 'Inventory', 'Staff', 'Finance', 'Reports'])
+        self.assertEqual(labels, ['Dashboard', 'Events', 'Customers', 'Billing', 'Inventory', 'Staff', 'Finance', 'Reports',
+                                  'Administration'])
 
     def test_field_staff_see_only_what_they_use(self):
         user = self.role_user(['view_event', 'view_assigned_events_only', 'view_eventassignment'])
@@ -1170,9 +1171,11 @@ class NavigationTests(BaseDataMixin, TestCase):
         badges = {i['key']: i['badge'] for i in self.nav(self.user)['nav_items'] if i['badge']}
         self.assertEqual(badges, {'billing': 1, 'inventory': 1})
 
-    def test_admin_links_moved_to_the_avatar_menu(self):
-        response = self.client.get('/')
-        self.assertContains(response, 'Roles &amp; permissions')
-        staff = self.role_user(['view_event'], email='plain@example.com')
-        self.client.force_login(staff)
-        self.assertNotContains(self.client.get('/'), 'Roles &amp; permissions')
+    def test_administration_section_with_tabs_for_owners_only(self):
+        ctx = self.nav(self.user, reverse('activity_log'))
+        self.assertEqual(ctx['nav_section'], 'admin')
+        self.assertEqual([(t['label'], t['active']) for t in ctx['nav_tabs']],
+                         [('Roles & permissions', False), ('Activity log', True)])
+        self.assertEqual(self.nav(self.user, reverse('role_create'))['nav_section'], 'admin')
+        staff = self.role_user(['view_event', 'view_customer'], email='plain@example.com')
+        self.assertNotIn('Administration', [i['label'] for i in self.nav(staff)['nav_items']])

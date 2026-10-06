@@ -32,6 +32,7 @@ class Section:
     pages: tuple = ()          # ...and these extra 'app:url_name' pages
     exclude: tuple = ()        # ...except these 'app:url_name' pages
     tabs: tuple = field(default_factory=tuple)
+    superuser_only: bool = False
 
 
 SECTIONS = (
@@ -73,6 +74,12 @@ SECTIONS = (
                    'accounting:balance_sheet'),
             perms=('events.view_event', 'billing.view_invoice', 'inventory.view_equipmentitem',
                    'finance.view_incomerecord', 'finance.view_expenserecord', 'accounting.view_journalentry')),
+    Section('admin', 'Administration', 'bi-shield-lock', superuser_only=True,
+            pages=(':role_list', ':role_create', ':role_update', ':role_delete', ':activity_log'),
+            tabs=(
+                Tab('Roles & permissions', 'role_list', also=('role_create', 'role_update', 'role_delete')),
+                Tab('Activity log', 'activity_log'),
+            )),
 )
 
 # "+ New": the most common things to create, from anywhere.
@@ -90,6 +97,11 @@ BOTTOM_BAR = ('dashboard', 'events', 'billing')
 
 def _allowed(user, perms):
     return not perms or any(user.has_perm(p) for p in perms)
+
+
+def _key(url_name):
+    """'billing:invoice_list' stays as is; a url name without a namespace becomes ':role_list'."""
+    return url_name if ':' in url_name else f':{url_name}'
 
 
 def _page_key(match):
@@ -126,6 +138,8 @@ def build(request):
 
     items, active_tabs = [], []
     for section in SECTIONS:
+        if section.superuser_only and not user.is_superuser:
+            continue
         tabs = [t for t in section.tabs if _allowed(user, t.perms)]
         if section.tabs and not tabs:
             continue
@@ -139,7 +153,7 @@ def build(request):
             'url': reverse(tabs[0].url_name if tabs else section.url_name), 'badge': badges.get(section.key),
         })
         if active and len(tabs) > 1:
-            on_tab = [t for t in tabs if current_key in (t.url_name, *t.also)]
+            on_tab = [t for t in tabs if current_key in {_key(n) for n in (t.url_name, *t.also)}]
             # The tab row belongs on a section's main pages, not on every detail/form page.
             if on_tab:
                 active_tabs = [

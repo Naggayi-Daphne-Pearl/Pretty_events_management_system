@@ -366,10 +366,6 @@
                     </li>
                     <li><hr class="dropdown-divider"></li>
                     <li><a class="dropdown-item" href="{% url 'profile' %}"><i class="bi bi-person me-2"></i>My Profile</a></li>
-                    {% if user.is_superuser %}
-                    <li><a class="dropdown-item" href="{% url 'role_list' %}"><i class="bi bi-shield-lock me-2"></i>Roles &amp; permissions</a></li>
-                    <li><a class="dropdown-item" href="{% url 'activity_log' %}"><i class="bi bi-clock-history me-2"></i>Activity log</a></li>
-                    {% endif %}
                     <li>
                         <div class="dropdown-item-text">
                             <div class="theme-toggle">
