@@ -58,8 +58,12 @@ shows correctly in the dashboard. Fix: **Deployments tab → latest deployment
 
 ### 5. First deploy already runs migrations for you
 
-`entrypoint.sh` runs `migrate`, `collectstatic`, and `setup_groups` on every
-container start — no manual step needed here, unlike the VPS route.
+`entrypoint.sh` runs `migrate`, `collectstatic`, `setup_groups`,
+`setup_chart_of_accounts` and `post_ledger_history` on every container start —
+no manual step needed here, unlike the VPS route. `setup_groups` only adds
+starter roles and permissions it hasn't applied before, so changes made in
+Administration → Roles & permissions survive deploys (`--reset` restores the
+starter roles).
 
 ### 6. Create the first admin login
 
@@ -78,21 +82,22 @@ Just `git push` to `main` — Railway watches the connected branch and
 redeploys automatically on every push (including running the entrypoint
 steps again).
 
-### 8. Daily jobs (cron)
+### 8. Daily jobs (automatic)
 
-Two commands keep date-driven statuses right even on days nobody opens the
-dashboard. Both are safe to run any time:
+Date-driven status changes run by themselves on the first request of each day
+(`core/daily.py`), so no cron service is needed:
 
-| Command | What it does |
+| Job | What it does |
 |---|---|
-| `python manage.py sync_event_statuses` | Confirmed → In Progress → Completed by event date (and equipment returned) |
-| `python manage.py sync_invoice_statuses` | Marks unpaid invoices past their due date as Overdue |
+| Event statuses | Confirmed → In Progress → Completed by event date (once equipment is back) |
+| Invoice statuses | Unpaid invoices past their due date become Overdue |
 
-On Railway: **+ New → Empty Service** from the same repo, set the same
-variables, and under **Settings → Cron Schedule** use `0 4 * * *` (07:00
-Kampala) with start command
-`python manage.py sync_event_statuses && python manage.py sync_invoice_statuses`.
-(Both also run automatically when the dashboard or lists are opened.)
+If the app could go a whole day with no visitors and you still want the
+statuses updated that morning, add a Railway cron service (**+ New → Empty
+Service** from this repo, same variables, **Settings → Cron Schedule**
+`0 4 * * *`, start command
+`python manage.py sync_event_statuses && python manage.py sync_invoice_statuses`).
+It's safe alongside the automatic run.
 
 ### 9. Background email worker (optional)
 

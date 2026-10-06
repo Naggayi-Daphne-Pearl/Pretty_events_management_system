@@ -169,3 +169,129 @@ class QuotationLineItemFormTests(TestCase):
         self.assertRedirects(response, quotation.get_absolute_url())
         self.assertEqual(list(quotation.line_items.values_list('description', flat=True)), ['Keep'])
         self.assertFalse(QuotationLineItem.objects.filter(pk=drop.pk).exists())
+
+
+class TaxTests(TestCase):
+    def setUp(self):
+        from django.core.management import call_command
+        from .models import TaxGroup
+        call_command('setup_chart_of_accounts', verbosity=0)
+        self.user = get_user_model().objects.create_superuser('admin', 'a@example.com', 'pw')
+        self.client.force_login(self.user)
+        customer = Customer.objects.create(name='Jane Doe', phone='0772123456')
+        self.event = Event.objects.create(
+            customer=customer, event_type='Wedding', venue='Kampala', event_date=timezone.localdate() + timedelta(days=10),
+        )
+        self.vat = TaxGroup.objects.create(name='VAT', rate=Decimal('18'), is_default=True)
+
+    def post_quotation(self, tax_pk):
+        return self.client.post(reverse('billing:quotation_create', args=[self.event.pk]), {
+            'status': 'draft', 'valid_until': '', 'notes': '', 'tax_group': tax_pk or '',
+            'line_items-TOTAL_FORMS': '1', 'line_items-INITIAL_FORMS': '0',
+            'line_items-MIN_NUM_FORMS': '1', 'line_items-MAX_NUM_FORMS': '1000',
+            'line_items-0-equipment_item': '', 'line_items-0-description': 'Tent',
+            'line_items-0-quantity': '1', 'line_items-0-unit_price': '100000',
+        })
+
+    def test_default_tax_is_preselected_and_added_on_top(self):
+        from .models import Quotation
+        form = self.client.get(reverse('billing:quotation_create', args=[self.event.pk])).context['form']
+        self.assertEqual(form.initial['tax_group'], self.vat.pk)
+        self.post_quotation(self.vat.pk)
+        quote = Quotation.objects.get()
+        self.assertEqual((quote.subtotal, quote.tax_amount, quote.total), (Decimal('100000'), Decimal('18000'), Decimal('118000')))
+        self.assertContains(self.client.get(quote.get_absolute_url()), 'VAT (18%)')
+
+    def test_no_tax_when_not_chosen(self):
+        from .models import Quotation
+        self.post_quotation(None)
+        self.assertEqual(Quotation.objects.get().total, Decimal('100000'))
+
+    def test_issued_documents_keep_their_rate(self):
+        from .models import Quotation
+        self.post_quotation(self.vat.pk)
+        self.vat.rate = Decimal('20')
+        self.vat.save()
+        quote = Quotation.objects.get()
+        self.assertEqual(quote.tax_amount, Decimal('18000'))
+        invoice = Invoice.create_from_quotation(quote)
+        self.assertEqual((invoice.tax_rate, invoice.total), (Decimal('18'), Decimal('118000')))
+
+    def test_payment_tax_share_goes_to_taxes_payable_not_income(self):
+        from accounting.models import Account
+        from accounting import reports
+        from .models import Quotation
+        from .services import record_payment
+        self.post_quotation(self.vat.pk)
+        invoice = Invoice.create_from_quotation(Quotation.objects.get())
+        payment, _ = record_payment(invoice, amount=Decimal('59000'), method='cash')  # half the total
+        self.assertEqual(payment.income_record.tax_amount, Decimal('9000'))
+        balances = reports.balances(timezone.localdate())
+        self.assertEqual(balances[Account.objects.get(system_key='tax_payable').pk], Decimal('9000'))
+        self.assertEqual(balances[Account.objects.get(system_key='event_income').pk], Decimal('50000'))
+        summary = self.client.get(reverse('finance:summary'))
+        self.assertEqual(summary.context['total_income'], Decimal('50000'))
+        self.assertEqual(summary.context['tax_collected'], Decimal('9000'))
+
+    def test_manage_taxes_and_only_one_default(self):
+        from .models import TaxGroup
+        self.client.post(reverse('billing:tax_create'), {'name': 'Tourism levy', 'rate': '2', 'is_default': 'on', 'is_active': 'on'})
+        self.vat.refresh_from_db()
+        self.assertFalse(self.vat.is_default)
+        self.assertTrue(TaxGroup.objects.get(name='Tourism levy').is_default)
+        page = self.client.get(reverse('billing:tax_list'))
+        self.assertEqual(page.context['nav_section'], 'finance')
+
+    def test_existing_taxes_payable_account_is_reused(self):
+        from accounting.models import Account
+        self.assertEqual(Account.objects.filter(code__startswith='2100').count(), 1)
+        self.assertEqual(Account.objects.get(code='2100').system_key, 'tax_payable')
+
+
+class OnlineQuotationAcceptanceTests(TestCase):
+    def setUp(self):
+        from .models import Quotation, QuotationLineItem
+        from .sharing import share_token
+        customer = Customer.objects.create(name='Jane Doe', phone='0772123456')
+        self.event = Event.objects.create(
+            customer=customer, event_type='Wedding', venue='Kampala', status=Event.Status.QUOTED,
+            event_date=timezone.localdate() + timedelta(days=10),
+        )
+        self.quote = Quotation.objects.create(event=self.event, status=Quotation.Status.SENT)
+        QuotationLineItem.objects.create(quotation=self.quote, description='Tent', quantity=1, unit_price=Decimal('250000'))
+        self.token = share_token(self.quote)
+
+    def test_client_sees_quote_and_accepts_it(self):
+        from comms.models import CommunicationLog
+        from .models import Quotation
+        page = self.client.get(reverse('billing:shared_document', args=[self.token]))
+        self.assertContains(page, 'Accept quotation')
+        self.assertContains(page, '250,000')
+        response = self.client.post(reverse('billing:shared_quotation_accept', args=[self.token]), {'name': 'Jane'}, follow=True)
+        self.assertContains(response, 'Accepted. Thank you!')
+        self.quote.refresh_from_db()
+        self.event.refresh_from_db()
+        self.assertEqual(self.quote.status, Quotation.Status.APPROVED)
+        self.assertTrue(self.quote.has_invoice)
+        self.assertEqual(self.event.status, Event.Status.CONFIRMED)
+        self.assertTrue(CommunicationLog.objects.filter(direction='inbound', message__contains='(Jane)').exists())
+
+    def test_accepting_twice_makes_one_invoice(self):
+        url = reverse('billing:shared_quotation_accept', args=[self.token])
+        self.client.post(url)
+        self.client.post(url)
+        self.assertEqual(Invoice.objects.count(), 1)
+
+    def test_expired_quotation_cannot_be_accepted(self):
+        self.quote.valid_until = timezone.localdate() - timedelta(days=1)
+        self.quote.save()
+        page = self.client.get(reverse('billing:shared_document', args=[self.token]))
+        self.assertContains(page, 'passed its valid-until date')
+        self.client.post(reverse('billing:shared_quotation_accept', args=[self.token]))
+        self.assertFalse(Invoice.objects.exists())
+
+    def test_pdf_link_still_works(self):
+        from unittest import mock
+        with mock.patch('billing.views.generate_pdf_bytes', return_value=None):
+            response = self.client.get(reverse('billing:shared_document_pdf', args=[self.token]))
+        self.assertContains(response, self.quote.number)

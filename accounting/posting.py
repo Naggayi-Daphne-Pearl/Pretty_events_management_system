@@ -1,7 +1,8 @@
 """
 Cash-basis auto-posting: money actually received or paid is what hits the books.
 - Income record (incl. every invoice payment): Dr the bank/cash account it went
-  into, Cr the income account.
+  into, Cr the income account (and Cr Taxes Payable for the tax part of a
+  payment on a taxed invoice).
 - Expense record: Dr the expense account (from its category), Cr the bank/cash
   account it was paid from.
 Invoices themselves post nothing (cash basis); what clients still owe is on the
@@ -61,10 +62,16 @@ def sync_income_record(record):
     entry.date = record.date
     entry.memo = record.description or 'Income'
     entry.reference = record.payment.receipt.number if record.payment_id and hasattr(record.payment, 'receipt') else ''
-    return save_entry(entry, [
+    tax = min(record.tax_amount or 0, record.amount)
+    lines = [
         {'account': deposit_account_for(record), 'debit': record.amount, 'description': entry.memo, 'allow_inactive': True},
-        {'account': income_account_for(record), 'credit': record.amount, 'description': entry.memo, 'allow_inactive': True},
-    ])
+        {'account': income_account_for(record), 'credit': record.amount - tax, 'description': entry.memo, 'allow_inactive': True},
+    ]
+    if tax > 0:
+        # Tax collected on a taxed invoice is owed to the government, not income.
+        lines.append({'account': system_account('tax_payable'), 'credit': tax,
+                      'description': f'Tax collected: {entry.memo}', 'allow_inactive': True})
+    return save_entry(entry, lines)
 
 
 @transaction.atomic

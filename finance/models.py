@@ -39,6 +39,10 @@ class IncomeRecord(TimeStampedModel):
         Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name='income_record',
     )
     description = models.CharField(max_length=255, blank=True)
+    tax_amount = models.DecimalField(
+        max_digits=14, decimal_places=2, default=0,
+        help_text='Part of the amount that is tax collected for the government, not income (from taxed invoices).',
+    )
     deposit_account = models.ForeignKey(
         'accounting.Account', on_delete=models.PROTECT, null=True, blank=True, related_name='+',
         limit_choices_to=BANK_ACCOUNTS, verbose_name='Received into',

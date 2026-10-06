@@ -1,22 +1,55 @@
 from decimal import Decimal
 
 from django import forms
+from django.db.models import Q
 from django.forms import inlineformset_factory
 
 from accounting.locks import OpenPeriodFormMixin
 from core.forms import BootstrapFieldsMixin, BootstrapModelForm
 
-from .models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem
+from .models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem, TaxGroup
 
 
-class QuotationForm(BootstrapModelForm):
+class TaxChoiceMixin:
+    """
+    The document's tax: any active tax group, or none. Keeps the document's current
+    group selectable even if it has since been made inactive. When the choice changes
+    the document captures that group's name and rate; otherwise it keeps the rate it
+    was issued with.
+    """
+
+    def setup_tax_field(self):
+        field = self.fields['tax_group']
+        current = self.instance.tax_group_id
+        field.queryset = TaxGroup.objects.filter(Q(is_active=True) | Q(pk=current)).order_by('name')
+        field.empty_label = 'No tax'
+        field.required = False
+        field.help_text = 'Added on top of the line items. Manage taxes under Finance > Taxes.'
+        if not self.instance.pk and not self.is_bound:
+            default = TaxGroup.objects.filter(is_active=True, is_default=True).first()
+            if default:
+                self.initial['tax_group'] = default.pk
+
+    def clean(self):
+        cleaned = super().clean()
+        group = cleaned.get('tax_group')
+        if not self.instance.pk or (group.pk if group else None) != self.instance.tax_group_id:
+            self.instance.apply_tax_group(group)
+        return cleaned
+
+
+class QuotationForm(TaxChoiceMixin, BootstrapModelForm):
     class Meta:
         model = Quotation
-        fields = ['status', 'valid_until', 'notes']
+        fields = ['status', 'valid_until', 'tax_group', 'notes']
         widgets = {
             'valid_until': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setup_tax_field()
 
 
 class LineItemFormMixin:
@@ -74,15 +107,26 @@ QuotationLineItemFormSet = inlineformset_factory(
 )
 
 
-class InvoiceForm(BootstrapModelForm):
+class InvoiceForm(TaxChoiceMixin, BootstrapModelForm):
     class Meta:
         model = Invoice
-        fields = ['status', 'issue_date', 'due_date', 'notes']
+        fields = ['status', 'issue_date', 'due_date', 'tax_group', 'notes']
         widgets = {
             'issue_date': forms.DateInput(attrs={'type': 'date'}),
             'due_date': forms.DateInput(attrs={'type': 'date'}),
             'notes': forms.Textarea(attrs={'rows': 2}),
         }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.setup_tax_field()
+
+
+class TaxGroupForm(BootstrapModelForm):
+    class Meta:
+        model = TaxGroup
+        fields = ['name', 'rate', 'description', 'is_default', 'is_active']
+        labels = {'rate': 'Rate (%)', 'is_default': 'Pre-select on new quotations', 'is_active': 'Active'}
 
 
 class InvoiceLineItemForm(LineItemFormMixin, BootstrapModelForm):
@@ -111,6 +155,8 @@ class BaseInvoiceLineItemFormSet(BaseLineItemFormSet):
                 continue
             quantity, price = data.get('quantity') or 0, data.get('unit_price') or 0
             new_total += (Decimal(quantity) * Decimal(price)).quantize(Decimal('0.01'))
+        # Include the tax chosen on the invoice form (validated before the lines).
+        new_total += (new_total * self.instance.tax_rate / Decimal('100')).quantize(Decimal('0.01'))
         if new_total < paid:
             raise forms.ValidationError(
                 f'The new total ({new_total:,.0f}) is less than the {paid:,.0f} already paid on this invoice. '

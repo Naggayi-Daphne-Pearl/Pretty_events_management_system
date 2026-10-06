@@ -28,6 +28,12 @@ urlpatterns = [
     path('receipts/<int:pk>/pdf/', views.receipt_pdf, name='receipt_pdf'),
 
     path('shared/<str:token>/', views.shared_document, name='shared_document'),
+    path('shared/<str:token>/pdf/', views.shared_document_pdf, name='shared_document_pdf'),
+    path('shared/<str:token>/accept/', views.shared_quotation_accept, name='shared_quotation_accept'),
+
+    path('taxes/', views.TaxGroupListView.as_view(), name='tax_list'),
+    path('taxes/new/', views.TaxGroupCreateView.as_view(), name='tax_create'),
+    path('taxes/<int:pk>/edit/', views.TaxGroupUpdateView.as_view(), name='tax_update'),
 
     path('mobile-money/', views.mobile_money_list, name='mobile_money'),
     path('mobile-money/<int:pk>/allocate/', views.mobile_money_allocate, name='mobile_money_allocate'),

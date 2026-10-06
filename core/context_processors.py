@@ -24,5 +24,11 @@ def navigation(request):
     """Sidebar, tabs, "+ New" menu and phone bar for the signed-in user (see core.navigation)."""
     if not getattr(request, 'user', None) or not request.user.is_authenticated:
         return {}
+    from django.utils.functional import SimpleLazyObject
+
     from .navigation import build
-    return build(request)
+    from .notifications import for_user
+    context = build(request)
+    # Only worked out if the page shows the bell.
+    context['notifications'] = SimpleLazyObject(lambda: for_user(request.user))
+    return context

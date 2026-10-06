@@ -1194,3 +1194,251 @@ class ThemeAndLoginPageTests(TestCase):
         response = self.client.get(reverse('dashboard'))
         for choice in ('auto', 'light', 'dark'):
             self.assertContains(response, f'data-theme-choice="{choice}"')
+
+
+class SetupGroupsTests(TestCase):
+    def run_setup(self, *args):
+        from io import StringIO
+        from django.core.management import call_command
+        call_command('setup_groups', *args, stdout=StringIO())
+
+    def test_client_changes_survive_the_next_deploy(self):
+        from django.contrib.auth.models import Group, Permission
+        self.run_setup()
+        office = Group.objects.get(name='Office Staff')
+        removed = Permission.objects.get(codename='delete_customer')
+        extra = Permission.objects.get(codename='add_expenserecord')
+        office.permissions.remove(removed)
+        office.permissions.add(extra)
+        Group.objects.get(name='Field Staff').delete()
+
+        self.run_setup()  # what every deploy does
+        office.refresh_from_db()
+        self.assertNotIn(removed, office.permissions.all())
+        self.assertIn(extra, office.permissions.all())
+        self.assertFalse(Group.objects.filter(name='Field Staff').exists())
+
+    def test_defaults_for_new_features_still_arrive_once(self):
+        from django.contrib.auth.models import Group, Permission
+        from .models import RoleDefault
+        self.run_setup()
+        perm = Permission.objects.get(codename='view_periodclose')
+        accountant = Group.objects.get(name='Accountant')
+        # Pretend this permission is new: never applied before.
+        accountant.permissions.remove(perm)
+        RoleDefault.objects.filter(group_name='Accountant', permission='accounting.view_periodclose').delete()
+        self.run_setup()
+        self.assertIn(perm, accountant.permissions.all())
+
+    def test_reset_restores_the_starters(self):
+        from django.contrib.auth.models import Group, Permission
+        self.run_setup()
+        Group.objects.get(name='Field Staff').delete()
+        office = Group.objects.get(name='Office Staff')
+        office.permissions.remove(Permission.objects.get(codename='delete_customer'))
+        self.run_setup('--reset')
+        self.assertTrue(Group.objects.filter(name='Field Staff').exists())
+        self.assertTrue(office.permissions.filter(codename='delete_customer').exists())
+
+
+class DailyJobsTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from . import daily
+        daily._last_checked = None
+
+    def test_first_request_of_the_day_runs_jobs_once(self):
+        from . import daily
+        from .models import DailyJobRun
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=timezone.localdate() - timedelta(days=2))
+        self.client.get(reverse('customers:list'))  # a page that doesn't sync on its own
+        invoice.refresh_from_db()
+        self.assertEqual(invoice.status, Invoice.Status.OVERDUE)
+        self.assertEqual(DailyJobRun.objects.count(), 1)
+        daily._last_checked = None  # another worker process
+        self.assertIsNone(daily.run_if_due())
+        self.assertEqual(DailyJobRun.objects.count(), 1)
+
+    def test_a_failing_job_never_breaks_the_page(self):
+        from unittest import mock
+        with mock.patch('core.daily.run_daily_jobs', side_effect=RuntimeError('boom')):
+            response = self.client.get(reverse('customers:list'))
+        self.assertEqual(response.status_code, 200)
+
+
+class NotificationTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from django.core.cache import cache
+        cache.clear()
+
+    def bell(self, user=None):
+        from .notifications import collect
+        return [n['text'] for n in collect(user or self.user)]
+
+    def test_lists_what_needs_attention(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(status=Invoice.Status.OVERDUE)
+        item = EquipmentItem.objects.create(name='Tent', total_quantity=3)
+        past = Event.objects.create(customer=self.customer, event_type='Party', venue='X',
+                                    event_date=timezone.localdate() - timedelta(days=3), status=Event.Status.COMPLETED)
+        EquipmentIssue.objects.create(event=past, equipment_item=item, quantity_issued=2, issued_at=past.event_date)
+        texts = self.bell()
+        self.assertIn('1 overdue invoice', texts)
+        self.assertIn('Equipment not back from 1 finished event', texts)
+        self.assertIn('1 item low on stock', texts)
+
+    def test_double_booking_shows_up(self):
+        item = EquipmentItem.objects.create(name='Round table', total_quantity=10)
+        for _ in range(2):
+            event = Event.objects.create(customer=self.customer, event_type='Wedding', venue='X',
+                                         event_date=timezone.localdate() + timedelta(days=5), status=Event.Status.CONFIRMED)
+            invoice = Invoice.objects.create(event=event)
+            InvoiceLineItem.objects.create(invoice=invoice, equipment_item=item, description='t', quantity=8, unit_price=1)
+        self.assertTrue(any(t.startswith('Double-booked: Round table') for t in self.bell()))
+
+    def test_bell_respects_roles_and_renders(self):
+        invoice = self.make_invoice()
+        Invoice.objects.filter(pk=invoice.pk).update(status=Invoice.Status.OVERDUE)
+        field = get_user_model().objects.create_user('f', 'f@example.com', 'pw')
+        self.assertEqual(self.bell(field), [])
+        self.assertContains(self.client.get('/'), '1 overdue invoice')
+
+
+class PaymentReminderTests(BaseDataMixin, TestCase):
+    def test_reminder_states_balance_and_links_the_invoice(self):
+        from urllib.parse import unquote
+        invoice = self.make_invoice('300000')
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=timezone.localdate() - timedelta(days=4), status=Invoice.Status.OVERDUE)
+        page = self.client.get(reverse('billing:invoice_detail', args=[invoice.pk]))
+        self.assertContains(page, 'Send payment reminder')
+        response = self.client.post(reverse('comms:contact', args=[self.customer.pk, 'whatsapp']),
+                                    {'document': f'invoice:{invoice.pk}', 'purpose': 'reminder'})
+        text = unquote(response['Location'])
+        self.assertIn('friendly reminder', text)
+        self.assertIn('was due on', text)
+        self.assertIn('UGX 300,000', text)
+        self.assertIn('/billing/shared/', text)
+        self.assertTrue(CommunicationLog.objects.filter(message__startswith='Sent a payment reminder').exists())
+
+    def test_no_reminder_button_when_paid(self):
+        invoice = self.make_invoice('1000')
+        Payment.objects.create(invoice=invoice, amount=Decimal('1000'))
+        self.assertNotContains(self.client.get(reverse('billing:invoice_detail', args=[invoice.pk])), 'Send payment reminder')
+
+
+class JobSheetTests(BaseDataMixin, TestCase):
+    def setUp(self):
+        super().setUp()
+        from io import StringIO
+        from django.contrib.auth.models import Group
+        from django.core.management import call_command
+        call_command('setup_groups', stdout=StringIO())
+        self.event.status = Event.Status.CONFIRMED
+        self.event.save()
+        self.chairs = EquipmentItem.objects.create(name='Chair', total_quantity=100)
+        invoice = self.make_invoice()
+        InvoiceLineItem.objects.create(invoice=invoice, equipment_item=self.chairs, description='Chairs', quantity=80, unit_price=1)
+        self.crew = get_user_model().objects.create_user('crew', 'crew@example.com', 'pw')
+        self.crew.groups.add(Group.objects.get(name='Field Staff'))
+        staff = StaffMember.objects.create(full_name='Crew Member', user=self.crew)
+        EventAssignment.objects.create(event=self.event, staff_member=staff)
+        self.client.force_login(self.crew)
+        self.url = reverse('events:job', args=[self.event.pk])
+
+    def test_crew_loads_and_returns_from_their_phone(self):
+        page = self.client.get(self.url)
+        self.assertContains(page, 'Directions')
+        self.assertContains(page, 'value="80"')  # booked quantity pre-filled
+        self.client.post(self.url, {'action': 'load', f'qty-{self.chairs.pk}': '80'})
+        self.assertEqual(EquipmentItem.objects.with_availability().get(pk=self.chairs.pk).available_quantity, 20)
+        self.client.post(self.url, {'action': 'return', f'qty-{self.chairs.pk}': '78', 'condition_notes': '2 chairs broken'})
+        issue = EquipmentIssue.objects.get()
+        self.assertEqual(issue.quantity_outstanding, 2)
+        self.assertEqual(issue.returns.get().condition_notes, '2 chairs broken')
+
+    def test_cannot_load_more_than_in_store_or_return_more_than_out(self):
+        response = self.client.post(self.url, {'action': 'load', f'qty-{self.chairs.pk}': '150'}, follow=True)
+        self.assertContains(response, 'Only 100 pieces of Chair are in the store')
+        self.assertFalse(EquipmentIssue.objects.exists())
+        self.client.post(self.url, {'action': 'load', f'qty-{self.chairs.pk}': '10'})
+        response = self.client.post(self.url, {'action': 'return', f'qty-{self.chairs.pk}': '11'}, follow=True)
+        self.assertContains(response, 'Only 10 of Chair are still out')
+
+    def test_other_crews_jobs_are_hidden(self):
+        other = Event.objects.create(customer=self.customer, event_type='Other', venue='Y', event_date=timezone.localdate())
+        self.assertEqual(self.client.get(reverse('events:job', args=[other.pk])).status_code, 404)
+
+
+class DashboardExtrasTests(BaseDataMixin, TestCase):
+    def test_setup_checklist_until_required_steps_done(self):
+        from staffing.models import StaffMember as Staff
+        response = self.client.get('/')
+        self.assertContains(response, 'Getting started')
+        EquipmentItem.objects.create(name='Tent', total_quantity=2, default_rate=Decimal('50000'))
+        Staff.objects.create(full_name='Crew', user=get_user_model().objects.create_user('c', 'c@example.com', 'pw'))
+        from accounting.models import Account, JournalEntry
+        from accounting.services import save_entry
+        from django.core.management import call_command
+        call_command('setup_chart_of_accounts', verbosity=0)
+        save_entry(JournalEntry(date=timezone.localdate(), source=JournalEntry.Source.OPENING), [
+            {'account': Account.objects.get(system_key='cash'), 'debit': 1},
+            {'account': Account.objects.get(system_key='opening_balance_equity'), 'credit': 1},
+        ])
+        self.assertNotContains(self.client.get('/'), 'Getting started')  # taxes are optional
+
+    def test_week_and_month_numbers(self):
+        from finance.models import IncomeRecord
+        today = timezone.localdate()
+        IncomeRecord.objects.create(amount=Decimal('118000'), tax_amount=Decimal('18000'), date=today)
+        invoice = self.make_invoice('70000')
+        Invoice.objects.filter(pk=invoice.pk).update(due_date=today + timedelta(days=3))
+        self.event.status = Event.Status.CONFIRMED
+        self.event.event_date = today + timedelta(days=2)
+        self.event.save()
+        InvoiceLineItem.objects.create(invoice=invoice, equipment_item=EquipmentItem.objects.create(name='Chair', total_quantity=50),
+                                       description='Chairs', quantity=40, unit_price=0)
+        ctx = self.client.get('/').context
+        self.assertEqual(ctx['income_this_month'], Decimal('100000'))
+        self.assertEqual(ctx['due_this_week'], Decimal('70000'))
+        self.assertEqual((ctx['items_out_this_week'], ctx['events_out_this_week']), (40, 1))
+
+
+class DuplicateCustomerTests(BaseDataMixin, TestCase):
+    def post_customer(self, phone, **extra):
+        data = {'name': 'Jane D.', 'phone': phone, 'alt_phone': '', 'email': '', 'address': '', 'notes': ''}
+        data.update(extra)
+        return self.client.post(reverse('customers:create'), data)
+
+    def test_same_number_typed_differently_is_caught(self):
+        response = self.post_customer('+256 772 123-456')
+        self.assertContains(response, 'This phone number is already on file')
+        self.assertContains(response, 'Jane Doe')
+        self.assertEqual(Customer.objects.count(), 1)
+
+    def test_can_save_anyway_and_new_numbers_pass(self):
+        self.assertEqual(self.post_customer('0772123456', confirm_duplicate='on').status_code, 302)
+        self.assertEqual(self.post_customer('0700999888').status_code, 302)
+        self.assertEqual(Customer.objects.count(), 3)
+
+    def test_editing_without_changing_the_phone_is_not_blocked(self):
+        Customer.objects.create(name='Twin', phone='0772 123 456')
+        response = self.client.post(reverse('customers:update', args=[self.customer.pk]), {
+            'name': 'Jane Doe', 'phone': '0772123456', 'alt_phone': '', 'email': 'jane@example.com', 'address': '', 'notes': 'vip'})
+        self.assertEqual(response.status_code, 302)
+
+
+class InstallableAppTests(TestCase):
+    def test_manifest_service_worker_and_offline_page_are_public(self):
+        import json
+        manifest = self.client.get('/manifest.webmanifest')
+        self.assertEqual(manifest['Content-Type'], 'application/manifest+json')
+        data = json.loads(manifest.content)
+        self.assertEqual((data['display'], data['scope'], data['theme_color']), ('standalone', '/', '#2B3490'))
+        self.assertEqual({i['sizes'] for i in data['icons']}, {'192x192', '512x512'})
+        sw = self.client.get('/sw.js')
+        self.assertEqual(sw['Content-Type'], 'application/javascript')
+        self.assertIn("mode !== 'navigate'", sw.content.decode())
+        self.assertContains(self.client.get('/offline/'), "You're offline")
+        self.assertContains(self.client.get(reverse('login')), 'rel="manifest"')
