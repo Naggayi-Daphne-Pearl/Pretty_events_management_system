@@ -1,5 +1,6 @@
 from django import forms
 
+from accounting.locks import OpenPeriodFormMixin
 from core.forms import BootstrapModelForm
 
 from .models import ExpenseCategory, ExpenseRecord, IncomeRecord
@@ -12,7 +13,7 @@ class ExpenseCategoryForm(BootstrapModelForm):
         labels = {'account': 'Expense account'}
 
 
-class IncomeRecordForm(BootstrapModelForm):
+class IncomeRecordForm(OpenPeriodFormMixin, BootstrapModelForm):
     """Source is deliberately not a field here — it's always 'other' for a manual
     entry. 'Invoice Payment' is set automatically when a payment is recorded
     (see billing.views.invoice_add_payment), never chosen by hand, so offering
@@ -31,7 +32,7 @@ class IncomeRecordForm(BootstrapModelForm):
         self.fields['income_account'].empty_label = 'Other Income (default)'
 
 
-class ExpenseRecordForm(BootstrapModelForm):
+class ExpenseRecordForm(OpenPeriodFormMixin, BootstrapModelForm):
     class Meta:
         model = ExpenseRecord
         fields = ['amount', 'category', 'expense_account', 'date', 'paid_from_account', 'event', 'description']

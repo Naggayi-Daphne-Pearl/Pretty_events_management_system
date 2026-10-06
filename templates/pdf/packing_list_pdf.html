@@ -1,0 +1,44 @@
+{% extends "pdf/_document_base.html" %}
+{% load humanize %}
+{% block extra_style %}
+<style>
+    table.pack th { font-size: 9.5px; text-transform: uppercase; }
+    table.pack td { padding: 8px 6px; }
+    table.pack td.tick { width: 13%; }
+    table.pack td.cond { width: 24%; }
+    .crew { margin-top: 12px; font-size: 10px; }
+</style>
+{% endblock %}
+{% block doc_type %}Packing list{% endblock %}
+{% block doc_number %}EVT-{{ event.pk }}{% endblock %}
+{% block doc_details %}
+<p class="details"><b>Event date:</b> {{ event.event_date|date:"D d M Y" }}{% if event.end_date and event.end_date != event.event_date %} – {{ event.end_date|date:"D d M Y" }}{% endif %}</p>
+<p class="details"><b>Event:</b> {{ event.event_type }}{% if event.guest_count %} · {{ event.guest_count|intcomma }} guests{% endif %}</p>
+<p class="details"><b>Venue:</b> {{ event.venue }}</p>
+<p class="details"><b>Printed:</b> {% now "d M Y H:i" %}</p>
+{% endblock %}
+{% block client_details %}{% include "pdf/_client_block.html" with customer=event.customer %}{% endblock %}
+{% block body %}
+<table class="items pack">
+    <tr>
+        <th>Item</th><th class="num">Booked</th><th class="num">Issued</th><th class="num">Still out</th>
+        <th>Loaded ✓</th><th>Returned</th><th>Condition / notes</th>
+    </tr>
+    {% for row in rows %}
+    <tr>
+        <td>{{ row.item.name }}{% if row.item.category %} <span style="font-size:9px;">({{ row.item.category }})</span>{% endif %}</td>
+        <td class="num">{{ row.booked|intcomma }} {{ row.item.unit }}</td>
+        <td class="num">{{ row.issued|default:"" }}</td>
+        <td class="num">{{ row.outstanding|default:"" }}</td>
+        <td class="tick"></td><td class="tick"></td><td class="cond"></td>
+    </tr>
+    {% empty %}
+    <tr><td colspan="7">No inventory items are booked or issued for this event yet.</td></tr>
+    {% endfor %}
+</table>
+{% if assignments %}
+<div class="crew"><b>CREW:</b> {% for a in assignments %}{{ a.staff_member.full_name }}{% if a.role_on_event %} ({{ a.role_on_event }}){% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}</div>
+{% endif %}
+{% if event.notes %}<div class="notes"><b>Notes:</b> {{ event.notes|linebreaksbr }}</div>{% endif %}
+{% endblock %}
+{% block sign_left %}<div class="sign-line">Dispatched by:</div>{% endblock %}

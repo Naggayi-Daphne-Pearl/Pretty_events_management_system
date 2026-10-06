@@ -3,6 +3,7 @@ from decimal import Decimal
 from django import forms
 from django.forms import inlineformset_factory
 
+from accounting.locks import OpenPeriodFormMixin
 from core.forms import BootstrapFieldsMixin, BootstrapModelForm
 
 from .models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem
@@ -19,10 +20,42 @@ class QuotationForm(BootstrapModelForm):
 
 
 class LineItemFormMixin:
-    """Bootstrap-styled line item forms, laid out as a compact row."""
+    """
+    A row removed in the browser posts none of its fields. Report it as unchanged,
+    so together with BaseLineItemFormSet it is skipped rather than failing as a
+    blank, required row.
+    """
+
+    def has_changed(self):
+        if self.is_bound and not any(self.add_prefix(name) in self.data for name in self.fields):
+            return False
+        return super().has_changed()
 
 
-class QuotationLineItemForm(BootstrapModelForm):
+class BaseLineItemFormSet(forms.BaseInlineFormSet):
+    """
+    New rows are optional: a blank row (like the one the editor starts with) or a
+    removed one is ignored instead of blocking the save. At least one real line is
+    still required, checked here rather than by min_num, which would force row 0 to
+    be filled in even after it was removed.
+    """
+
+    def _construct_form(self, i, **kwargs):
+        form = super()._construct_form(i, **kwargs)
+        if i >= self.initial_form_count():
+            form.empty_permitted = True
+        return form
+
+    def clean(self):
+        super().clean()
+        if any(self.errors):
+            return
+        kept = [f for f in self.forms if f.cleaned_data and not f.cleaned_data.get('DELETE')]
+        if not kept:
+            raise forms.ValidationError('Add at least one line item.')
+
+
+class QuotationLineItemForm(LineItemFormMixin, BootstrapModelForm):
     class Meta:
         model = QuotationLineItem
         fields = ['equipment_item', 'description', 'quantity', 'unit_price']
@@ -33,9 +66,11 @@ class QuotationLineItemForm(BootstrapModelForm):
         self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
+# min_num=1 only makes the editor start with one blank row; BaseLineItemFormSet
+# does the "at least one line" check.
 QuotationLineItemFormSet = inlineformset_factory(
-    Quotation, QuotationLineItem, form=QuotationLineItemForm, extra=0, can_delete=True,
-    min_num=1, validate_min=True,
+    Quotation, QuotationLineItem, form=QuotationLineItemForm, formset=BaseLineItemFormSet, extra=0,
+    can_delete=True, min_num=1,
 )
 
 
@@ -50,7 +85,7 @@ class InvoiceForm(BootstrapModelForm):
         }
 
 
-class InvoiceLineItemForm(BootstrapModelForm):
+class InvoiceLineItemForm(LineItemFormMixin, BootstrapModelForm):
     class Meta:
         model = InvoiceLineItem
         fields = ['equipment_item', 'description', 'quantity', 'unit_price']
@@ -61,7 +96,7 @@ class InvoiceLineItemForm(BootstrapModelForm):
         self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
-class BaseInvoiceLineItemFormSet(forms.BaseInlineFormSet):
+class BaseInvoiceLineItemFormSet(BaseLineItemFormSet):
     def clean(self):
         super().clean()
         if any(self.errors) or not self.instance.pk:
@@ -85,7 +120,7 @@ class BaseInvoiceLineItemFormSet(forms.BaseInlineFormSet):
 
 InvoiceLineItemFormSet = inlineformset_factory(
     Invoice, InvoiceLineItem, form=InvoiceLineItemForm, formset=BaseInvoiceLineItemFormSet, extra=0, can_delete=True,
-    min_num=1, validate_min=True,
+    min_num=1,
 )
 
 
@@ -94,7 +129,9 @@ class EmailDocumentForm(BootstrapFieldsMixin, forms.Form):
     message = forms.CharField(label='Message', widget=forms.Textarea(attrs={'rows': 6}))
 
 
-class PaymentForm(BootstrapModelForm):
+class PaymentForm(OpenPeriodFormMixin, BootstrapModelForm):
+    locked_date_fields = ('paid_at',)
+
     class Meta:
         model = Payment
         fields = ['amount', 'method', 'paid_at', 'reference_number', 'notes']

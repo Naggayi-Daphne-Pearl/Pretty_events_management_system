@@ -1,14 +1,16 @@
 import csv
+from datetime import timedelta
 
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required, permission_required
-from django.core.exceptions import ValidationError
+from django.core.exceptions import PermissionDenied, ValidationError
 from django.db.models import Q
 from django.http import HttpResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse
 from django.utils import timezone
 from django.utils.dateparse import parse_date
+from django.views.decorators.http import require_POST
 
 from core.activity import log_activity, log_model_activity
 from core.deletion import confirm_and_delete, count_label
@@ -16,12 +18,17 @@ from core.pagination import PER_PAGE_OPTIONS, paginate, per_page_from
 
 from . import reports
 from .forms import AccountEntryForm, AccountForm, JournalEntryForm, JournalLineFormSet, TransferForm, lines_initial
-from .models import Account, JournalEntry
-from .services import save_entry
+from .locks import is_locked, locked_through
+from .models import Account, JournalEntry, PeriodClose
+from .services import reverse_entry, save_entry
 
 
 def _date_param(request, name, default):
-    value = parse_date(request.GET.get(name) or '') if request.GET.get(name) else None
+    data = request.POST if request.method == 'POST' else request.GET
+    try:
+        value = parse_date(data.get(name) or '') if data.get(name) else None
+    except ValueError:  # well-formed but impossible, e.g. 2026-02-31
+        value = None
     return value or default
 
 
@@ -186,14 +193,24 @@ def journal_list(request):
 @login_required
 @permission_required('accounting.view_journalentry', raise_exception=True)
 def journal_detail(request, pk):
-    entry = get_object_or_404(JournalEntry.objects.prefetch_related('lines__account'), pk=pk)
-    return render(request, 'accounting/journal_detail.html', {'object': entry})
+    entry = get_object_or_404(
+        JournalEntry.objects.prefetch_related('lines__account').select_related('reverses', 'reversed_by__created_by'), pk=pk,
+    )
+    locked = is_locked(entry.date)
+    return render(request, 'accounting/journal_detail.html', {
+        'object': entry, 'locked': locked, 'locked_through': locked_through(),
+        'editable': not (entry.is_auto or locked or entry.is_reversed or entry.reverses_id),
+    })
 
 
 def _journal_form_view(request, entry):
     is_new = entry.pk is None
     if not is_new and entry.is_auto:
         messages.info(request, 'This entry was created automatically. Edit the income or expense record it came from instead.')
+        return redirect(entry.get_absolute_url())
+    if not is_new and (is_locked(entry.date) or entry.source == JournalEntry.Source.REVERSAL or entry.is_reversed):
+        messages.info(request, f'{entry.number} can\'t be edited any more (closed period or part of a reversal). '
+                               'Reverse it and post a corrected entry instead.')
         return redirect(entry.get_absolute_url())
     form = JournalEntryForm(request.POST or None, instance=entry)
     initial = None if is_new else lines_initial(entry)
@@ -236,10 +253,59 @@ def journal_delete(request, pk):
         request, entry,
         cancel_url=entry.get_absolute_url(),
         success_url=reverse('accounting:journal_list'),
-        blockers=[f'the {entry.get_source_display().lower()} it was created from' if entry.is_auto else ''],
+        blockers=[
+            f'the {entry.get_source_display().lower()} it was created from' if entry.is_auto else '',
+            f'the closed period (books closed through {locked_through():%d %b %Y})' if is_locked(entry.date) else '',
+            'its reversal' if entry.is_reversed else '',
+            f'the entry it reverses ({entry.reverses.number})' if entry.reverses_id else '',
+        ],
         also_deleted=[count_label(entry.lines.count(), 'journal line')],
         hint='Automatic entries disappear when their income or expense record is deleted.',
     )
+
+
+@require_POST
+@login_required
+@permission_required('accounting.add_journalentry', raise_exception=True)
+def journal_reverse(request, pk):
+    entry = get_object_or_404(JournalEntry, pk=pk)
+    day = _date_param(request, 'date', timezone.localdate())
+    try:
+        reversal = reverse_entry(entry, date=day, user=request.user)
+    except ValidationError as error:
+        messages.error(request, ' '.join(error.messages))
+        return redirect(entry.get_absolute_url())
+    log_activity(request, 'journalentry.reversed', f'Reversed journal {entry.number} with {reversal.number} dated {day:%d %b %Y}')
+    messages.success(request, f'{entry.number} reversed by {reversal.number}.')
+    return redirect(reversal.get_absolute_url())
+
+
+# ---------- Period close ----------
+
+@login_required
+@permission_required('accounting.view_periodclose', raise_exception=True)
+def period_close(request):
+    if request.method == 'POST':
+        if not request.user.has_perm('accounting.add_periodclose'):
+            raise PermissionDenied
+        day = _date_param(request, 'closed_through', None)
+        current = locked_through()
+        if day is None:
+            messages.error(request, 'Choose the last date to close.')
+        elif day >= timezone.localdate():
+            messages.error(request, 'You can only close dates in the past.')
+        else:
+            note = (request.POST.get('note') or '').strip()[:255]
+            PeriodClose.objects.create(closed_through=day, note=note, created_by=request.user)
+            verb = 'Reopened books after' if current and day < current else 'Closed books through'
+            log_activity(request, 'period.closed', f'{verb} {day:%d %b %Y}' + (f': {note}' if note else ''))
+            messages.success(request, f'{verb} {day:%d %b %Y}.')
+            return redirect('accounting:period_close')
+    return render(request, 'accounting/period_close.html', {
+        'locked_through': locked_through(),
+        'history': PeriodClose.objects.select_related('created_by')[:50],
+        'suggested': (timezone.localdate().replace(day=1) - timedelta(days=1)),
+    })
 
 
 # ---------- Banking ----------

@@ -22,6 +22,40 @@
 </div>
 {% include "partials/_audit_trail.html" %}
 
+{% if object.status != 'cancelled' %}
+<style>
+    .ev-steps { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin-bottom: 14px; }
+    .ev-step { flex: 1 0 118px; padding: 9px 11px; border-radius: 12px; border: 1px solid var(--border); background: var(--panel); }
+    .ev-step .lbl { font-size: 12.5px; font-weight: 700; display: flex; align-items: center; gap: 6px; color: var(--text-2); }
+    .ev-step .lbl i { font-size: 14px; color: var(--text-3); }
+    .ev-step .dtl { font-size: 11.5px; color: var(--text-2); margin-top: 2px; min-height: 1em; }
+    .ev-step.done { border-color: color-mix(in srgb, var(--ok) 45%, transparent); background: var(--ok-soft); }
+    .ev-step.done .lbl, .ev-step.done .lbl i { color: var(--ok); }
+</style>
+<div class="ev-steps" aria-label="Booking progress">
+    {% for step in progress %}
+    <div class="ev-step{% if step.done %} done{% endif %}">
+        <div class="lbl"><i class="bi {% if step.done %}bi-check-circle-fill{% else %}bi-circle{% endif %}"></i>{{ step.label }}</div>
+        <div class="dtl">{{ step.detail }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
+{% if shortages %}
+<div class="alert alert-danger py-2">
+    <div class="fw-semibold mb-1"><i class="bi bi-exclamation-triangle me-2"></i>Not enough equipment on these dates</div>
+    <ul class="mb-0 small ps-3">
+        {% for s in shortages %}
+        <li>
+            <a href="{% url 'inventory:item_detail' s.item.pk %}">{{ s.item.name }}</a>: {{ s.needed|intcomma }} booked, {{ s.available|intcomma }} free
+            {% if s.clashes %}— also booked for {% for e in s.clashes %}<a href="{% url 'events:detail' e.pk %}">{{ e.customer.name }} ({{ e.event_date|date:"j M" }})</a>{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
 {% if next_step %}
 <div class="alert alert-info d-flex justify-content-between align-items-center gap-2 flex-wrap py-2">
     <span><i class="bi bi-signpost-2 me-2"></i><strong>Next step:</strong> {{ next_step.text }}</span>
@@ -36,6 +70,7 @@
         {% for inv in invoices %}{% if inv.balance_due > 0 and inv.status != 'cancelled' and perms.billing.add_payment %}<a href="{% url 'billing:invoice_detail' inv.pk %}#record-payment" class="btn btn-sm btn-outline-primary"><i class="bi bi-cash me-1"></i>Record payment ({{ inv.number }})</a>{% endif %}{% endfor %}
         {% if perms.staffing.add_eventassignment %}<a href="{% url 'staffing:assign' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-person-plus me-1"></i>Assign staff</a>{% endif %}
         {% if perms.inventory.add_equipmentissue %}<a href="{% url 'inventory:issue_create' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-right me-1"></i>Issue equipment</a>{% endif %}
+        <a href="{% url 'events:packing_list' object.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer me-1"></i>Packing list</a>
         {% if perms.comms.add_communicationlog %}<a href="{% url 'comms:log_create' object.customer.pk %}?event={{ object.pk }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-journal-plus me-1"></i>Log contact</a>{% endif %}
     </div>
 </div>

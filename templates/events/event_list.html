@@ -8,9 +8,12 @@
 {% if perms.events.add_event %}{% url 'events:create' as add_url %}{% endif %}
 <div class="d-flex justify-content-between align-items-center mb-3">
     <h3 class="mb-0">Events</h3>
-    {% if perms.events.add_event %}
-    <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Event</a>
-    {% endif %}
+    <div class="d-flex gap-2">
+        <a href="{% url 'events:calendar' %}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-calendar3 me-1"></i>Calendar</a>
+        {% if perms.events.add_event %}
+        <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Event</a>
+        {% endif %}
+    </div>
 </div>
 
 <div class="card p-3">

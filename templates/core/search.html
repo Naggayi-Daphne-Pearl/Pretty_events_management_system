@@ -1,0 +1,41 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Search{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Search</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-3">{% if q %}Results for “{{ q }}”{% else %}Search{% endif %}</h3>
+{% if not q or q|length < 2 %}
+<div class="card p-4 text-muted">Type at least two characters: a customer or staff name, a phone number, a venue, or a quotation, invoice or receipt number.</div>
+{% elif not sections %}
+<div class="card p-4 text-muted">Nothing matches “{{ q }}”. Try part of a name, or the last digits of a phone number.</div>
+{% else %}
+<div class="row g-3">
+    {% for section in sections %}
+    <div class="col-lg-6">
+        <div class="card p-3 h-100">
+            <h6 class="mb-2"><i class="bi {{ section.icon }} me-2"></i>{{ section.title }} <span class="text-muted fw-normal">({{ section.results|length }}{% if section.results|length == 10 %}+{% endif %})</span></h6>
+            <div class="list-group list-group-flush">
+                {% for obj in section.results %}
+                <a href="{{ obj.get_absolute_url }}" class="list-group-item list-group-item-action px-0 d-flex justify-content-between gap-2">
+                    {% if section.key == 'customers' %}
+                        <span>{{ obj.name }}</span><span class="text-muted small">{{ obj.phone }}</span>
+                    {% elif section.key == 'events' %}
+                        <span>{{ obj.customer.name }} · {{ obj.event_type }}</span><span class="text-muted small">{{ obj.event_date|date:"j M Y" }} · {{ obj.get_status_display }}</span>
+                    {% elif section.key == 'receipts' %}
+                        <span>{{ obj.number }} · {{ obj.payment.invoice.event.customer.name }}</span><span class="text-muted small">{{ CURRENCY }} {{ obj.payment.amount|floatformat:0|intcomma }}</span>
+                    {% elif section.key == 'staff' %}
+                        <span>{{ obj.full_name }}</span><span class="text-muted small">{{ obj.phone }}</span>
+                    {% else %}
+                        <span>{{ obj.number }} · {{ obj.event.customer.name }}</span><span class="text-muted small">{{ obj.get_status_display }}</span>
+                    {% endif %}
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+{% endblock %}

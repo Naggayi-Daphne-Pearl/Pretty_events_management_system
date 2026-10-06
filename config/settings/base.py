@@ -26,6 +26,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'django.contrib.humanize',
+    'django_tasks_db',
 
     'core',
     'customers',
@@ -89,13 +90,41 @@ USE_TZ = True
 
 STATIC_URL = 'static/'
 STATIC_ROOT = BASE_DIR / 'staticfiles'
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+# Django 5.1+ only reads STORAGES (the old STATICFILES_STORAGE setting is ignored).
+# Production swaps in WhiteNoise's hashed + compressed storage; it needs collectstatic
+# to have run, which dev and the test runner don't do.
+STORAGES = {
+    'default': {'BACKEND': 'django.core.files.storage.FileSystemStorage'},
+    'staticfiles': {'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage'},
+}
 # Brand assets (logo, etc.) live under assets/ at the repo root; expose them to
 # {% static %} without duplicating the files into a separate static/ folder.
 STATICFILES_DIRS = [BASE_DIR / 'assets']
 
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
+
+# Uploaded files (receipt photos, equipment images, ...). Railway's disk is wiped on every
+# deploy, so production should keep them in object storage: set MEDIA_BUCKET and the keys
+# below. Works with AWS S3 and Cloudflare R2 (set MEDIA_ENDPOINT_URL to the R2 endpoint).
+# Files stay private; links to them are signed and expire after MEDIA_URL_EXPIRE_SECONDS.
+MEDIA_BUCKET = env('MEDIA_BUCKET', default='')
+if MEDIA_BUCKET:
+    STORAGES['default'] = {
+        'BACKEND': 'storages.backends.s3.S3Storage',
+        'OPTIONS': {
+            'bucket_name': MEDIA_BUCKET,
+            'endpoint_url': env('MEDIA_ENDPOINT_URL', default='') or None,
+            'access_key': env('MEDIA_ACCESS_KEY_ID', default=''),
+            'secret_key': env('MEDIA_SECRET_ACCESS_KEY', default=''),
+            'region_name': env('MEDIA_REGION', default='auto'),
+            'location': 'media',
+            'default_acl': None,
+            'querystring_auth': True,
+            'querystring_expire': env.int('MEDIA_URL_EXPIRE_SECONDS', default=3600),
+            'file_overwrite': False,
+        },
+    }
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
@@ -107,6 +136,17 @@ LOGOUT_REDIRECT_URL = 'login'
 AUTHENTICATION_BACKENDS = ['core.auth.EmailBackend']
 
 # Sessions expire after 30 minutes of inactivity; each request resets the clock...
+# Background tasks (billing.tasks: emailing PDFs). Off by default: tasks run inside the
+# request like ordinary code. Set TASK_WORKER_ENABLED=True only once a worker process
+# (`python manage.py db_worker`) is running too, or queued emails will never go out.
+TASK_WORKER_ENABLED = env.bool('TASK_WORKER_ENABLED', default=False)
+TASKS = {
+    'default': {
+        'BACKEND': 'django_tasks_db.DatabaseBackend' if TASK_WORKER_ENABLED
+        else 'django.tasks.backends.immediate.ImmediateBackend',
+    },
+}
+
 SESSION_COOKIE_AGE = 30 * 60
 SESSION_SAVE_EVERY_REQUEST = True
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
@@ -122,6 +162,10 @@ PASSWORD_RESET_TIMEOUT = 3 * 24 * 60 * 60
 
 # Single currency for Phase 1 (confirmed default: UGX only, no multi-currency).
 CURRENCY = 'UGX'
+# How long a document link sent to a client (WhatsApp) keeps working.
+SHARE_LINK_DAYS = env.int('SHARE_LINK_DAYS', default=30)
+# Shared secret for signing mobile money webhooks (billing.mobile_money). Empty = endpoint off.
+MOBILE_MONEY_WEBHOOK_SECRET = env('MOBILE_MONEY_WEBHOOK_SECRET', default='')
 
 # Country code assumed for locally-typed phone numbers (e.g. 0772...) when building
 # WhatsApp click-to-chat and call links. Numbers typed with +/00 keep their own.

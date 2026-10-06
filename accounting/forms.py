@@ -6,6 +6,7 @@ from django.utils import timezone
 
 from core.forms import BootstrapFieldsMixin, BootstrapModelForm
 
+from .locks import OpenPeriodFormMixin
 from .models import Account, JournalEntry
 from .services import validate_lines
 
@@ -33,7 +34,7 @@ class AccountForm(BootstrapModelForm):
             self.fields['is_active'].help_text = 'The app posts to this account automatically, so it must stay active.'
 
 
-class JournalEntryForm(BootstrapModelForm):
+class JournalEntryForm(OpenPeriodFormMixin, BootstrapModelForm):
     class Meta:
         model = JournalEntry
         fields = ['date', 'source', 'reference', 'memo']
@@ -93,7 +94,7 @@ def lines_initial(entry):
             for l in entry.lines.select_related('account')]
 
 
-class TransferForm(BootstrapFieldsMixin, forms.Form):
+class TransferForm(OpenPeriodFormMixin, BootstrapFieldsMixin, forms.Form):
     """Move money between two cash/bank/mobile-money accounts (e.g. banking the day's cash)."""
     from_account = forms.ModelChoiceField(queryset=Account.objects.none(), label='From')
     to_account = forms.ModelChoiceField(queryset=Account.objects.none(), label='To')
@@ -115,7 +116,7 @@ class TransferForm(BootstrapFieldsMixin, forms.Form):
         return cleaned
 
 
-class AccountEntryForm(BootstrapFieldsMixin, forms.Form):
+class AccountEntryForm(OpenPeriodFormMixin, BootstrapFieldsMixin, forms.Form):
     """
     Quick manual entry against one account, from that account's ledger page. The
     other side goes to `offset_account`, so the result is always a balanced

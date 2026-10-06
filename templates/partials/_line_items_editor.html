@@ -65,7 +65,7 @@
         var info = equipmentMap[select.value];
         var qty = parseFloat(qtyInput.value);
         if (info && !isNaN(qty) && qty > info.available) {
-            warning.textContent = 'Only ' + info.available + ' ' + info.unit + ' available right now';
+            warning.textContent = 'Only ' + info.available + ' ' + info.unit + ' available ' + (info.when || 'right now');
             warning.hidden = false;
         } else {
             warning.hidden = true;
@@ -111,13 +111,13 @@
             var idInput = row.querySelector('[name$="-id"]');
             var deleteInput = row.querySelector('[name$="-DELETE"]');
             if (idInput && idInput.value && deleteInput) {
-                // Already-saved line item: the DELETE checkbox has to stay in
-                // the submitted form (checked) so the server deletes it on
-                // save, but the row itself doesn't — move the checkbox out to
-                // a holder first, then remove the row outright so it visibly
-                // disappears immediately instead of relying on a `hidden`
-                // attribute the row might not actually collapse under.
+                // Already-saved line item: its id and the checked DELETE box have
+                // to stay in the submitted form so the server knows which line to
+                // delete, but the row itself doesn't. Move both out to a holder,
+                // then remove the row so it disappears immediately. (A removed
+                // unsaved row posts nothing and the server ignores it.)
                 deleteInput.checked = true;
+                removedHolder.appendChild(idInput);
                 removedHolder.appendChild(deleteInput);
             }
             row.remove();

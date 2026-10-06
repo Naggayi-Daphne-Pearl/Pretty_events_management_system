@@ -1,13 +1,66 @@
 from decimal import Decimal
 
 from django.conf import settings
-from django.db import models
+from django.db import IntegrityError, models, transaction
 from django.urls import reverse
 from django.utils import timezone
 
 from core.models import TimeStampedModel
 from events.models import Event
 from inventory.models import EquipmentItem
+
+
+class DocumentSequence(models.Model):
+    """
+    The last number issued per document type and year (QUO-2026-00001, ...). Numbers
+    restart at 1 each year and are taken inside the saving transaction with the row
+    locked, so two people saving at once can't get the same number and a save that
+    fails doesn't burn one (unlike a database id, which leaves a gap).
+    """
+    prefix = models.CharField(max_length=10)
+    year = models.PositiveIntegerField()
+    last_number = models.PositiveIntegerField(default=0)
+
+    class Meta:
+        unique_together = ('prefix', 'year')
+
+    def __str__(self):
+        return f'{self.prefix}-{self.year}: {self.last_number}'
+
+    @classmethod
+    def next_number(cls, prefix, model):
+        """Format and reserve the next number. Must run inside the transaction that saves the document."""
+        year = timezone.localdate().year
+        with transaction.atomic():
+            seq = cls.objects.select_for_update().filter(prefix=prefix, year=year).first()
+            if seq is None:
+                # First document of the year: carry on from any numbers already issued
+                # under the old id-based scheme so nothing is ever reused.
+                existing = model.objects.filter(number__startswith=f'{prefix}-{year}-').values_list('number', flat=True)
+                start = max((int(n.rsplit('-', 1)[1]) for n in existing if n.rsplit('-', 1)[1].isdigit()), default=0)
+                try:
+                    with transaction.atomic():
+                        seq = cls.objects.create(prefix=prefix, year=year, last_number=start)
+                except IntegrityError:  # someone else created it first
+                    seq = cls.objects.select_for_update().get(prefix=prefix, year=year)
+            seq.last_number += 1
+            seq.save(update_fields=['last_number'])
+        return f'{prefix}-{year}-{seq.last_number:05d}'
+
+
+class NumberedDocumentMixin(models.Model):
+    """Gives a document its yearly number when first saved. Subclasses set NUMBER_PREFIX."""
+    NUMBER_PREFIX = ''
+
+    class Meta:
+        abstract = True
+
+    def save(self, *args, **kwargs):
+        if not self.number:
+            with transaction.atomic():
+                self.number = DocumentSequence.next_number(self.NUMBER_PREFIX, type(self))
+                return super().save(*args, **kwargs)
+        return super().save(*args, **kwargs)
 
 
 class LineItemMixin(models.Model):
@@ -35,7 +88,9 @@ class LineItemMixin(models.Model):
         return total.quantize(Decimal('0.01'))
 
 
-class Quotation(TimeStampedModel):
+class Quotation(NumberedDocumentMixin, TimeStampedModel):
+    NUMBER_PREFIX = 'QUO'
+
     class Status(models.TextChoices):
         DRAFT = 'draft', 'Draft'
         SENT = 'sent', 'Sent'
@@ -62,13 +117,6 @@ class Quotation(TimeStampedModel):
     def get_absolute_url(self):
         return reverse('billing:quotation_detail', args=[self.pk])
 
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        if is_new and not self.number:
-            self.number = f'QUO-{self.created_at.year}-{self.pk:05d}'
-            super().save(update_fields=['number'])
-
     @property
     def subtotal(self):
         return sum((item.line_total for item in self.line_items.all()), Decimal('0'))
@@ -89,7 +137,9 @@ class QuotationLineItem(LineItemMixin):
         return self.description
 
 
-class Invoice(TimeStampedModel):
+class Invoice(NumberedDocumentMixin, TimeStampedModel):
+    NUMBER_PREFIX = 'INV'
+
     class Status(models.TextChoices):
         UNPAID = 'unpaid', 'Unpaid'
         PARTIALLY_PAID = 'partially_paid', 'Partially Paid'
@@ -120,13 +170,6 @@ class Invoice(TimeStampedModel):
     def get_absolute_url(self):
         return reverse('billing:invoice_detail', args=[self.pk])
 
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        if is_new and not self.number:
-            self.number = f'INV-{self.created_at.year}-{self.pk:05d}'
-            super().save(update_fields=['number'])
-
     @property
     def subtotal(self):
         return sum((item.line_total for item in self.line_items.all()), Decimal('0'))
@@ -143,18 +186,28 @@ class Invoice(TimeStampedModel):
     def balance_due(self):
         return self.total - self.amount_paid
 
+    @property
+    def is_past_due(self):
+        return bool(self.due_date) and self.due_date < timezone.localdate()
+
     def refresh_status(self):
-        """Recompute payment status from recorded payments. Call after saving a payment."""
+        """
+        Recompute status from recorded payments and the due date. Call after saving a
+        payment or editing the invoice; `sync_invoice_statuses` runs it for invoices
+        that fall past due with no one touching them.
+        """
         if self.status == self.Status.CANCELLED:
             return
         paid = self.amount_paid
         total = self.total
-        if paid <= 0:
-            new_status = self.Status.UNPAID
-        elif paid < total:
+        if paid >= total and total > 0:
+            new_status = self.Status.PAID
+        elif self.is_past_due:
+            new_status = self.Status.OVERDUE
+        elif paid > 0:
             new_status = self.Status.PARTIALLY_PAID
         else:
-            new_status = self.Status.PAID
+            new_status = self.Status.UNPAID
         if new_status != self.status:
             self.status = new_status
             self.save(update_fields=['status'])
@@ -228,7 +281,9 @@ class Payment(TimeStampedModel):
                 Receipt.objects.create(payment=self)
 
 
-class Receipt(TimeStampedModel):
+class Receipt(NumberedDocumentMixin, TimeStampedModel):
+    NUMBER_PREFIX = 'RCT'
+
     number = models.CharField(max_length=20, unique=True, blank=True)
     payment = models.OneToOneField(Payment, on_delete=models.CASCADE, related_name='receipt')
     issued_at = models.DateField(default=timezone.localdate)
@@ -242,9 +297,40 @@ class Receipt(TimeStampedModel):
     def get_absolute_url(self):
         return reverse('billing:receipt_detail', args=[self.pk])
 
-    def save(self, *args, **kwargs):
-        is_new = self.pk is None
-        super().save(*args, **kwargs)
-        if is_new and not self.number:
-            self.number = f'RCT-{self.created_at.year}-{self.pk:05d}'
-            super().save(update_fields=['number'])
+
+class MobileMoneyTransaction(TimeStampedModel):
+    """
+    One incoming mobile money payment reported by the provider's webhook (see
+    billing.mobile_money). Payments whose reference names an invoice are recorded
+    automatically; the rest wait on the Mobile Money page for staff to allocate.
+    The provider's transaction id is unique, so a repeated webhook can't pay twice.
+    """
+    class Status(models.TextChoices):
+        MATCHED = 'matched', 'Recorded on invoice'
+        UNMATCHED = 'unmatched', 'Needs allocating'
+        IGNORED = 'ignored', 'Ignored'
+
+    provider = models.CharField(max_length=20)
+    transaction_id = models.CharField(max_length=100)
+    amount = models.DecimalField(max_digits=14, decimal_places=2)
+    currency = models.CharField(max_length=3, default='UGX')
+    payer_phone = models.CharField(max_length=30, blank=True)
+    payer_name = models.CharField(max_length=150, blank=True)
+    reference = models.CharField(max_length=255, blank=True, help_text='What the payer typed as the reason/reference.')
+    received_at = models.DateTimeField(default=timezone.now)
+    status = models.CharField(max_length=20, choices=Status.choices, default=Status.UNMATCHED)
+    payment = models.OneToOneField(
+        Payment, on_delete=models.SET_NULL, null=True, blank=True, related_name='mobile_money_transaction',
+    )
+    allocated_by = models.ForeignKey(
+        settings.AUTH_USER_MODEL, on_delete=models.SET_NULL, null=True, blank=True, related_name='+',
+        help_text='Staff member who matched it to an invoice (blank when matched automatically).',
+    )
+    raw = models.JSONField(default=dict, blank=True, help_text='The webhook body as received, for audit.')
+
+    class Meta:
+        ordering = ['-received_at']
+        unique_together = ('provider', 'transaction_id')
+
+    def __str__(self):
+        return f'{self.provider.upper()} {self.transaction_id} ({self.currency} {self.amount:,.0f})'

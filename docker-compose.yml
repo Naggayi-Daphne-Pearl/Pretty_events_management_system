@@ -9,6 +9,15 @@ services:
     expose:
       - "8000"
 
+  # Sends queued emails when TASK_WORKER_ENABLED=True (idle otherwise).
+  worker:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    command: ["./entrypoint.sh", "worker"]
+    depends_on:
+      - web
+
   nginx:
     image: nginx:1.27-alpine
     restart: unless-stopped

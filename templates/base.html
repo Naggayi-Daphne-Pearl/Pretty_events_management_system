@@ -103,6 +103,22 @@
             backdrop-filter: blur(var(--blur));
             -webkit-backdrop-filter: blur(var(--blur));
         }
+        .sidebar { width: 240px; flex-shrink: 0; }
+        @media (min-width: 768px) {
+            /* offcanvas-md forces a transparent background from md up; keep the glass panel. */
+            .sidebar.offcanvas-md { background: var(--panel) !important; position: sticky; top: 0; height: 100vh; }
+        }
+        @media (max-width: 767.98px) {
+            .sidebar.offcanvas-md { width: 280px; background: var(--menu-bg); min-height: 0; }
+            .topbar-search { width: auto; flex: 1 1 auto; min-width: 0; }
+            /* Wide tables scroll sideways inside their card instead of stretching the page. */
+            main .table { display: block; overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: nowrap; }
+        }
+        .topbar-menu {
+            width: 40px; height: 40px; padding: 0; font-size: 22px; line-height: 1; flex-shrink: 0;
+            background: var(--panel); border: 1px solid var(--border); color: var(--text-1);
+        }
+        .topbar-menu:hover { background: var(--gold-soft); color: var(--text-1); }
         .sidebar-brand-mark {
             width: 34px; height: 34px; border-radius: 10px;
             background: linear-gradient(150deg, var(--gold), #8a6530);
@@ -267,18 +283,30 @@
         .page-link:focus { box-shadow: 0 0 0 .2rem var(--gold-soft); }
         .list-group-item { background: transparent; border-color: var(--border); color: var(--text-1); }
 
-        main { background: transparent; }
+        /* min-width: 0 lets the flex child shrink below its content, so wide tables scroll
+           inside main instead of widening the whole page on phones. */
+        main { background: transparent; min-width: 0; }
+        /* Save/Cancel on long forms (line-item editors) stay on screen while scrolling. */
+        .form-actions {
+            position: sticky; bottom: 0; z-index: 5; display: flex; flex-wrap: wrap; gap: 8px;
+            margin: 0 -8px; padding: 10px 8px; background: var(--menu-bg); border-top: 1px solid var(--border);
+            border-radius: 12px 12px 0 0; box-shadow: 0 -8px 20px rgba(0,0,0,0.06);
+        }
     </style>
     {% block extra_head %}{% endblock %}
 </head>
 <body>
 {% if user.is_authenticated and not auth_page %}
 <div class="d-flex">
-    <nav class="sidebar d-none d-md-flex flex-column p-3" style="width: 240px;">
-        <a href="{% url 'dashboard' %}" class="text-decoration-none d-flex align-items-center gap-2 mb-4 px-1">
-            <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo">
-            <div class="sidebar-brand-sub">operations</div>
-        </a>
+    {# offcanvas-md: a fixed sidebar from md up, a slide-out drawer (opened from the topbar's menu button) below it. #}
+    <nav class="sidebar offcanvas-md offcanvas-start d-flex flex-column p-3" id="pe-sidebar" tabindex="-1" aria-label="Main menu">
+        <div class="d-flex align-items-center justify-content-between mb-4 px-1">
+            <a href="{% url 'dashboard' %}" class="text-decoration-none d-flex align-items-center gap-2">
+                <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="sidebar-brand-logo">
+                <div class="sidebar-brand-sub">operations</div>
+            </a>
+            <button type="button" class="btn-close d-md-none" data-bs-dismiss="offcanvas" data-bs-target="#pe-sidebar" aria-label="Close menu"></button>
+        </div>
         <div class="sidebar-scroll">
         <ul class="nav nav-pills flex-column gap-1">
             <li class="nav-item"><a href="{% url 'dashboard' %}" class="nav-link {% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}"><i class="bi bi-speedometer2 me-2"></i>Dashboard</a></li>
@@ -295,7 +323,8 @@
                 <li class="nav-item"><a href="{% url 'customers:list' %}" class="nav-link {% if request.resolver_match.app_name == 'customers' %}active{% endif %}"><i class="bi bi-people me-2"></i>Customers</a></li>
                 {% endif %}
                 {% if perms.events.view_event %}
-                <li class="nav-item"><a href="{% url 'events:list' %}" class="nav-link {% if request.resolver_match.app_name == 'events' %}active{% endif %}"><i class="bi bi-calendar-event me-2"></i>Events</a></li>
+                <li class="nav-item"><a href="{% url 'events:calendar' %}" class="nav-link {% if request.resolver_match.app_name == 'events' and request.resolver_match.url_name == 'calendar' %}active{% endif %}"><i class="bi bi-calendar3 me-2"></i>Calendar</a></li>
+                <li class="nav-item"><a href="{% url 'events:list' %}" class="nav-link {% if request.resolver_match.app_name == 'events' and request.resolver_match.url_name != 'calendar' %}active{% endif %}"><i class="bi bi-calendar-event me-2"></i>Events</a></li>
                 {% endif %}
                 {% if perms.comms.view_communicationlog %}
                 <li class="nav-item"><a href="{% url 'comms:list' %}" class="nav-link {% if request.resolver_match.app_name == 'comms' %}active{% endif %}"><i class="bi bi-chat-dots me-2"></i>Communication</a></li>
@@ -319,6 +348,9 @@
                 {% endif %}
                 {% if perms.billing.view_receipt %}
                 <li class="nav-item"><a href="{% url 'billing:receipt_list' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'receipt' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-receipt-cutoff me-2"></i>Receipts</a></li>
+                {% endif %}
+                {% if perms.billing.view_payment %}
+                <li class="nav-item"><a href="{% url 'billing:mobile_money' %}" class="nav-link {% if request.resolver_match.app_name == 'billing' and 'mobile_money' in request.resolver_match.url_name %}active{% endif %}"><i class="bi bi-phone me-2"></i>Mobile Money</a></li>
                 {% endif %}
                 {% if perms.finance.view_incomerecord or perms.finance.view_expenserecord %}
                 <li class="nav-item"><a href="{% url 'finance:summary' %}" class="nav-link {% if request.resolver_match.app_name == 'finance' %}active{% endif %}"><i class="bi bi-cash-coin me-2"></i>Finance</a></li>
@@ -358,6 +390,9 @@
                 {% endif %}
                 {% if perms.accounting.view_journalentry %}
                 <li class="nav-item"><a href="{% url 'accounting:journal_list' %}" class="nav-link {% if in_acc == 'accounting' and 'journal' in url_name %}active{% endif %}"><i class="bi bi-journal-text me-2"></i>Journals</a></li>
+                {% if perms.accounting.view_periodclose %}
+                <li class="nav-item"><a href="{% url 'accounting:period_close' %}" class="nav-link {% if in_acc == 'accounting' and url_name == 'period_close' %}active{% endif %}"><i class="bi bi-lock me-2"></i>Close the Books</a></li>
+                {% endif %}
                 <li class="nav-item"><a href="{% url 'accounting:reports' %}" class="nav-link {% if in_acc == 'accounting' and url_name in 'reports,trial_balance,income_statement,balance_sheet' %}active{% endif %}"><i class="bi bi-bar-chart-line me-2"></i>Financial Reports</a></li>
                 {% endif %}
                 {% endwith %}
@@ -393,12 +428,13 @@
     </nav>
     <main class="flex-grow-1 p-3 p-md-4">
         <div class="topbar">
-            {% if perms.customers.view_customer %}
-            <form action="{% url 'customers:list' %}" method="get" class="topbar-search">
+            <button type="button" class="btn topbar-menu d-md-none me-auto" data-bs-toggle="offcanvas" data-bs-target="#pe-sidebar" aria-controls="pe-sidebar" aria-label="Open menu">
+                <i class="bi bi-list"></i>
+            </button>
+            <form action="{% url 'search' %}" method="get" class="topbar-search" role="search">
                 <i class="bi bi-search"></i>
-                <input type="text" name="q" placeholder="Search customers…">
+                <input type="search" name="q" value="{% if request.resolver_match.url_name == 'search' %}{{ q }}{% endif %}" placeholder="Search names, phones, numbers…" aria-label="Search">
             </form>
-            {% endif %}
             <div class="dropdown">
                 <button type="button" class="avatar btn p-0" data-bs-toggle="dropdown" aria-expanded="false" title="{{ user.get_full_name|default:user.username }}">
                     {{ user.username|slice:":2"|upper }}

@@ -4,6 +4,7 @@ from django.contrib.auth.decorators import login_required, permission_required
 from django.shortcuts import render
 
 from billing.models import Invoice
+from billing.services import sync_invoice_statuses
 from events.models import Event
 from inventory.models import EquipmentItem
 
@@ -36,9 +37,10 @@ def event_summary(request):
 @login_required
 @permission_required('billing.view_invoice', raise_exception=True)
 def outstanding_payments(request):
+    sync_invoice_statuses()
     invoices = Invoice.objects.exclude(
         status__in=[Invoice.Status.PAID, Invoice.Status.CANCELLED],
-    ).select_related('event__customer').order_by('due_date')
+    ).select_related('event__customer').prefetch_related('line_items', 'payments').order_by('due_date')
     total_outstanding = sum((inv.balance_due for inv in invoices), 0)
     return render(request, 'reports/outstanding_payments.html', {
         'invoices': invoices,
@@ -49,5 +51,5 @@ def outstanding_payments(request):
 @login_required
 @permission_required('inventory.view_equipmentitem', raise_exception=True)
 def inventory_summary(request):
-    items = EquipmentItem.objects.select_related('category').all()
+    items = EquipmentItem.objects.select_related('category').with_availability()
     return render(request, 'reports/inventory_summary.html', {'items': items})

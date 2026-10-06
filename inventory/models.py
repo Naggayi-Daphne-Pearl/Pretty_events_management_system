@@ -1,6 +1,7 @@
 from django.conf import settings
 from django.db import models
-from django.db.models import Sum
+from django.db.models import F, OuterRef, Subquery, Sum
+from django.db.models.functions import Coalesce
 from django.urls import reverse
 
 from core.models import TimeStampedModel
@@ -18,6 +19,28 @@ class EquipmentCategory(TimeStampedModel):
         return self.name
 
 
+class EquipmentItemQuerySet(models.QuerySet):
+    def with_availability(self):
+        """
+        Annotate `issued_out` (issued and not yet returned) in SQL, so listing many
+        items doesn't run queries per item. `quantity_issued`/`available_quantity` use
+        it when present.
+        """
+        issued = EquipmentIssue.objects.filter(equipment_item=OuterRef('pk')).order_by().values(
+            'equipment_item').annotate(total=Sum('quantity_issued')).values('total')
+        returned = EquipmentReturn.objects.filter(issue__equipment_item=OuterRef('pk')).order_by().values(
+            'issue__equipment_item').annotate(total=Sum('quantity_returned')).values('total')
+        return self.annotate(issued_out=(
+            Coalesce(Subquery(issued, output_field=models.IntegerField()), 0)
+            - Coalesce(Subquery(returned, output_field=models.IntegerField()), 0)
+        ))
+
+    def low_stock(self, threshold=5):
+        return self.with_availability().annotate(
+            available=F('total_quantity') - F('issued_out'),
+        ).filter(available__lte=threshold).order_by('available', 'name')
+
+
 class EquipmentItem(TimeStampedModel):
     name = models.CharField(max_length=150)
     category = models.ForeignKey(
@@ -31,6 +54,8 @@ class EquipmentItem(TimeStampedModel):
     )
     notes = models.TextField(blank=True)
 
+    objects = EquipmentItemQuerySet.as_manager()
+
     class Meta:
         ordering = ['name']
 
@@ -42,6 +67,8 @@ class EquipmentItem(TimeStampedModel):
 
     @property
     def quantity_issued(self):
+        if hasattr(self, 'issued_out'):
+            return self.issued_out
         outstanding = self.issues.select_related(None).all()
         total_issued = 0
         for issue in outstanding:

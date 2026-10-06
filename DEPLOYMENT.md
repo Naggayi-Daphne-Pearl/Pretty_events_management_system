@@ -78,6 +78,35 @@ Just `git push` to `main` — Railway watches the connected branch and
 redeploys automatically on every push (including running the entrypoint
 steps again).
 
+### 8. Daily jobs (cron)
+
+Two commands keep date-driven statuses right even on days nobody opens the
+dashboard. Both are safe to run any time:
+
+| Command | What it does |
+|---|---|
+| `python manage.py sync_event_statuses` | Confirmed → In Progress → Completed by event date (and equipment returned) |
+| `python manage.py sync_invoice_statuses` | Marks unpaid invoices past their due date as Overdue |
+
+On Railway: **+ New → Empty Service** from the same repo, set the same
+variables, and under **Settings → Cron Schedule** use `0 4 * * *` (07:00
+Kampala) with start command
+`python manage.py sync_event_statuses && python manage.py sync_invoice_statuses`.
+(Both also run automatically when the dashboard or lists are opened.)
+
+### 9. Background email worker (optional)
+
+Off by default: emails send inside the request, as before. To move them to the
+background (so a slow mail server can't hit gunicorn's 30-second timeout):
+
+1. **+ New → GitHub Repo** (same repo) to add a second service, give it the same
+   variables as the web service, and set its **Custom Start Command** to
+   `./entrypoint.sh worker`.
+2. Then set `TASK_WORKER_ENABLED=True` on **both** services.
+
+Never turn the flag on without the worker running: queued emails would wait
+forever. Failed sends show in the Activity Log as `…email_failed`.
+
 ### Cost
 
 Railway bills usage-based on top of a plan (Hobby: $5/month base, which

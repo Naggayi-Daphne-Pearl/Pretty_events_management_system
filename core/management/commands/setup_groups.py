@@ -1,7 +1,7 @@
 from django.contrib.auth.models import Group, Permission
 from django.core.management.base import BaseCommand
 
-from accounting.models import Account, JournalEntry
+from accounting.models import Account, JournalEntry, PeriodClose
 from billing.models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem, Receipt
 from comms.models import CommunicationLog
 from customers.models import Customer
@@ -72,7 +72,7 @@ class Command(BaseCommand):
         # Accountant: runs the books. Full accounting + income/expense records, and
         # read-only access to the operational records the books are built from.
         accountant_group, _ = Group.objects.get_or_create(name='Accountant')
-        accountant_perms = list(perms_for(Account)) + list(perms_for(JournalEntry))
+        accountant_perms = list(perms_for(Account)) + list(perms_for(JournalEntry)) + list(perms_for(PeriodClose))
         for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
             accountant_perms += list(perms_for(model))
         for model in (Customer, Event, Quotation, Invoice, Payment, Receipt):

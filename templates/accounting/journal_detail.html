@@ -10,12 +10,28 @@
         <h3 class="mb-0">Journal {{ object.number }}</h3>
         <span class="badge bg-secondary badge-status">{{ object.get_source_display }}</span>
     </div>
-    <div class="d-flex gap-1">
-        {% if not object.is_auto and perms.accounting.change_journalentry and object.source != 'transfer' %}<a href="{% url 'accounting:journal_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
-        {% if not object.is_auto and perms.accounting.delete_journalentry %}<a href="{% url 'accounting:journal_delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>{% endif %}
+    <div class="d-flex gap-1 flex-wrap align-items-center">
+        {% if editable and perms.accounting.change_journalentry and object.source != 'transfer' %}<a href="{% url 'accounting:journal_update' object.pk %}" class="btn btn-outline-secondary btn-sm">Edit</a>{% endif %}
+        {% if object.can_be_reversed and perms.accounting.add_journalentry %}
+        <form method="post" action="{% url 'accounting:journal_reverse' object.pk %}" class="d-flex gap-1 align-items-center">
+            {% csrf_token %}
+            <input type="date" name="date" value="{% now 'Y-m-d' %}" class="form-control form-control-sm" style="width: auto;" aria-label="Reversal date">
+            <button type="submit" class="btn btn-outline-secondary btn-sm" title="Post an opposite entry on this date. The original stays as it is.">Reverse</button>
+        </form>
+        {% endif %}
+        {% if editable and perms.accounting.delete_journalentry %}<a href="{% url 'accounting:journal_delete' object.pk %}" class="btn btn-outline-danger btn-sm">Delete</a>{% endif %}
     </div>
 </div>
 {% include "partials/_audit_trail.html" %}
+{% if locked %}
+<div class="alert alert-info py-2 small"><i class="bi bi-lock me-1"></i>This entry is in a closed period (books closed through {{ locked_through|date:"d M Y" }}), so it can't be changed or deleted.{% if object.can_be_reversed %} To correct it, reverse it with a date after that.{% endif %}</div>
+{% endif %}
+{% if object.is_reversed %}
+<div class="alert alert-warning py-2 small"><i class="bi bi-arrow-counterclockwise me-1"></i>Reversed by <a href="{{ object.reversed_by.get_absolute_url }}">{{ object.reversed_by.number }}</a> on {{ object.reversed_by.date|date:"d M Y" }}{% if object.reversed_by.created_by %} by {{ object.reversed_by.created_by.get_full_name|default:object.reversed_by.created_by.email }}{% endif %} ({{ object.reversed_by.created_at|date:"d M Y H:i" }}).</div>
+{% endif %}
+{% if object.reverses %}
+<div class="alert alert-info py-2 small"><i class="bi bi-arrow-counterclockwise me-1"></i>This entry reverses <a href="{{ object.reverses.get_absolute_url }}">{{ object.reverses.number }}</a>.</div>
+{% endif %}
 {% if object.is_auto %}
 <div class="alert alert-info py-2 small">
     Created automatically from

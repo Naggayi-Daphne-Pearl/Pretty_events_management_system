@@ -49,8 +49,10 @@
             <td class="text-center"><span class="d-none">{{ formset.empty_form.DELETE }}</span><button type="button" class="btn btn-sm btn-outline-danger jl-remove" title="Remove line"><i class="bi bi-trash"></i></button></td>
         </tr></template>
     </div>
-    <button type="submit" class="btn btn-primary">Save journal</button>
-    <a href="{% if object %}{% url 'accounting:journal_detail' object.pk %}{% else %}{% url 'accounting:journal_list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Save journal</button>
+        <a href="{% if object %}{% url 'accounting:journal_detail' object.pk %}{% else %}{% url 'accounting:journal_list' %}{% endif %}" class="btn btn-outline-secondary">Cancel</a>
+    </div>
 </form>
 <script>
 (function () {

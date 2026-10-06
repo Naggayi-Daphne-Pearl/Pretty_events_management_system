@@ -17,6 +17,7 @@ from customers.models import Customer
 
 from .forms import CommunicationLogForm
 from .models import CommunicationLog
+from billing.sharing import share_url
 from .outreach import call_url, default_message, email_url, whatsapp_url
 
 
@@ -148,6 +149,9 @@ def contact_customer(request, customer_pk, channel):
     text = default_message(customer, event=event, document=document)
 
     if channel == CommunicationLog.Channel.WHATSAPP:
+        if document:
+            # The client can't log in, so send a signed link to the PDF itself.
+            text += f' View or download it here: {share_url(request, document)}'
         target = whatsapp_url(customer.phone, text)
         note = f'Started a WhatsApp chat from the app: "{text}"'
     elif channel == CommunicationLog.Channel.CALL:
