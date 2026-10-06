@@ -60,11 +60,23 @@ closes, and in any case 12 hours after login (`SESSION_MAX_AGE_HOURS`). Five wro
 passwords lock that email out for 15 minutes. 
 ## Roles
 
-Run `python manage.py setup_groups` to create the three Phase 1 groups
-(`Admin`, `Office Staff`, `Field Staff`, `Accountant`) with model permissions already
-assigned. Assign users to a group from `/admin/` (Users → edit → Groups).
-Field Staff additionally only see events/issues they're assigned to — that
-row-level scoping lives in view querysets, not just group permissions.
+`python manage.py setup_groups` (run automatically on every deploy) creates four
+starter roles, `Admin`, `Office Staff`, `Field Staff` and `Accountant`, with sensible
+permissions. Each default is applied only once, so roles and permissions changed
+in **Administration → Roles & permissions** are kept on later deploys; `--reset`
+puts the starter roles back. Give someone a role when creating their login on the
+**Staff** page. Field Staff only see events they're assigned to (the
+`view_assigned_events_only` permission, enforced in the views), and record loading
+and returns from each event's phone job sheet.
+
+## Daily jobs, taxes and other setup
+
+- **Daily jobs** (event statuses, overdue invoices) run on the first request each
+  day; no cron is required (see `DEPLOYMENT.md` §8).
+- **Taxes** are set up under **Finance → Taxes** and chosen per quotation/invoice.
+  Tax collected on payments posts to Taxes Payable (2100), not income.
+- **Clearing test data** before go-live: `python manage.py reset_business_data`
+  (dry run), then `--confirm`.
 
 ## Deployment
 
