@@ -1184,7 +1184,7 @@ class NavigationTests(BaseDataMixin, TestCase):
 class ThemeAndLoginPageTests(TestCase):
     def test_login_page_has_no_theme_switch(self):
         response = self.client.get(reverse('login'))
-        self.assertNotContains(response, 'theme-toggle')
+        self.assertNotContains(response, 'data-theme-choice="')  # the Auto/Light/Dark buttons
         self.assertContains(response, 'prefers-color-scheme')  # follows the device instead
         self.assertContains(response, 'password-toggle')        # show/hide button script
 
