@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+{% block title %}{% if object %}Edit Tax{% else %}New Tax{% endif %}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'billing:tax_list' %}">Taxes</a><span class="sep">/</span><span class="current">{% if object %}Edit{% else %}New{% endif %}</span></nav>
+{% endblock %}
+{% block content %}
+<h3 class="mb-3">{% if object %}Edit {{ object.name }}{% else %}New Tax{% endif %}</h3>
+<div class="card p-4" style="max-width: 520px;">
+    {% if object %}<p class="small text-muted">Changing the rate only affects documents created or re-taxed from now on; quotations and invoices already issued keep their rate. To stop using a tax, untick Active instead of deleting it.</p>{% endif %}
+    <form method="post">
+        {% csrf_token %}
+        {% for field in form %}
+            <div class="mb-3{% if field.field.widget.input_type == 'checkbox' %} form-check{% endif %}">
+                {% if field.field.widget.input_type == 'checkbox' %}
+                    {{ field }} <label class="form-check-label" for="{{ field.id_for_label }}">{{ field.label }}</label>
+                {% else %}
+                    <label class="form-label" for="{{ field.id_for_label }}">{{ field.label }}{% if field.field.required %} <span class="text-danger">*</span>{% endif %}</label>
+                    {{ field }}
+                {% endif %}
+                {% if field.help_text %}<div class="form-text small">{{ field.help_text }}</div>{% endif %}
+                {% if field.errors %}<div class="text-danger small">{{ field.errors }}</div>{% endif %}
+            </div>
+        {% endfor %}
+        <button type="submit" class="btn btn-primary">Save</button>
+        <a href="{% url 'billing:tax_list' %}" class="btn btn-outline-secondary">Cancel</a>
+    </form>
+</div>
+{% endblock %}

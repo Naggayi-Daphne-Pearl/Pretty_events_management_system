@@ -3,7 +3,7 @@ from datetime import date
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth.mixins import LoginRequiredMixin, PermissionRequiredMixin
 from django.contrib.messages.views import SuccessMessageMixin
-from django.db.models import Sum
+from django.db.models import F, Sum
 from django.shortcuts import render
 from django.urls import reverse, reverse_lazy
 from django.views.generic import CreateView, ListView, UpdateView
@@ -116,12 +116,16 @@ def summary(request):
     income_qs = IncomeRecord.objects.filter(date__gte=start, date__lte=end)
     expense_qs = ExpenseRecord.objects.filter(date__gte=start, date__lte=end)
 
-    total_income = income_qs.aggregate(total=Sum('amount'))['total'] or 0
+    # Tax collected on taxed invoices is owed to the government, so it's shown
+    # separately and left out of income.
+    received = income_qs.aggregate(total=Sum('amount'), tax=Sum('tax_amount'))
+    tax_collected = received['tax'] or 0
+    total_income = (received['total'] or 0) - tax_collected
     total_expenses = expense_qs.aggregate(total=Sum('amount'))['total'] or 0
 
     income_by_source = (
         income_qs.values('source')
-        .annotate(total=Sum('amount'))
+        .annotate(total=Sum(F('amount') - F('tax_amount')))
         .order_by('-total')
     )
     source_labels = dict(IncomeRecord.Source.choices)
@@ -138,6 +142,7 @@ def summary(request):
         'start': start,
         'end': end,
         'total_income': total_income,
+        'tax_collected': tax_collected,
         'total_expenses': total_expenses,
         'net': total_income - total_expenses,
         'income_by_source': income_by_source,

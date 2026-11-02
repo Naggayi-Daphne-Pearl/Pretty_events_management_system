@@ -3,6 +3,7 @@ from django.contrib.auth import views as auth_views
 from django.urls import include, path
 
 from core.emailing import email_enabled_required
+from core import pwa
 from core.forms import EmailAuthenticationForm, EmailPasswordResetForm, EmailSetPasswordForm
 from core.views import (
     activity_log, activity_log_export, dashboard, profile, search, role_delete, role_form, role_list, user_send_reset,
@@ -16,6 +17,9 @@ AUTH_PAGE = {'auth_page': True}
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('', dashboard, name='dashboard'),
+    path('manifest.webmanifest', pwa.manifest, name='manifest'),
+    path('sw.js', pwa.service_worker, name='service_worker'),
+    path('offline/', pwa.offline, name='offline'),
     path('login/', auth_views.LoginView.as_view(
         template_name='registration/login.html', authentication_form=EmailAuthenticationForm,
         redirect_authenticated_user=True,

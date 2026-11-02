@@ -70,6 +70,7 @@
         {% for inv in invoices %}{% if inv.balance_due > 0 and inv.status != 'cancelled' and perms.billing.add_payment %}<a href="{% url 'billing:invoice_detail' inv.pk %}#record-payment" class="btn btn-sm btn-outline-primary"><i class="bi bi-cash me-1"></i>Record payment ({{ inv.number }})</a>{% endif %}{% endfor %}
         {% if perms.staffing.add_eventassignment %}<a href="{% url 'staffing:assign' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-person-plus me-1"></i>Assign staff</a>{% endif %}
         {% if perms.inventory.add_equipmentissue %}<a href="{% url 'inventory:issue_create' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-right me-1"></i>Issue equipment</a>{% endif %}
+        <a href="{% url 'events:job' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-phone me-1"></i>Job sheet</a>
         <a href="{% url 'events:packing_list' object.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer me-1"></i>Packing list</a>
         {% if perms.comms.add_communicationlog %}<a href="{% url 'comms:log_create' object.customer.pk %}?event={{ object.pk }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-journal-plus me-1"></i>Log contact</a>{% endif %}
     </div>

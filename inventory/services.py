@@ -167,3 +167,85 @@ def warn_if_short(request, event):
     if shortages:
         parts = ', '.join(f"{s['item'].name} ({s['needed']} booked, {s['available']} free)" for s in shortages)
         messages.warning(request, f'Not enough equipment on these dates: {parts}. See the event page for the clashing bookings.')
+
+
+def job_rows(event):
+    """Per item for an event's job sheet: booked, issued so far, still out."""
+    booked = booked_quantities(event)
+    issued, out = Counter(), Counter()
+    for issue in event.equipment_issues.all():
+        issued[issue.equipment_item_id] += issue.quantity_issued
+        out[issue.equipment_item_id] += issue.quantity_outstanding
+    items = EquipmentItem.objects.filter(pk__in=set(booked) | set(issued)).select_related('category').order_by(
+        'category__name', 'name',
+    )
+    return [
+        {'item': item, 'booked': booked[item.pk], 'issued': issued[item.pk], 'out': out[item.pk],
+         'to_load': max(booked[item.pk] - issued[item.pk], 0)}
+        for item in items
+    ]
+
+
+def load_items(event, quantities, user):
+    """
+    Record equipment going out to `event`: {item_id: qty}. Each quantity must be
+    physically available now. All or nothing; returns a list of problems (empty = saved).
+    """
+    from django.db import transaction
+
+    wanted = {item_id: qty for item_id, qty in quantities.items() if qty > 0}
+    items = EquipmentItem.objects.with_availability().in_bulk(list(wanted))
+    problems = [
+        f'Only {items[item_id].available_quantity} {items[item_id].unit} of {items[item_id].name} are in the store.'
+        for item_id, qty in wanted.items() if item_id in items and qty > items[item_id].available_quantity
+    ]
+    if problems or not wanted:
+        return problems or ['Enter how many of at least one item went out.']
+    today = timezone.localdate()
+    with transaction.atomic():
+        for item_id, qty in wanted.items():
+            EquipmentIssue.objects.create(
+                event=event, equipment_item=items[item_id], quantity_issued=qty, issued_at=today,
+                expected_return_date=event.last_day + timedelta(days=1), issued_by=user,
+            )
+    return []
+
+
+def return_items(event, quantities, user, condition_notes=''):
+    """
+    Record equipment coming back from `event`: {item_id: qty}, spread over that item's
+    outstanding issues oldest first. Returns a list of problems (empty = saved).
+    """
+    from django.db import transaction
+
+    from .models import EquipmentReturn
+
+    wanted = {item_id: qty for item_id, qty in quantities.items() if qty > 0}
+    if not wanted:
+        return ['Enter how many of at least one item came back.']
+    issues = {}
+    for issue in event.equipment_issues.select_related('equipment_item').prefetch_related('returns').order_by('issued_at', 'pk'):
+        if issue.quantity_outstanding > 0:
+            issues.setdefault(issue.equipment_item_id, []).append(issue)
+    problems = []
+    for item_id, qty in wanted.items():
+        out = sum(i.quantity_outstanding for i in issues.get(item_id, []))
+        if qty > out:
+            name = issues[item_id][0].equipment_item.name if item_id in issues else 'that item'
+            problems.append(f'Only {out} of {name} are still out for this event.')
+    if problems:
+        return problems
+    today = timezone.localdate()
+    with transaction.atomic():
+        for item_id, qty in wanted.items():
+            for issue in issues[item_id]:
+                take = min(qty, issue.quantity_outstanding)
+                if take:
+                    EquipmentReturn.objects.create(
+                        issue=issue, quantity_returned=take, returned_at=today,
+                        condition_notes=condition_notes[:255], received_by=user,
+                    )
+                    qty -= take
+                if not qty:
+                    break
+    return []

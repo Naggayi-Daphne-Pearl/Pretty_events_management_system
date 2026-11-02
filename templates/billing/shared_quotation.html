@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% load static humanize %}
+{% block title %}Quotation {{ quotation.number }}{% endblock %}
+{% block auth_content %}
+{# Public page reached from the link in a WhatsApp message: the client can read and accept the quotation. #}
+<div class="d-flex justify-content-center px-3 py-4" style="min-height: 100vh; background: var(--bg);">
+    <div style="width: 100%; max-width: 640px;">
+        <div class="text-center mb-3">
+            <img src="{% static COMPANY_LOGO_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="logo-for-light" style="height: 64px; width: auto;">
+            <img src="{% static COMPANY_LOGO_DARK_STATIC_PATH %}" alt="{{ COMPANY_NAME }}" class="logo-for-dark" style="height: 64px; width: auto;">
+        </div>
+        <div class="card p-4">
+            <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+                <div>
+                    <h3 class="mb-1">Quotation {{ quotation.number }}</h3>
+                    <div class="small text-muted">For {{ quotation.event.customer.name }} · {{ quotation.event.event_type }} on {{ quotation.event.event_date|date:"D j M Y" }}, {{ quotation.event.venue }}</div>
+                    {% if quotation.valid_until %}<div class="small text-muted">Valid until {{ quotation.valid_until|date:"j M Y" }}</div>{% endif %}
+                </div>
+                <a href="{% url 'billing:shared_document_pdf' token %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>
+            </div>
+            <table class="table table-sm">
+                <thead><tr><th>Item</th><th class="text-end">Qty</th><th class="text-end">Rate</th><th class="text-end">Amount</th></tr></thead>
+                <tbody>
+                {% for item in quotation.line_items.all %}
+                    <tr><td>{{ item.description }}</td><td class="text-end">{{ item.quantity|floatformat:"-2"|intcomma }}</td><td class="text-end">{{ item.unit_price|floatformat:0|intcomma }}</td><td class="text-end">{{ item.line_total|floatformat:0|intcomma }}</td></tr>
+                {% endfor %}
+                </tbody>
+                <tfoot>
+                    {% if quotation.tax_rate %}
+                    <tr><td colspan="3" class="text-end">Subtotal</td><td class="text-end">{{ quotation.subtotal|floatformat:0|intcomma }}</td></tr>
+                    <tr><td colspan="3" class="text-end">{{ quotation.tax_label }}</td><td class="text-end">{{ quotation.tax_amount|floatformat:0|intcomma }}</td></tr>
+                    {% endif %}
+                    <tr><th colspan="3" class="text-end">Total ({{ CURRENCY }})</th><th class="text-end">{{ quotation.total|floatformat:0|intcomma }}</th></tr>
+                </tfoot>
+            </table>
+
+            {% if problem == 'already_accepted' %}
+                <div class="alert alert-success mb-0">
+                    <i class="bi bi-check2-circle me-1"></i><strong>Accepted. Thank you!</strong> Your booking is confirmed and invoice {{ quotation.invoice.number }} has been prepared.
+                    {% if invoice_url %}<a href="{{ invoice_url }}" class="ms-1">View your invoice</a>.{% endif %}
+                </div>
+            {% elif problem %}
+                <div class="alert alert-info mb-0">
+                    {% if problem == 'expired' %}This quotation has passed its valid-until date.{% else %}This quotation can no longer be accepted online.{% endif %}
+                    Please contact us: {% for name, phone in COMPANY_CONTACTS %}{{ phone }}{% if not forloop.last %} · {% endif %}{% endfor %}.
+                </div>
+            {% else %}
+                <form method="post" action="{% url 'billing:shared_quotation_accept' token %}" class="border-top pt-3">
+                    {% csrf_token %}
+                    <label class="form-label" for="accept-name">Your name (optional)</label>
+                    <input type="text" id="accept-name" name="name" maxlength="100" class="form-control mb-3" autocomplete="name">
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check2 me-1"></i>Accept quotation</button>
+                    <p class="small text-muted mt-2 mb-0 text-center">Accepting confirms your booking for these items and prices. Want changes? Reply on WhatsApp or call {{ COMPANY_CONTACTS.0.1 }}.</p>
+                </form>
+            {% endif %}
+        </div>
+        <p class="text-center small text-muted mt-3">{{ COMPANY_LEGAL_NAME }} · {{ COMPANY_EMAIL }}</p>
+    </div>
+</div>
+{% endblock %}

@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Taxes{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'finance:summary' %}">Finance</a><span class="sep">/</span><span class="current">Taxes</span></nav>
+{% endblock %}
+{% block content %}
+{% if perms.billing.add_taxgroup %}{% url 'billing:tax_create' as add_url %}{% endif %}
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h3 class="mb-0">Taxes</h3>
+    {% if perms.billing.add_taxgroup %}
+    <a href="{% url 'billing:tax_create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Tax</a>
+    {% endif %}
+</div>
+<p class="text-muted small mb-3" style="max-width: 760px;">
+    Taxes you charge on top of your prices, such as VAT. Choose one (or none) on each quotation and invoice; it's added
+    to the total and shown on the PDF. Tax collected on payments goes to the Taxes Payable account, not to income.
+</p>
+<div class="card p-3">
+    <table class="table align-middle">
+        <thead><tr><th>Name</th><th>Rate</th><th>Description</th><th>Status</th><th class="text-end">Actions</th></tr></thead>
+        <tbody>
+        {% for tax in object_list %}
+            <tr>
+                <td class="fw-semibold">{{ tax.name }}{% if tax.is_default %} <span class="badge bg-secondary">default</span>{% endif %}</td>
+                <td>{{ tax.rate|floatformat:"-2" }}%</td>
+                <td>{{ tax.description|default:"—" }}</td>
+                <td>{% if tax.is_active %}Active{% else %}<span class="text-muted">Inactive</span>{% endif %}</td>
+                <td class="text-end">
+                    {% if perms.billing.change_taxgroup %}<a href="{% url 'billing:tax_update' tax.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>{% endif %}
+                </td>
+            </tr>
+        {% empty %}
+            {% include "partials/_empty_row.html" with colspan=5 noun="taxes" empty_text="No taxes set up. Documents are issued without tax until you add one, e.g. VAT at 18%." action_url=add_url action_label="Add a tax" %}
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

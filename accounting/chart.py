@@ -23,7 +23,7 @@ DEFAULT_CHART = [
     ('1520', 'Motor Vehicles', A, D.FIXED_ASSET, None),
     ('1590', 'Accumulated Depreciation', A, D.FIXED_ASSET, None),
     ('2000', 'Accounts Payable', L, D.CURRENT_LIABILITY, None),
-    ('2100', 'Taxes Payable (VAT / PAYE / WHT)', L, D.CURRENT_LIABILITY, None),
+    ('2100', 'Taxes Payable (VAT / PAYE / WHT)', L, D.CURRENT_LIABILITY, 'tax_payable'),
     ('2200', 'Salaries Payable', L, D.CURRENT_LIABILITY, None),
     ('2300', 'Client Deposits Held', L, D.CURRENT_LIABILITY, None),
     ('2500', 'Loans Payable', L, D.LONG_TERM_LIABILITY, None),
@@ -59,6 +59,14 @@ def ensure_chart_of_accounts():
             continue
         if not key and Account.objects.filter(code=code).exists():
             continue
+        if key:
+            # An account the app didn't use to post to (e.g. 2100 Taxes Payable) becomes the system
+            # account if it's still the same kind of account, instead of creating a duplicate.
+            existing = Account.objects.filter(code=code, system_key__isnull=True, account_type=account_type).first()
+            if existing:
+                existing.system_key = key
+                existing.save(update_fields=['system_key'])
+                continue
         if key and Account.objects.filter(code=code).exists():
             # Someone already used this code for something else; give the system account a free one.
             code = next(f'{code}-{n}' for n in range(1, 100) if not Account.objects.filter(code=f'{code}-{n}').exists())

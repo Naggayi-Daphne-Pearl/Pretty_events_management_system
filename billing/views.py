@@ -8,10 +8,10 @@ from django.db.models import Q
 from django.http import Http404, HttpResponse, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
-from django.urls import reverse
+from django.urls import reverse, reverse_lazy
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_POST
-from django.views.generic import DetailView, ListView
+from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.activity import log_activity, log_model_activity
 from core.deletion import confirm_and_delete, count_label
@@ -24,13 +24,15 @@ from inventory.models import EquipmentItem
 from inventory.services import availability_for_event, warn_if_short
 
 from .forms import (
-    EmailDocumentForm, InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm,
-    QuotationLineItemFormSet,
+    EmailDocumentForm, InvoiceForm, InvoiceLineItemFormSet, PaymentForm, QuotationForm, QuotationLineItemFormSet,
+    TaxGroupForm,
 )
 from . import mobile_money
-from .models import Invoice, MobileMoneyTransaction, Payment, Quotation, Receipt
-from .services import record_payment, sync_invoice_statuses
-from .sharing import read_token
+from .models import Invoice, MobileMoneyTransaction, Payment, Quotation, Receipt, TaxGroup
+from .services import (
+    accept_quotation_online, quotation_acceptance_problem, record_payment, sync_invoice_statuses,
+)
+from .sharing import read_token, share_url
 from .tasks import send_or_queue
 
 
@@ -434,20 +436,58 @@ def receipt_pdf_context(receipt):
     }
 
 
-def shared_document(request, token):
-    """Public, link-only view of one PDF (see billing.sharing). No login: the signed token is the key."""
+def _shared(token):
+    """The document a share link points at, or None if the link is bad or expired."""
     found = read_token(token)
     if found is None:
-        return render(request, 'billing/share_expired.html', {'auth_page': True}, status=404)
+        return None
     kind, pk = found
-    if kind == 'quotation':
-        quotation = get_object_or_404(Quotation, pk=pk)
-        return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': quotation}, f'{quotation.number}.pdf')
-    if kind == 'invoice':
-        invoice = get_object_or_404(Invoice, pk=pk)
-        return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': invoice}, f'{invoice.number}.pdf')
-    receipt = get_object_or_404(Receipt, pk=pk)
-    return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(receipt), f'{receipt.number}.pdf')
+    model = {'quotation': Quotation, 'invoice': Invoice, 'receipt': Receipt}[kind]
+    return model.objects.filter(pk=pk).first()
+
+
+def _share_expired(request):
+    return render(request, 'billing/share_expired.html', {'auth_page': True}, status=404)
+
+
+def shared_document(request, token):
+    """
+    Public, link-only view of one document (see billing.sharing); no login, the signed
+    token is the key. A quotation opens a page where the client can accept it;
+    invoices and receipts open straight as PDFs.
+    """
+    document = _shared(token)
+    if document is None:
+        return _share_expired(request)
+    if isinstance(document, Quotation):
+        return render(request, 'billing/shared_quotation.html', {
+            'auth_page': True, 'quotation': document, 'token': token,
+            'problem': quotation_acceptance_problem(document),
+            'invoice_url': share_url(request, document.invoice) if document.has_invoice else '',
+        })
+    return shared_document_pdf(request, token)
+
+
+def shared_document_pdf(request, token):
+    document = _shared(token)
+    if document is None:
+        return _share_expired(request)
+    if isinstance(document, Quotation):
+        return render_pdf(request, 'pdf/quotation_pdf.html', {'quotation': document}, f'{document.number}.pdf')
+    if isinstance(document, Invoice):
+        return render_pdf(request, 'pdf/invoice_pdf.html', {'invoice': document}, f'{document.number}.pdf')
+    return render_pdf(request, 'pdf/receipt_pdf.html', receipt_pdf_context(document), f'{document.number}.pdf')
+
+
+@require_POST
+def shared_quotation_accept(request, token):
+    quotation = _shared(token)
+    if not isinstance(quotation, Quotation):
+        return _share_expired(request)
+    if not quotation_acceptance_problem(quotation):
+        accept_quotation_online(quotation, accepted_by=request.POST.get('name', ''))
+        quotation.refresh_from_db()
+    return redirect('billing:shared_document', token=token)
 
 
 @login_required
@@ -560,3 +600,33 @@ def mobile_money_allocate(request, pk):
         payment = mobile_money.apply_to_invoice(txn, invoice, user=request.user)
     messages.success(request, f'{txn} recorded on invoice {invoice.number}. Receipt {payment.receipt.number} is ready.')
     return redirect('billing:mobile_money')
+
+
+# ---------- Taxes ----------
+
+class TaxGroupListView(LoginRequiredMixin, PermissionRequiredMixin, ListView):
+    model = TaxGroup
+    permission_required = 'billing.view_taxgroup'
+    template_name = 'billing/tax_list.html'
+
+
+class TaxGroupFormMixin(LoginRequiredMixin, PermissionRequiredMixin, SuccessMessageMixin):
+    model = TaxGroup
+    form_class = TaxGroupForm
+    template_name = 'billing/tax_form.html'
+    success_url = reverse_lazy('billing:tax_list')
+
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        log_model_activity(self.request, self.object, 'updated' if self.kwargs.get('pk') else 'created')
+        return response
+
+
+class TaxGroupCreateView(TaxGroupFormMixin, CreateView):
+    permission_required = 'billing.add_taxgroup'
+    success_message = 'Tax "%(name)s" added. Choose it on quotations and invoices that should include it.'
+
+
+class TaxGroupUpdateView(TaxGroupFormMixin, UpdateView):
+    permission_required = 'billing.change_taxgroup'
+    success_message = 'Tax "%(name)s" saved. Documents already issued keep the rate they were issued with.'

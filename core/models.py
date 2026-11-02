@@ -59,3 +59,30 @@ class FailedLoginAttempt(models.Model):
     """
     identifier = models.CharField(max_length=254, db_index=True)
     created_at = models.DateTimeField(auto_now_add=True, db_index=True)
+
+
+class RoleDefault(models.Model):
+    """
+    Record that setup_groups has applied one starter default: a role it created
+    (permission='') or a permission it gave that role. Each default is applied only
+    once, so a role or permission the client later removes stays removed, while
+    defaults for new features still reach existing roles on their first deploy.
+    """
+    group_name = models.CharField(max_length=150)
+    permission = models.CharField(max_length=255, blank=True, help_text="'app_label.codename', or blank for the role itself.")
+    applied_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ('group_name', 'permission')
+
+    def __str__(self):
+        return f'{self.group_name}: {self.permission or "(role created)"}'
+
+
+class DailyJobRun(models.Model):
+    """One row per day the daily jobs ran (see core.daily); the unique date stops double runs."""
+    day = models.DateField(unique=True)
+    started_at = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return str(self.day)

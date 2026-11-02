@@ -29,7 +29,7 @@
                     <td><span class="badge bg-secondary badge-status">{{ inv.get_status_display }}</span></td>
                     <td>{{ CURRENCY }} {{ inv.total|floatformat:0|intcomma }}</td>
                     <td>{{ CURRENCY }} {{ inv.amount_paid|floatformat:0|intcomma }}</td>
-                    <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}</td>
+                    <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}{% if inv.status == 'overdue' %} {% include "billing/_reminder_button.html" with invoice=inv small=True %}{% endif %}</td>
                 </tr>
             {% empty %}
                 {% include "partials/_empty_row.html" with colspan=6 noun="invoices" empty_text="Invoices are created by converting an accepted quotation." action_url=quotes_url action_label="Go to quotations" %}

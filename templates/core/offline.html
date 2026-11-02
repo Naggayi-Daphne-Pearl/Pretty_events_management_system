@@ -1,0 +1,7 @@
+{% extends "registration/auth_base.html" %}
+{% block title %}Offline{% endblock %}
+{% block card %}
+<h5 class="text-center mt-2">You're offline</h5>
+<p class="text-muted small text-center">This phone isn't connected to the internet right now. Check mobile data or Wi-Fi, then try again.</p>
+<button type="button" class="btn btn-primary w-100" onclick="location.reload()">Try again</button>
+{% endblock %}

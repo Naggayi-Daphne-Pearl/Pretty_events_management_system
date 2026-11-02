@@ -52,6 +52,10 @@
         {% endfor %}
         </tbody>
         <tfoot>
+            {% if object.tax_rate %}
+            <tr><td colspan="3" class="text-end">Subtotal</td><td class="text-end">{{ CURRENCY }} {{ object.subtotal|floatformat:0|intcomma }}</td></tr>
+            <tr><td colspan="3" class="text-end">{{ object.tax_label }}</td><td class="text-end">{{ CURRENCY }} {{ object.tax_amount|floatformat:0|intcomma }}</td></tr>
+            {% endif %}
             <tr><th colspan="3" class="text-end">Total</th><th class="text-end">{{ CURRENCY }} {{ object.total|floatformat:0|intcomma }}</th></tr>
         </tfoot>
     </table>
