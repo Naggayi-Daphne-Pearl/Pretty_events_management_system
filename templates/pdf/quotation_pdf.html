@@ -6,9 +6,9 @@
 {% block doc_number %}{{ quotation.number }}{% endblock %}
 {% block doc_details %}
 <p class="details"><b>Date:</b> {{ quotation.created_at|date:"d M Y" }}{% if quotation.valid_until %} &nbsp; <b>Valid until:</b> {{ quotation.valid_until|date:"d M Y" }}{% endif %}</p>
-<p class="details"><b>Event date:</b> {{ quotation.event.event_date|date:"d M Y" }}{% if quotation.event.end_date %} to {{ quotation.event.end_date|date:"d M Y" }}{% endif %}</p>
+{% include "pdf/_event_dates.html" with event=quotation.event %}
 <p class="details"><b>For:</b> {{ quotation.event.event_type }}{% if quotation.event.guest_count %} ({{ quotation.event.guest_count|intcomma }} guests){% endif %}</p>
-<p class="details"><b>Venue:</b> {{ quotation.event.venue }}</p>
+{% if quotation.event.venue %}<p class="details"><b>Venue:</b> {{ quotation.event.venue }}</p>{% endif %}
 {% endblock %}
 {% block client_details %}{% include "pdf/_client_block.html" with customer=quotation.event.customer %}{% endblock %}
 {% block body %}

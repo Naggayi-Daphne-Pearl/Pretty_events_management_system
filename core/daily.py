@@ -17,9 +17,15 @@ _last_checked = None  # per process, so most requests skip the database entirely
 def run_daily_jobs(today):
     from billing.services import sync_invoice_statuses
     from events.services import sync_event_statuses
-    events = sync_event_statuses(today)
-    invoices = sync_invoice_statuses(today)
-    return {'events': events, 'invoices': invoices}
+
+    from .client import feature_enabled
+    result = {'events': sync_event_statuses(today)}
+    if feature_enabled('subscriptions'):
+        from subscriptions.services import invoice_due_subscriptions
+        result['renewal_invoices'] = invoice_due_subscriptions(today)
+    # After raising renewal invoices, so one already past its due date shows as overdue.
+    result['invoices'] = sync_invoice_statuses(today)
+    return result
 
 
 def run_if_due():

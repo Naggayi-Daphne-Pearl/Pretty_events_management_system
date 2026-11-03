@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Calendar{% endblock %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">Events</a><span class="sep">/</span><span class="current">Calendar</span></nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">{{ T.Events }}</a><span class="sep">/</span><span class="current">Calendar</span></nav>
 {% endblock %}
 {% block extra_head %}
 <style>
@@ -40,7 +40,7 @@
             <a href="?month={{ next_month }}{% if show_cancelled %}&cancelled=1{% endif %}" class="btn btn-sm btn-outline-secondary" aria-label="Next month"><i class="bi bi-chevron-right"></i></a>
         </div>
         {% if perms.events.add_event %}
-        <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Event</a>
+        <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New {{ T.Event }}</a>
         {% endif %}
     </div>
 </div>
@@ -53,7 +53,7 @@
             {% if show_cancelled %}<span class="st-cancelled">Cancelled</span>{% endif %}
         </div>
         <div class="small">
-            {{ month_count }} event{{ month_count|pluralize }} this month ·
+            {{ month_count }} {% if month_count == 1 %}{{ T.event }}{% else %}{{ T.events }}{% endif %} this month ·
             {% if show_cancelled %}<a href="?month={{ month|date:'Y-m' }}">Hide cancelled</a>{% else %}<a href="?month={{ month|date:'Y-m' }}&cancelled=1">Show cancelled</a>{% endif %}
         </div>
     </div>
@@ -65,7 +65,7 @@
         <div class="cal-cell{% if not cell.in_month %} out{% endif %}{% if cell.is_today %} today{% endif %}">
             <span class="cal-day">{{ cell.date.day }}</span>
             {% for event in cell.events %}
-            <a href="{% url 'events:detail' event.pk %}" class="cal-event st-{{ event.status }}" title="{{ event.customer.name }} · {{ event.event_type }} · {{ event.venue }} ({{ event.get_status_display }})">{{ event.customer.name }} · {{ event.event_type }}</a>
+            <a href="{% url 'events:detail' event.pk %}" class="cal-event st-{{ event.status }}" title="{{ event.customer.name }} · {{ event.event_type }}{% if event.venue and not HIDDEN_EVENT_FIELDS.venue %} · {{ event.venue }}{% endif %} ({{ event.get_status_display }})">{{ event.customer.name }} · {{ event.event_type }}</a>
             {% endfor %}
         </div>
         {% endfor %}{% endfor %}
@@ -78,12 +78,12 @@
             {% for event in cell.events %}
             <a href="{% url 'events:detail' event.pk %}" class="cal-event st-{{ event.status }}">
                 <strong>{{ event.customer.name }}</strong> · {{ event.event_type }}<br>
-                <span class="small">{{ event.venue }} · {{ event.get_status_display }}</span>
+                <span class="small">{% if event.venue and not HIDDEN_EVENT_FIELDS.venue %}{{ event.venue }} · {% endif %}{{ event.get_status_display }}</span>
             </a>
             {% endfor %}
         </div>
         {% empty %}
-        <p class="text-muted text-center py-4 mb-0">No events in {{ month|date:"F" }}.</p>
+        <p class="text-muted text-center py-4 mb-0">No {{ T.events }} in {{ month|date:"F" }}.</p>
         {% endfor %}
     </div>
 </div>

@@ -59,7 +59,7 @@
         <div class="card stat-card p-3 h-100">
             <div class="text-muted small">Equipment going out this week</div>
             <div class="fs-4 fw-semibold" style="color: var(--text-1);">{{ items_out_this_week|intcomma }} item{{ items_out_this_week|pluralize }}</div>
-            <div class="small text-muted">for {{ events_out_this_week }} confirmed event{{ events_out_this_week|pluralize }}</div>
+            <div class="small text-muted">for {{ events_out_this_week }} confirmed {% if events_out_this_week == 1 %}{{ T.event }}{% else %}{{ T.events }}{% endif %}</div>
         </div>
         </a>
     </div>
@@ -71,15 +71,15 @@
 <div class="card p-3 mb-4">
     <h6 class="mb-2"><i class="bi bi-person-workspace me-2"></i>My jobs (next 2 weeks)</h6>
     {% for a in my_assignments %}
-    <a href="{% url 'events:job' a.event.pk %}" class="d-flex justify-content-between align-items-center gap-2 py-2 text-decoration-none{% if not forloop.last %} border-bottom{% endif %}" style="color: var(--text-1); border-color: var(--border) !important;">
+    <a href="{% if FEATURES.inventory %}{% url 'events:job' a.event.pk %}{% else %}{% url 'events:detail' a.event.pk %}{% endif %}" class="d-flex justify-content-between align-items-center gap-2 py-2 text-decoration-none{% if not forloop.last %} border-bottom{% endif %}" style="color: var(--text-1); border-color: var(--border) !important;">
         <span>
             <strong>{{ a.event.event_date|date:"D j M" }}</strong> · {{ a.event.customer.name }} · {{ a.event.event_type }}<br>
-            <span class="small text-muted"><i class="bi bi-geo-alt me-1"></i>{{ a.event.venue }}{% if a.role_on_event %} · {{ a.role_on_event }}{% endif %}</span>
+            <span class="small text-muted">{% if a.event.venue %}<i class="bi bi-geo-alt me-1"></i>{{ a.event.venue }}{% endif %}{% if a.role_on_event %} · {{ a.role_on_event }}{% endif %}</span>
         </span>
         <i class="bi bi-chevron-right text-muted"></i>
     </a>
     {% empty %}
-    <p class="text-muted small mb-0">You're not assigned to any events in the next two weeks.</p>
+    <p class="text-muted small mb-0">You're not assigned to any {{ T.events }} in the next two weeks.</p>
     {% endfor %}
 </div>
 {% endif %}
@@ -89,13 +89,13 @@
     {% if perms.events.view_event %}
     <div class="col-6 col-lg-3">
         <div class="card stat-card p-3">
-            <div class="text-muted small">Events this week</div>
+            <div class="text-muted small">{{ T.Events }} this week</div>
             <div class="fs-3 fw-semibold">{{ upcoming_week_count|intcomma }}</div>
         </div>
     </div>
     <div class="col-6 col-lg-3">
         <div class="card stat-card p-3">
-            <div class="text-muted small">Events next 30 days</div>
+            <div class="text-muted small">{{ T.Events }} next 30 days</div>
             <div class="fs-3 fw-semibold">{{ upcoming_month_count|intcomma }}</div>
         </div>
     </div>
@@ -122,18 +122,18 @@
     {% if perms.events.view_event %}
     <div class="{% if unpaid_invoices is not None or low_stock_items is not None %}col-lg-7{% else %}col-12{% endif %}">
         <div class="card p-3">
-            <h6 class="mb-3">Upcoming events (next 7 days)</h6>
+            <h6 class="mb-3">Upcoming {{ T.events }} (next 7 days)</h6>
             {% if upcoming_week %}
             <div class="table-responsive">
                 <table class="table table-sm align-middle">
-                    <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Venue</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Date</th><th>{{ T.Customer }}</th><th>Type</th>{% if not HIDDEN_EVENT_FIELDS.venue %}<th>Venue</th>{% endif %}<th>Status</th></tr></thead>
                     <tbody>
                     {% for event in upcoming_week %}
                         <tr>
                             <td>{{ event.event_date }}</td>
                             <td><a href="{% url 'events:detail' event.pk %}">{{ event.customer.name }}</a></td>
                             <td>{{ event.event_type }}</td>
-                            <td>{{ event.venue }}</td>
+                            {% if not HIDDEN_EVENT_FIELDS.venue %}<td>{{ event.venue }}</td>{% endif %}
                             <td><span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span></td>
                         </tr>
                     {% endfor %}
@@ -141,7 +141,7 @@
                 </table>
             </div>
             {% else %}
-                <p class="text-muted mb-0">No events scheduled in the next 7 days.</p>
+                <p class="text-muted mb-0">No {{ T.events }} scheduled in the next 7 days.</p>
             {% endif %}
         </div>
     </div>
@@ -154,7 +154,7 @@
             {% if unpaid_invoices %}
             <div class="table-responsive">
                 <table class="table table-sm align-middle">
-                    <thead><tr><th>Invoice</th><th>Customer</th><th>Balance</th></tr></thead>
+                    <thead><tr><th>Invoice</th><th>{{ T.Customer }}</th><th>Balance</th></tr></thead>
                     <tbody>
                     {% for invoice in unpaid_invoices %}
                         <tr>

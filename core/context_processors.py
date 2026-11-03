@@ -1,9 +1,13 @@
 from django.conf import settings
 
 
+from .client import features, terms
+
+
 def branding(request):
+    profile = settings.CLIENT_PROFILE
     return {
-        'COMPANY_NAME': 'Pretty Events',
+        'COMPANY_NAME': settings.COMPANY_NAME,
         'COMPANY_LEGAL_NAME': settings.COMPANY_LEGAL_NAME,
         'COMPANY_TAGLINE': settings.COMPANY_TAGLINE,
         'COMPANY_MOTTO': settings.COMPANY_MOTTO,
@@ -15,6 +19,15 @@ def branding(request):
         'COMPANY_WEBSITE_EMAIL': settings.COMPANY_WEBSITE_EMAIL,
         'COMPANY_LOGO_STATIC_PATH': settings.COMPANY_LOGO_STATIC_PATH,
         'COMPANY_LOGO_DARK_STATIC_PATH': settings.COMPANY_LOGO_DARK_STATIC_PATH,
+        'COMPANY_ICONS_STATIC_DIR': settings.COMPANY_ICONS_STATIC_DIR,
+        'THEME_LIGHT': profile.theme_light,
+        'THEME_DARK': profile.theme_dark,
+        'THEME_COLOR': profile.theme_color,
+        'PDF_BAR_COLOR': profile.pdf_bar_color,
+        'FEATURES': features(),
+        'T': terms(),
+        'QUICK_ADD_LINES': profile.quick_add_lines,
+        'HIDDEN_EVENT_FIELDS': {name: True for name in profile.hidden_event_fields},
         'CURRENCY': settings.CURRENCY,
         'EMAIL_ENABLED': settings.EMAIL_ENABLED,
     }

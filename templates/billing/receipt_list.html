@@ -17,7 +17,7 @@
     </form>
     <div class="table-responsive">
         <table class="table align-middle">
-            <thead><tr><th>Receipt</th><th>Date</th><th>Customer</th><th>Invoice</th><th class="text-end">Amount</th><th>Method</th><th></th></tr></thead>
+            <thead><tr><th>Receipt</th><th>Date</th><th>{{ T.Customer }}</th><th>Invoice</th><th class="text-end">Amount</th><th>Method</th><th></th></tr></thead>
             <tbody>
             {% for r in object_list %}
                 <tr>

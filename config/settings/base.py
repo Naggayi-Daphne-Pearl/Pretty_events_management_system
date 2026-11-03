@@ -1,11 +1,14 @@
 """
-Base Django settings for Pretty Events, shared by dev and production.
-All secrets/environment-specific values come from env vars (see .env.example).
+Base Django settings, shared by dev and production and by every client deployment.
+All secrets/environment-specific values come from env vars (see .env.example);
+everything specific to one business comes from its client profile (config/clients/).
 """
 
 from pathlib import Path
 
 import environ
+
+from config import clients
 
 BASE_DIR = Path(__file__).resolve().parent.parent.parent
 
@@ -38,6 +41,7 @@ INSTALLED_APPS = [
     'comms',
     'reports',
     'accounting',
+    'subscriptions',
 ]
 
 MIDDLEWARE = [
@@ -50,6 +54,7 @@ MIDDLEWARE = [
     'django.contrib.messages.middleware.MessageMiddleware',
     'core.auth.SessionMaxAgeMiddleware',
     'core.daily.DailyJobsMiddleware',
+    'core.client.FeatureGateMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
 ]
 
@@ -173,28 +178,15 @@ MOBILE_MONEY_WEBHOOK_SECRET = env('MOBILE_MONEY_WEBHOOK_SECRET', default='')
 # WhatsApp click-to-chat and call links. Numbers typed with +/00 keep their own.
 DEFAULT_PHONE_COUNTRY_CODE = '256'
 
-# Real business details, as printed on Pretty Events' physical receipt book —
-# used on the branded quotation/invoice/receipt PDFs and in the app header.
-# NOTE: transcribed from a photo of the receipt book; double-check the TIN and
-# phone numbers against the original before relying on these for anything official.
-COMPANY_LEGAL_NAME = 'PRETTY EVENTS LTD.'
-COMPANY_TAGLINE = 'EVENTS MANAGEMENT & TENT HIRE'
-COMPANY_MOTTO = 'Your Happiness Is Our Passion'
-COMPANY_ADDRESS_LINES = ['Kiwatule Stage &', 'Kira Bulindo Road']
-COMPANY_TIN = '1004479551'
-# Named contact numbers, printed in the CONTACTS box on quotations, invoices and receipts
-# (as supplied by the client, 2026-09-24).
-COMPANY_CONTACTS = [
-    ('James', '0772 682 448'),
-    ('Rukiah', '0704 316 745'),
-    ('Office line', '0393 254 159'),
-]
-COMPANY_PHONES = [phone for _, phone in COMPANY_CONTACTS]
-COMPANY_EMAIL = 'prettyevents5@gmail.com'
-COMPANY_WEBSITE_EMAIL = 'info@prettyeventslimited.co.ug'
-COMPANY_LOGO_STATIC_PATH = 'branding/pretty-events-logo.png'
-# Same logo with the navy lettering in white, for the dark theme (transparent background).
-COMPANY_LOGO_DARK_STATIC_PATH = 'branding/pretty-events-logo-dark.png'
+# Which business this deployment is for: config/clients/<CLIENT>.py.
+CLIENT = env('CLIENT', default='pretty_events')
+CLIENT_PROFILE = clients.load(CLIENT)
+
+# Business details for the PDFs and app header, logo paths and switched-on modules:
+# COMPANY_NAME, COMPANY_LEGAL_NAME, COMPANY_TAGLINE, COMPANY_MOTTO, COMPANY_ADDRESS_LINES,
+# COMPANY_TIN, COMPANY_CONTACTS, COMPANY_PHONES, COMPANY_EMAIL, COMPANY_WEBSITE_EMAIL,
+# COMPANY_LOGO_STATIC_PATH, COMPANY_LOGO_DARK_STATIC_PATH, COMPANY_ICONS_STATIC_DIR, FEATURES.
+globals().update(clients.settings_for(CLIENT_PROFILE))
 
 # Master switch for everything that sends email from the server: "Email to Client" on
 # quotations/invoices/receipts, staff invite emails, and "Forgot your password?". Off until
@@ -209,7 +201,7 @@ EMAIL_PORT = env.int('EMAIL_PORT', default=587)
 EMAIL_HOST_USER = env('EMAIL_HOST_USER', default='')
 EMAIL_HOST_PASSWORD = env('EMAIL_HOST_PASSWORD', default='')
 EMAIL_USE_TLS = env.bool('EMAIL_USE_TLS', default=True)
-DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=COMPANY_EMAIL)
+DEFAULT_FROM_EMAIL = env('DEFAULT_FROM_EMAIL', default=COMPANY_EMAIL or 'webmaster@localhost')
 # Give up on an unreachable mail server well inside gunicorn's 30s worker timeout, so the
 # user gets "could not send" (and can retry) instead of the request being killed mid-send.
 EMAIL_TIMEOUT = env.int('EMAIL_TIMEOUT', default=15)

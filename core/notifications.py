@@ -10,6 +10,8 @@ from django.db.models.functions import Coalesce
 from django.urls import reverse
 from django.utils import timezone
 
+from .client import feature_enabled, terms
+
 CACHE_SECONDS = 60
 SHORTAGE_LOOKAHEAD_DAYS = 60
 
@@ -29,6 +31,8 @@ def collect(user):
 
     today = timezone.localdate()
     items = []
+    inventory = feature_enabled('inventory')
+    words = terms()
 
     if user.has_perm('billing.view_invoice'):
         overdue = Invoice.objects.filter(status=Invoice.Status.OVERDUE).count()
@@ -42,7 +46,7 @@ def collect(user):
         for log in ActivityLog.objects.filter(action='quotation.accepted_online', created_at__gte=since)[:5]:
             items.append(_item('ok', 'bi-check2-circle', log.description, reverse('billing:quotation_list')))
 
-    if user.has_perm('events.view_event'):
+    if inventory and user.has_perm('events.view_event'):
         # Equipment still out after the event's last day.
         late = scope_events_to_assignments(Event.objects.all(), user).annotate(
             last=Coalesce('end_date', 'event_date'),
@@ -55,9 +59,9 @@ def collect(user):
             n = len(late_ids)
             url = (reverse('events:detail', args=[late_ids[0]]) + '#equipment') if n == 1 else reverse('events:list')
             items.append(_item('danger', 'bi-box-arrow-in-left',
-                               f'Equipment not back from {n} finished event{"s" if n != 1 else ""}', url))
+                               f'Equipment not back from {n} finished {words["event"] if n == 1 else words["events"]}', url))
 
-    if user.has_perm('inventory.view_equipmentitem') and user.has_perm('events.view_event'):
+    if inventory and user.has_perm('inventory.view_equipmentitem') and user.has_perm('events.view_event'):
         upcoming = scope_events_to_assignments(Event.objects.select_related('customer'), user).filter(
             status__in=RESERVING_STATUSES, event_date__gte=today,
             event_date__lte=today + timedelta(days=SHORTAGE_LOOKAHEAD_DAYS),
@@ -77,7 +81,7 @@ def collect(user):
                                f'{waiting} mobile money payment{"s" if waiting != 1 else ""} to match',
                                reverse('billing:mobile_money')))
 
-    if user.has_perm('inventory.view_equipmentitem'):
+    if inventory and user.has_perm('inventory.view_equipmentitem'):
         low = EquipmentItem.objects.low_stock().count()
         if low:
             items.append(_item('warn', 'bi-box-seam', f'{low} item{"s" if low != 1 else ""} low on stock',

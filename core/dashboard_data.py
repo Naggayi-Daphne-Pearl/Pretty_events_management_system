@@ -6,6 +6,8 @@ from django.db.models import Sum
 from django.urls import reverse
 from django.utils import timezone
 
+from .client import feature_enabled, terms
+
 
 def setup_checklist(user):
     """
@@ -20,16 +22,19 @@ def setup_checklist(user):
     from inventory.models import EquipmentItem
     from staffing.models import StaffMember
 
-    steps = [
-        {'label': 'Add your equipment and its hire prices', 'url': reverse('inventory:item_create'),
-         'done': EquipmentItem.objects.filter(default_rate__isnull=False).exists()},
+    words = terms()
+    steps = []
+    if feature_enabled('inventory'):
+        steps.append({'label': 'Add your equipment and its hire prices', 'url': reverse('inventory:item_create'),
+                      'done': EquipmentItem.objects.filter(default_rate__isnull=False).exists()})
+    steps += [
         {'label': 'Add staff and give logins to those who use the system', 'url': reverse('staffing:list'),
          'done': StaffMember.objects.exists() and get_user_model().objects.filter(is_active=True).count() > 1},
         {'label': 'Enter opening balances for cash, mobile money and bank', 'url': reverse('accounting:banking'),
          'done': JournalEntry.objects.filter(source=JournalEntry.Source.OPENING).exists()},
         {'label': 'Set up taxes such as VAT, if you charge them', 'url': reverse('billing:tax_list'),
          'done': TaxGroup.objects.exists(), 'optional': True},
-        {'label': 'Add your first customer and event', 'url': reverse('customers:create'),
+        {'label': f"Add your first {words['customer']} and {words['event']}", 'url': reverse('customers:create'),
          'done': Customer.objects.exists()},
     ]
     if all(s['done'] for s in steps if not s.get('optional')):
@@ -75,7 +80,8 @@ def week_and_month(user):
         data['due_this_week'] = sum((inv.balance_due for inv in due), 0)
         data['due_this_week_count'] = len(due)
 
-    if user.has_perm('events.view_event') and user.has_perm('inventory.view_equipmentitem'):
+    if (feature_enabled('inventory') and user.has_perm('events.view_event')
+            and user.has_perm('inventory.view_equipmentitem')):
         events = scope_events_to_assignments(Event.objects.all(), user).filter(
             status__in=RESERVING_STATUSES, event_date__gte=today, event_date__lte=week_end,
         ).prefetch_related('invoices__line_items', 'quotations__line_items')

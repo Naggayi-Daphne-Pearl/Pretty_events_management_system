@@ -13,7 +13,7 @@
             <div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
                 <div>
                     <h3 class="mb-1">Quotation {{ quotation.number }}</h3>
-                    <div class="small text-muted">For {{ quotation.event.customer.name }} · {{ quotation.event.event_type }} on {{ quotation.event.event_date|date:"D j M Y" }}, {{ quotation.event.venue }}</div>
+                    <div class="small text-muted">For {{ quotation.event.customer.name }} · {{ quotation.event.event_type }} on {{ quotation.event.event_date|date:"D j M Y" }}{% if quotation.event.venue %}, {{ quotation.event.venue }}{% endif %}</div>
                     {% if quotation.valid_until %}<div class="small text-muted">Valid until {{ quotation.valid_until|date:"j M Y" }}</div>{% endif %}
                 </div>
                 <a href="{% url 'billing:shared_document_pdf' token %}" class="btn btn-outline-primary btn-sm"><i class="bi bi-file-earmark-pdf me-1"></i>Download PDF</a>

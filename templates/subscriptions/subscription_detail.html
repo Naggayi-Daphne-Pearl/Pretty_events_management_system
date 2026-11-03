@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}{{ object.name }}{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'subscriptions:list' %}">Renewals</a><span class="sep">/</span><span class="current">{{ object.name }}</span></nav>
+{% endblock %}
+{% block content %}
+<div class="d-flex justify-content-between align-items-start flex-wrap gap-2 mb-3">
+    <div>
+        <h3 class="mb-0">{{ object.name }}</h3>
+        <div class="text-muted small">{{ object.event.customer.name }} · {{ object.get_interval_display }} · {% if object.is_active %}Active{% else %}Stopped{% endif %}</div>
+    </div>
+    <div class="d-flex gap-1 flex-wrap">
+        {% if object.is_active and perms.billing.add_invoice %}
+        <form method="post" action="{% url 'subscriptions:invoice_now' object.pk %}" onsubmit="return confirm('Raise the invoice due {{ object.next_due_date|date:"j M Y" }} now?');">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-sm btn-primary"><i class="bi bi-receipt me-1"></i>Invoice next period now</button>
+        </form>
+        {% endif %}
+        {% if whatsapp_url %}<a href="{{ whatsapp_url }}" target="_blank" rel="noopener" class="btn btn-sm btn-outline-success"><i class="bi bi-whatsapp me-1"></i>Remind on WhatsApp</a>{% endif %}
+        {% if perms.subscriptions.change_subscription %}<a href="{% url 'subscriptions:update' object.pk %}" class="btn btn-sm btn-outline-secondary">Edit</a>{% endif %}
+        {% if perms.subscriptions.delete_subscription %}<a href="{% url 'subscriptions:delete' object.pk %}" class="btn btn-sm btn-outline-danger">Delete</a>{% endif %}
+    </div>
+</div>
+<div class="row g-3">
+    <div class="col-lg-4">
+        <div class="card p-3">
+            <dl class="row mb-0 small">
+                <dt class="col-5">{{ T.Customer }}</dt><dd class="col-7"><a href="{% url 'customers:detail' object.event.customer.pk %}">{{ object.event.customer.name }}</a></dd>
+                <dt class="col-5">{{ T.Event }}</dt><dd class="col-7"><a href="{% url 'events:detail' object.event.pk %}">{{ object.event.event_type }}</a></dd>
+                <dt class="col-5">Amount</dt><dd class="col-7">{{ CURRENCY }} {{ object.amount|floatformat:0|intcomma }}{% if object.tax_group %} + {{ object.tax_group.name }}{% endif %}</dd>
+                <dt class="col-5">Every</dt><dd class="col-7">{{ object.get_interval_display }}</dd>
+                <dt class="col-5">Next due</dt><dd class="col-7">{{ object.next_due_date|date:"j M Y" }}</dd>
+                <dt class="col-5">Invoiced</dt><dd class="col-7">{{ object.invoice_days_before }} day{{ object.invoice_days_before|pluralize }} before</dd>
+                <dt class="col-5">Started</dt><dd class="col-7">{{ object.start_date|date:"j M Y" }}</dd>
+            </dl>
+            {% if object.notes %}<hr><p class="small text-muted mb-0">{{ object.notes }}</p>{% endif %}
+        </div>
+    </div>
+    <div class="col-lg-8">
+        <div class="card p-3">
+            <h6 class="mb-2">Invoices raised</h6>
+            <table class="table table-sm align-middle">
+                <thead><tr><th>Number</th><th>Due</th><th>Status</th><th>Total</th><th>Balance</th></tr></thead>
+                <tbody>
+                {% for inv in invoices %}
+                    <tr>
+                        <td><a href="{% url 'billing:invoice_detail' inv.pk %}">{{ inv.number }}</a></td>
+                        <td>{{ inv.due_date|date:"j M Y" }}</td>
+                        <td><span class="badge bg-secondary badge-status">{{ inv.get_status_display }}</span></td>
+                        <td>{{ CURRENCY }} {{ inv.total|floatformat:0|intcomma }}</td>
+                        <td>{{ CURRENCY }} {{ inv.balance_due|floatformat:0|intcomma }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-3">None yet. The first invoice is raised {{ object.invoice_days_before }} day{{ object.invoice_days_before|pluralize }} before {{ object.next_due_date|date:"j M Y" }}.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

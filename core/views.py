@@ -22,6 +22,7 @@ from events.services import sync_event_statuses
 from inventory.models import EquipmentItem
 
 from .accounts import send_password_reset, send_staff_invite
+from .client import feature_enabled
 from .dashboard_data import setup_checklist, week_and_month
 from .emailing import email_enabled_required
 from .activity import log_activity
@@ -93,7 +94,7 @@ def dashboard(request):
     if request.user.has_perm('billing.view_invoice'):
         context['overdue_count'] = Invoice.objects.filter(status=Invoice.Status.OVERDUE).count()
 
-    if request.user.has_perm('inventory.view_equipmentitem'):
+    if feature_enabled('inventory') and request.user.has_perm('inventory.view_equipmentitem'):
         context['low_stock_items'] = EquipmentItem.objects.low_stock()[:10]
 
     context['setup'] = setup_checklist(request.user)

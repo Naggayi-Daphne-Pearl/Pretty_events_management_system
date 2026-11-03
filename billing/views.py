@@ -14,6 +14,7 @@ from django.views.decorators.http import require_POST
 from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from core.activity import log_activity, log_model_activity
+from core.client import term
 from core.deletion import confirm_and_delete, count_label
 from core.emailing import email_enabled_required
 from core.once import claim_token
@@ -135,9 +136,9 @@ def quotation_create(request, event_pk):
                 quotation = form.save()
                 formset.instance = quotation
                 formset.save()
-            log_model_activity(request, quotation, 'created', extra=f'for event "{event}"')
+            log_model_activity(request, quotation, 'created', extra=f'for {term("event")} "{event}"')
             if event.advance_status_at_least(Event.Status.QUOTED):
-                messages.info(request, f'Event status advanced to "{event.get_status_display()}".')
+                messages.info(request, f'{term("Event")} status advanced to "{event.get_status_display()}".')
             messages.success(request, f'Quotation {quotation.number} created.')
             return redirect('billing:quotation_detail', pk=quotation.pk)
     else:
@@ -187,7 +188,7 @@ def quotation_delete(request, pk):
         event = quotation.event
         number = quotation.number
         quotation.delete()
-        log_activity(request, 'quotation.deleted', f'Deleted quotation "{number}" for event "{event}"')
+        log_activity(request, 'quotation.deleted', f'Deleted quotation "{number}" for {term("event")} "{event}"')
         messages.success(request, f'Quotation {number} deleted.')
         return redirect('events:detail', pk=event.pk)
     return render(request, 'billing/quotation_confirm_delete.html', {'object': quotation})
@@ -205,7 +206,7 @@ def quotation_convert(request, pk):
     quotation.save(update_fields=['status'])
     log_model_activity(request, invoice, 'created', extra=f'from quotation {quotation.number}')
     if quotation.event.advance_status_at_least(Event.Status.CONFIRMED):
-        messages.info(request, f'Event status advanced to "{quotation.event.get_status_display()}".')
+        messages.info(request, f'{term("Event")} status advanced to "{quotation.event.get_status_display()}".')
         warn_if_short(request, quotation.event)
     messages.success(request, f'Invoice {invoice.number} created from {quotation.number}.')
     return redirect('billing:invoice_detail', pk=invoice.pk)
@@ -326,9 +327,9 @@ def invoice_add_payment(request, pk):
             )
             log_model_activity(request, payment, 'created', extra=f'on invoice {invoice.number}')
             if advanced:
-                messages.info(request, f'Event status advanced to "{invoice.event.get_status_display()}".')
+                messages.info(request, f'{term("Event")} status advanced to "{invoice.event.get_status_display()}".')
                 warn_if_short(request, invoice.event)
-            messages.success(request, f'Payment of {settings.CURRENCY} {payment.amount:,.0f} recorded. Receipt {payment.receipt.number} is ready: send it to the client below.')
+            messages.success(request, f'Payment of {settings.CURRENCY} {payment.amount:,.0f} recorded. Receipt {payment.receipt.number} is ready: send it to the {term("customer")} below.')
             return redirect('billing:receipt_detail', pk=payment.receipt.pk)
         # Re-render the invoice page with the bound form so the actual field
         # errors show up (e.g. "Ensure that there are no more than 2 decimal

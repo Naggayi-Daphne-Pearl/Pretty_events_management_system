@@ -1,7 +1,7 @@
 {% extends "base.html" %}
 {% block title %}Assign Staff{% endblock %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">Events</a><span class="sep">/</span><a href="{% url 'events:detail' event.pk %}">{{ event.event_type }}</a><span class="sep">/</span><span class="current">Assign Staff</span></nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">{{ T.Events }}</a><span class="sep">/</span><a href="{% url 'events:detail' event.pk %}">{{ event.event_type }}</a><span class="sep">/</span><span class="current">Assign Staff</span></nav>
 {% endblock %}
 {% block content %}
 <h3 class="mb-1">Assign Staff</h3>

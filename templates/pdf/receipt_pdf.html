@@ -13,8 +13,8 @@
 {% block doc_details %}
 <p class="details"><b>Date:</b> {{ receipt.issued_at|date:"d M Y" }}</p>
 <p class="details"><b>Invoice:</b> {{ receipt.payment.invoice.number }}</p>
-<p class="details"><b>Event date:</b> {{ receipt.payment.invoice.event.event_date|date:"d M Y" }}</p>
-<p class="details"><b>For:</b> {{ receipt.payment.invoice.event.event_type }}, {{ receipt.payment.invoice.event.venue }}</p>
+<p class="details"><b>{{ T.event_date }}:</b> {{ receipt.payment.invoice.event.event_date|date:"d M Y" }}</p>
+<p class="details"><b>For:</b> {{ receipt.payment.invoice.event.event_type }}{% if receipt.payment.invoice.event.venue %}, {{ receipt.payment.invoice.event.venue }}{% endif %}</p>
 {% endblock %}
 {% block client_details %}{% include "pdf/_client_block.html" with customer=receipt.payment.invoice.event.customer %}{% endblock %}
 {% block body %}

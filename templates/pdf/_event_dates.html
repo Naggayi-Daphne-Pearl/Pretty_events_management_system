@@ -1,0 +1,2 @@
+{% comment %}The job's date line on quotations, invoices and receipts, in the business's words. Expects: event.{% endcomment %}
+<p class="details"><b>{{ T.event_date }}:</b> {{ event.event_date|date:"d M Y" }}{% if event.end_date %}{% if T.end_date == 'End date' %} to {{ event.end_date|date:"d M Y" }}{% else %} &nbsp; <b>{{ T.end_date }}:</b> {{ event.end_date|date:"d M Y" }}{% endif %}{% endif %}</p>

@@ -11,6 +11,7 @@ from django.views.generic import ListView
 
 from billing.models import Invoice, Quotation, Receipt
 from core.activity import log_model_activity
+from core.client import term
 from core.deletion import confirm_and_delete
 from core.pagination import PerPageMixin
 from customers.models import Customer
@@ -76,7 +77,7 @@ def log_create(request, customer_pk):
             log.customer = customer
             log.logged_by = request.user
             log.save()
-            log_model_activity(request, log, 'created', extra=f'with customer "{customer}"')
+            log_model_activity(request, log, 'created', extra=f'with {term("customer")} "{customer}"')
             messages.success(request, 'Communication logged.')
             return redirect(back_url)
     else:
@@ -93,7 +94,7 @@ def log_update(request, pk):
         form = CommunicationLogForm(request.POST, instance=log, customer=log.customer)
         if form.is_valid():
             form.save()
-            log_model_activity(request, log, 'updated', extra=f'with customer "{log.customer}"')
+            log_model_activity(request, log, 'updated', extra=f'with {term("customer")} "{log.customer}"')
             messages.success(request, 'Communication log updated.')
             return redirect(back_url)
     else:
@@ -179,5 +180,5 @@ def contact_customer(request, customer_pk, channel):
         customer=customer, event=event, channel=channel,
         direction=CommunicationLog.Direction.OUTBOUND, message=note, logged_by=request.user,
     )
-    log_model_activity(request, log, 'created', extra=f'with customer "{customer}"')
+    log_model_activity(request, log, 'created', extra=f'with {term("customer")} "{customer}"')
     return ExternalAppRedirect(target)

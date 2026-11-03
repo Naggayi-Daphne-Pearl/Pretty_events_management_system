@@ -7,7 +7,7 @@
 {% block content %}
 <h3 class="mb-3">{% if q %}Results for “{{ q }}”{% else %}Search{% endif %}</h3>
 {% if not q or q|length < 2 %}
-<div class="card p-4 text-muted">Type at least two characters: a customer or staff name, a phone number, a venue, or a quotation, invoice or receipt number.</div>
+<div class="card p-4 text-muted">Type at least two characters: a {{ T.customer }} or staff name, a phone number,{% if not HIDDEN_EVENT_FIELDS.venue %} a venue,{% endif %} or a quotation, invoice or receipt number.</div>
 {% elif not sections %}
 <div class="card p-4 text-muted">Nothing matches “{{ q }}”. Try part of a name, or the last digits of a phone number.</div>
 {% else %}

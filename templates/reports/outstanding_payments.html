@@ -12,7 +12,7 @@
 </div>
 <div class="card p-3">
     <table class="table align-middle">
-        <thead><tr><th>Invoice</th><th>Customer</th><th>Due date</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
+        <thead><tr><th>Invoice</th><th>{{ T.Customer }}</th><th>Due date</th><th>Status</th><th>Total</th><th>Paid</th><th>Balance</th></tr></thead>
         <tbody>
         {% for inv in invoices %}
             <tr>

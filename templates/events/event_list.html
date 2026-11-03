@@ -1,16 +1,17 @@
 {% extends "base.html" %}
-{% block title %}Events{% endblock %}
+{% load i18n %}
+{% block title %}{{ T.Events }}{% endblock %}
 {% load humanize %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Events</span></nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">{{ T.Events }}</span></nav>
 {% endblock %}
 {% block content %}
 {% if perms.events.add_event %}{% url 'events:create' as add_url %}{% endif %}
 <div class="d-flex justify-content-between align-items-center mb-3">
-    <h3 class="mb-0">Events</h3>
+    <h3 class="mb-0">{{ T.Events }}</h3>
     <div class="d-flex gap-2">
         {% if perms.events.add_event %}
-        <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New Event</a>
+        <a href="{% url 'events:create' %}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New {{ T.Event }}</a>
         {% endif %}
     </div>
 </div>
@@ -18,7 +19,7 @@
 <div class="card p-3">
     <form method="get" class="row g-2 mb-3">
         <div class="col-auto flex-grow-1">
-            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search by customer name">
+            <input type="text" name="q" value="{{ q }}" class="form-control" placeholder="Search by {{ T.customer }} name">
         </div>
         <div class="col-auto">
             <select name="status" class="form-select" onchange="this.form.submit()">
@@ -34,19 +35,20 @@
     </form>
     <div class="table-responsive">
         <table class="table align-middle">
-            <thead><tr><th>Date</th><th>Customer</th><th>Type</th><th>Venue</th><th>Guests</th><th>Status</th></tr></thead>
+            <thead><tr><th>Date</th><th>{{ T.Customer }}</th><th>Type</th>{% if not HIDDEN_EVENT_FIELDS.venue %}<th>Venue</th>{% endif %}{% if not HIDDEN_EVENT_FIELDS.guest_count %}<th>Guests</th>{% endif %}<th>Status</th></tr></thead>
             <tbody>
             {% for event in object_list %}
                 <tr>
                     <td><a href="{% url 'events:detail' event.pk %}">{{ event.event_date }}</a></td>
                     <td>{{ event.customer.name }}</td>
                     <td>{{ event.event_type }}</td>
-                    <td>{{ event.venue }}</td>
-                    <td>{{ event.guest_count|default:"—"|intcomma }}</td>
+                    {% if not HIDDEN_EVENT_FIELDS.venue %}<td>{{ event.venue }}</td>{% endif %}
+                    {% if not HIDDEN_EVENT_FIELDS.guest_count %}<td>{{ event.guest_count|default:"—"|intcomma }}</td>{% endif %}
                     <td><span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span></td>
                 </tr>
             {% empty %}
-                {% include "partials/_empty_row.html" with colspan=6 noun="events" empty_text="Record an inquiry as an event, then quote, invoice and track it from there." action_url=add_url action_label="Create your first event" %}
+                {% blocktranslate asvar empty_text with e=T.event %}Record each inquiry as a new {{ e }}, then quote, invoice and track it from there.{% endblocktranslate %}{% blocktranslate asvar action_label with e=T.event %}Create your first {{ e }}{% endblocktranslate %}
+                {% include "partials/_empty_row.html" with colspan=6 noun=T.events empty_text=empty_text action_url=add_url action_label=action_label %}
             {% endfor %}
             </tbody>
         </table>

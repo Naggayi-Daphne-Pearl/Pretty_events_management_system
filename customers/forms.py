@@ -2,6 +2,7 @@ from django import forms
 from django.db.models import Q, Value
 from django.db.models.functions import Replace
 
+from core.client import reword
 from core.forms import BootstrapModelForm
 from core.phone import to_international
 
@@ -48,7 +49,7 @@ class CustomerForm(BootstrapModelForm):
             self.duplicates = customers_with_phone(phone, exclude_pk=self.instance.pk)
             if self.duplicates:
                 raise forms.ValidationError(
-                    'A customer with this phone number already exists. Open their record instead, '
-                    'or tick the box below if this really is someone else.'
+                    reword('A customer with this phone number already exists. Open their record instead, '
+                           'or tick the box below if this really is someone else.')
                 )
         return cleaned

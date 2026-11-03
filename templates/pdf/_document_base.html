@@ -25,7 +25,7 @@
     .details b { text-transform: uppercase; }
     .details.number { font-size: 12px; }
     .client-bar {
-        background: #1b3a5c; color: #fff; font-family: 'DejaVu Serif', 'Times New Roman', serif;
+        background: {{ PDF_BAR_COLOR|default:"#1b3a5c" }}; color: #fff; font-family: 'DejaVu Serif', 'Times New Roman', serif;
         font-weight: bold; font-size: 11.5px; padding: 3px 8px; margin: 8px 0 4px 18px; text-transform: uppercase; letter-spacing: .3px;
     }
     .client { margin: 0 0 2px 22px; font-weight: bold; font-size: 10.5px; }
@@ -79,16 +79,18 @@
             {% block client_details %}{% endblock %}
         </td>
         <td class="header-right">
-            <img class="logo" src="assets/branding/pretty-events-logo.png" alt="Pretty Events logo">
+            <img class="logo" src="assets/{{ COMPANY_LOGO_STATIC_PATH }}" alt="{{ COMPANY_NAME }} logo">
             <p class="company-name">{{ COMPANY_LEGAL_NAME }}</p>
             <div class="company-tagline">{{ COMPANY_TAGLINE }}</div>
+            {% if COMPANY_CONTACTS or COMPANY_EMAIL or COMPANY_WEBSITE_EMAIL or COMPANY_ADDRESS_LINES or COMPANY_TIN %}
             <div class="contacts">
-                <span class="contacts-label">CONTACTS:</span>
+                {% if COMPANY_CONTACTS %}<span class="contacts-label">CONTACTS:</span>{% endif %}
                 {% for name, phone in COMPANY_CONTACTS %}<span class="contact-name">{{ name }}</span> - {{ phone }}<br>{% endfor %}
-                {{ COMPANY_EMAIL }}{% if COMPANY_WEBSITE_EMAIL %} · {{ COMPANY_WEBSITE_EMAIL }}{% endif %}<br>
-                {% for line in COMPANY_ADDRESS_LINES %}{{ line }} {% endfor %}<br>
-                <span class="tin">TIN: {{ COMPANY_TIN }}</span>
+                {% if COMPANY_EMAIL or COMPANY_WEBSITE_EMAIL %}{{ COMPANY_EMAIL }}{% if COMPANY_EMAIL and COMPANY_WEBSITE_EMAIL %} · {% endif %}{{ COMPANY_WEBSITE_EMAIL }}<br>{% endif %}
+                {% if COMPANY_ADDRESS_LINES %}{% for line in COMPANY_ADDRESS_LINES %}{{ line }} {% endfor %}<br>{% endif %}
+                {% if COMPANY_TIN %}<span class="tin">TIN: {{ COMPANY_TIN }}</span>{% endif %}
             </div>
+            {% endif %}
         </td>
     </tr>
 </table>
@@ -103,7 +105,7 @@
 </table>
 <div class="footer">
     Thank you for choosing {{ COMPANY_LEGAL_NAME }}
-    <div class="motto">&ldquo;{{ COMPANY_MOTTO }}&rdquo;</div>
+    {% if COMPANY_MOTTO %}<div class="motto">&ldquo;{{ COMPANY_MOTTO }}&rdquo;</div>{% endif %}
 </div>
 </body>
 </html>

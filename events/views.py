@@ -17,6 +17,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from comms.outreach import call_url, whatsapp_url
 from core.activity import log_activity, log_model_activity
+from core.client import feature_enabled, term
 from core.deletion import confirm_and_delete, count_label
 from core.pagination import paginate
 from core.permissions import scope_events_to_assignments
@@ -131,7 +132,7 @@ class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEvent
     def get_object(self, queryset=None):
         event = super().get_object(queryset)
         if sync_event_status(event):
-            messages.info(self.request, f'Status moved to "{event.get_status_display()}" based on the event date.')
+            messages.info(self.request, f'Status moved to "{event.get_status_display()}" based on the {term("event")} date.')
         return event
 
     def get_context_data(self, **kwargs):
@@ -149,6 +150,8 @@ class EventDetailView(LoginRequiredMixin, PermissionRequiredMixin, AssignedEvent
         ctx['next_step'] = next_step_for(event, ctx, self.request.user)
         if event.status not in (Event.Status.CANCELLED, Event.Status.COMPLETED):
             ctx['shortages'] = event_shortages(event)
+        if feature_enabled('subscriptions') and self.request.user.has_perm('subscriptions.view_subscription'):
+            ctx['subscriptions'] = event.subscriptions.select_related('tax_group')
         return ctx
 
 
@@ -163,7 +166,8 @@ def progress_steps(event, ctx):
     owed = sum((i.balance_due for i in invoices), 0)
     out = sum(i.quantity_outstanding for i in issues)
     past_confirmed = event.status in (Event.Status.CONFIRMED, Event.Status.IN_PROGRESS, Event.Status.COMPLETED)
-    return [
+    inventory = feature_enabled('inventory')
+    steps = [
         {'label': 'Quoted', 'done': bool(ctx['quotations'] or invoices),
          'detail': ctx['quotations'][0].number if ctx['quotations'] else ''},
         {'label': 'Confirmed', 'done': past_confirmed, 'detail': invoices[0].number if invoices else ''},
@@ -171,11 +175,14 @@ def progress_steps(event, ctx):
          'detail': f'{settings.CURRENCY} {paid:,.0f} paid' if paid else ''},
         {'label': 'Crew assigned', 'done': bool(ctx['assignments']),
          'detail': f'{len(ctx["assignments"])} assigned' if ctx['assignments'] else ''},
-        {'label': 'Equipment out', 'done': bool(issues), 'detail': f'{len(issues)} issue(s)' if issues else ''},
-        {'label': 'Equipment back', 'done': bool(issues) and out == 0, 'detail': f'{out} still out' if out else ''},
+        {'label': 'Equipment out', 'done': bool(issues), 'detail': f'{len(issues)} issue(s)' if issues else '',
+         'inventory': True},
+        {'label': 'Equipment back', 'done': bool(issues) and out == 0, 'detail': f'{out} still out' if out else '',
+         'inventory': True},
         {'label': 'Paid in full', 'done': bool(invoices) and owed <= 0,
          'detail': f'{settings.CURRENCY} {owed:,.0f} due' if owed > 0 else ''},
     ]
+    return [step for step in steps if inventory or not step.pop('inventory', False)]
 
 
 @login_required
@@ -275,7 +282,7 @@ def next_step_for(event, ctx, user):
 
     if not quotations and not invoices:
         if user.has_perm('billing.add_quotation'):
-            return {'text': 'No quotation yet. Price this event for the client.',
+            return {'text': f'No quotation yet. Price this {term("event")} for the {term("customer")}.',
                     'url': reverse('billing:quotation_create', args=[event.pk]), 'button': 'Create quotation'}
         return None
     for q in quotations:
@@ -293,13 +300,15 @@ def next_step_for(event, ctx, user):
                     'url': inv.get_absolute_url() + '#record-payment', 'button': 'Record payment'}
     if event.status in (Event.Status.CONFIRMED, Event.Status.IN_PROGRESS):
         if not ctx['assignments'] and user.has_perm('staffing.add_eventassignment'):
-            return {'text': 'Nobody is assigned to this event yet.',
+            return {'text': f'Nobody is assigned to this {term("event")} yet.',
                     'url': reverse('staffing:assign', args=[event.pk]), 'button': 'Assign staff'}
+        if not feature_enabled('inventory'):
+            return None
         if not ctx['equipment_issues'] and user.has_perm('inventory.add_equipmentissue'):
-            return {'text': 'No equipment has been issued for this event yet.',
+            return {'text': f'No equipment has been issued for this {term("event")} yet.',
                     'url': reverse('inventory:issue_create', args=[event.pk]), 'button': 'Issue equipment'}
         if event.last_day < timezone.localdate() and any(i.quantity_outstanding > 0 for i in ctx['equipment_issues']):
-            return {'text': 'The event is over but some equipment has not come back.',
+            return {'text': f'The {term("event")} is over but some equipment has not come back.',
                     'url': '#equipment', 'button': 'See equipment'}
     return None
 
@@ -321,7 +330,8 @@ class EventCreateView(
     form_class = EventForm
     permission_required = 'events.add_event'
     template_name = 'events/event_form.html'
-    success_message = 'Event created.'
+    def get_success_message(self, cleaned_data):
+        return f'{term("Event")} created.'
 
     def get_prefill_customer(self):
         customer_id = self.request.GET.get('customer')
@@ -368,7 +378,8 @@ class EventUpdateView(
     form_class = EventForm
     permission_required = 'events.change_event'
     template_name = 'events/event_form.html'
-    success_message = 'Event updated.'
+    def get_success_message(self, cleaned_data):
+        return f'{term("Event")} updated.'
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -393,5 +404,5 @@ def event_delete(request, pk):
             count_label(event.expense_records.count(), 'expense record'),
         ],
         also_deleted=[count_label(event.assignments.count(), 'staff assignment')],
-        hint='If the booking fell through, set the event status to Cancelled instead; that keeps its history.',
+        hint=f'If the booking fell through, set the {term("event")} status to Cancelled instead; that keeps its history.',
     )

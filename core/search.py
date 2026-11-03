@@ -9,6 +9,7 @@ from customers.models import Customer
 from events.models import Event
 from staffing.models import StaffMember
 
+from .client import term
 from .permissions import scope_events_to_assignments
 
 LIMIT = 10
@@ -45,13 +46,13 @@ def search_everything(user, query):
         if phone_q:
             qs = qs.annotate(bare_phone=_bare('phone'), bare_alt=_bare('alt_phone'))
             cond |= Q(bare_phone__contains=digits) | Q(bare_alt__contains=digits)
-        sections.append({'key': 'customers', 'title': 'Customers', 'icon': 'bi-people',
+        sections.append({'key': 'customers', 'title': term('Customers'), 'icon': 'bi-people',
                          'results': list(qs.filter(cond).order_by('name')[:LIMIT])})
 
     if user.has_perm('events.view_event'):
         qs = scope_events_to_assignments(Event.objects.select_related('customer'), user)
         cond = Q(customer__name__icontains=query) | Q(event_type__icontains=query) | Q(venue__icontains=query)
-        sections.append({'key': 'events', 'title': 'Events', 'icon': 'bi-calendar-event',
+        sections.append({'key': 'events', 'title': term('Events'), 'icon': 'bi-calendar-event',
                          'results': list(qs.filter(cond).order_by('-event_date')[:LIMIT])})
 
     doc_cond = Q(number__icontains=query) | Q(event__customer__name__icontains=query)

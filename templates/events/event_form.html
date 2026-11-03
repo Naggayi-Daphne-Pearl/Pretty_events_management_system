@@ -1,17 +1,17 @@
 {% extends "base.html" %}
-{% block title %}{% if object %}Edit Event{% else %}New Event{% endif %}{% endblock %}
+{% block title %}{% if object %}Edit {{ T.Event }}{% else %}New {{ T.Event }}{% endif %}{% endblock %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">Events</a><span class="sep">/</span>{% if object %}<a href="{% url 'events:detail' object.pk %}">{{ object.event_type }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New Event</span>{% endif %}</nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">{{ T.Events }}</a><span class="sep">/</span>{% if object %}<a href="{% url 'events:detail' object.pk %}">{{ object.event_type }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New {{ T.Event }}</span>{% endif %}</nav>
 {% endblock %}
 {% block content %}
 {% if prefill_customer %}
-    <h3 class="mb-1">New event for {{ prefill_customer.name }}</h3>
+    <h3 class="mb-1">New {{ T.event }} for {{ prefill_customer.name }}</h3>
     <p class="text-muted mb-3">
-        Not booking an event for them right now?
-        <a href="{% url 'customers:detail' prefill_customer.pk %}">Skip — just save the customer</a>.
+        Not booking a {{ T.event }} for them right now?
+        <a href="{% url 'customers:detail' prefill_customer.pk %}">Skip — just save the {{ T.customer }}</a>.
     </p>
 {% else %}
-    <h3 class="mb-3">{% if object %}Edit Event{% else %}New Event{% endif %}</h3>
+    <h3 class="mb-3">{% if object %}Edit {{ T.Event }}{% else %}New {{ T.Event }}{% endif %}</h3>
 {% endif %}
 
 <div class="card p-4" style="max-width: 640px;">
@@ -25,12 +25,12 @@
                     <div class="customer-search-wrap">
                         <input type="hidden" name="customer" id="id_customer" value="{{ field.value|default:'' }}">
                         <input type="text" class="form-control" id="customer-search" autocomplete="off"
-                               placeholder="Search customers by name or phone…"
+                               placeholder="Search {{ T.customers }} by name or phone…"
                                value="{% if prefill_customer %}{{ prefill_customer.name }}{% elif object %}{{ object.customer.name }}{% endif %}">
                         <div id="customer-results" class="customer-search-results" hidden></div>
                     </div>
                     {% if form.allow_new_customer %}
-                    <div class="form-text small">Customer not listed? <a href="#" id="new-customer-toggle">Add a new customer here</a>.</div>
+                    <div class="form-text small">{{ T.Customer }} not listed? <a href="#" id="new-customer-toggle">Add a new {{ T.customer }} here</a>.</div>
                     {% endif %}
                 {% else %}
                     {{ field }}
@@ -39,7 +39,7 @@
             </div>
             {% if field.name == 'customer' and form.allow_new_customer %}
             <div id="new-customer-fields" class="border rounded p-3 mb-3"{% if not form.new_customer_name.value and not form.new_customer_phone.errors %} hidden{% endif %}>
-                <div class="small text-muted mb-2">New customer (saved together with this event)</div>
+                <div class="small text-muted mb-2">New {{ T.customer }} (saved together with this {{ T.event }})</div>
                 {% for nf in form %}{% if nf.name in form.NEW_CUSTOMER_FIELDS %}
                 <div class="mb-2">
                     <label class="form-label small mb-1" for="{{ nf.id_for_label }}">{{ nf.label }}{% if nf.name != 'new_customer_email' %} <span class="text-danger">*</span>{% endif %}</label>

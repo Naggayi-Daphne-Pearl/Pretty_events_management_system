@@ -7,6 +7,7 @@ the phone has no connection.
 """
 import json
 
+from django.conf import settings
 from django.http import HttpResponse
 from django.shortcuts import render
 from django.templatetags.static import static
@@ -18,19 +19,20 @@ SW_VERSION = 'pe-offline-v1'
 
 @cache_control(max_age=3600)
 def manifest(request):
+    icons = settings.COMPANY_ICONS_STATIC_DIR
     data = {
-        'name': 'Pretty Events',
-        'short_name': 'Pretty Events',
-        'description': 'Bookings, billing, equipment and staff for Pretty Events.',
+        'name': settings.COMPANY_NAME,
+        'short_name': settings.COMPANY_NAME,
+        'description': settings.CLIENT_PROFILE.app_description,
         'start_url': '/?source=app',
         'scope': '/',
         'display': 'standalone',
         'background_color': '#ffffff',
-        'theme_color': '#2B3490',
+        'theme_color': settings.CLIENT_PROFILE.theme_color,
         'icons': [
-            {'src': static('branding/icons/icon-192.png'), 'sizes': '192x192', 'type': 'image/png'},
-            {'src': static('branding/icons/icon-512.png'), 'sizes': '512x512', 'type': 'image/png'},
-            {'src': static('branding/icons/icon-maskable-512.png'), 'sizes': '512x512', 'type': 'image/png',
+            {'src': static(f'{icons}/icon-192.png'), 'sizes': '192x192', 'type': 'image/png'},
+            {'src': static(f'{icons}/icon-512.png'), 'sizes': '512x512', 'type': 'image/png'},
+            {'src': static(f'{icons}/icon-maskable-512.png'), 'sizes': '512x512', 'type': 'image/png',
              'purpose': 'maskable'},
         ],
     }

@@ -1,10 +1,10 @@
 {% extends "base.html" %}
-{% block title %}{% if object %}Edit Customer{% else %}New Customer{% endif %}{% endblock %}
+{% block title %}{% if object %}Edit {{ T.Customer }}{% else %}New {{ T.Customer }}{% endif %}{% endblock %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'customers:list' %}">Customers</a><span class="sep">/</span>{% if object %}<a href="{% url 'customers:detail' object.pk %}">{{ object.name }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New Customer</span>{% endif %}</nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'customers:list' %}">{{ T.Customers }}</a><span class="sep">/</span>{% if object %}<a href="{% url 'customers:detail' object.pk %}">{{ object.name }}</a><span class="sep">/</span><span class="current">Edit</span>{% else %}<span class="current">New {{ T.Customer }}</span>{% endif %}</nav>
 {% endblock %}
 {% block content %}
-<h3 class="mb-3">{% if object %}Edit Customer{% else %}New Customer{% endif %}</h3>
+<h3 class="mb-3">{% if object %}Edit {{ T.Customer }}{% else %}New {{ T.Customer }}{% endif %}</h3>
 <div class="card p-4" style="max-width: 640px;">
     <form method="post">
         {% csrf_token %}
@@ -12,9 +12,9 @@
         <div class="alert alert-warning">
             <div class="fw-semibold mb-1"><i class="bi bi-people me-1"></i>This phone number is already on file</div>
             {% for c in form.duplicates %}
-            <div><a href="{% url 'customers:detail' c.pk %}">{{ c.name }}</a> · {{ c.phone }}{% if c.alt_phone %} / {{ c.alt_phone }}{% endif %} · {{ c.events.count }} event{{ c.events.count|pluralize }}</div>
+            <div><a href="{% url 'customers:detail' c.pk %}">{{ c.name }}</a> · {{ c.phone }}{% if c.alt_phone %} / {{ c.alt_phone }}{% endif %} · {{ c.events.count }} {% if c.events.count == 1 %}{{ T.event }}{% else %}{{ T.events }}{% endif %}</div>
             {% endfor %}
-            <div class="small mt-1">Open their record to add a new event for them, or tick the box below to save a separate customer.</div>
+            <div class="small mt-1">Open their record to add a new {{ T.event }} for them, or tick the box below to save a separate {{ T.customer }}.</div>
         </div>
         {% endif %}
         {% for field in form %}

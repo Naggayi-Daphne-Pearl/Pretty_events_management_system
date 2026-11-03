@@ -48,9 +48,9 @@
     </div>
     <div class="col-lg-8">
         <div class="card p-3">
-            <h6 class="mb-2">Event assignments</h6>
+            <h6 class="mb-2">{{ T.Event }} assignments</h6>
             <table class="table table-sm">
-                <thead><tr><th>Event</th><th>Date</th><th>Role</th></tr></thead>
+                <thead><tr><th>{{ T.Event }}</th><th>Date</th><th>Role</th></tr></thead>
                 <tbody>
                 {% for a in assignments %}
                     <tr>
@@ -59,7 +59,7 @@
                         <td>{{ a.role_on_event|default:"—" }}</td>
                     </tr>
                 {% empty %}
-                    <tr><td colspan="3" class="text-center text-muted py-3">No event assignments yet.</td></tr>
+                    <tr><td colspan="3" class="text-center text-muted py-3">No {{ T.event }} assignments yet.</td></tr>
                 {% endfor %}
                 </tbody>
             </table>

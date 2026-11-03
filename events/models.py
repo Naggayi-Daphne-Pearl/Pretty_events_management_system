@@ -20,7 +20,7 @@ class Event(TimeStampedModel):
     status = models.CharField(max_length=20, choices=Status.choices, default=Status.INQUIRY)
     event_date = models.DateField()
     end_date = models.DateField(null=True, blank=True, help_text='Leave blank for single-day events')
-    venue = models.CharField(max_length=255)
+    venue = models.CharField(max_length=255, blank=True)
     guest_count = models.PositiveIntegerField(null=True, blank=True)
     notes = models.TextField(blank=True)
     created_by = models.ForeignKey(
@@ -88,13 +88,16 @@ class Event(TimeStampedModel):
         as happening): Confirmed -> In Progress once the event starts, then
         -> Completed after its last day, but only once all issued equipment is
         back, since outstanding equipment means the job isn't really finished.
+        Businesses whose jobs don't end on a set day (client profile
+        auto_complete_events=False) mark them Completed by hand.
         Returns the new status if it changed, else None.
         """
         from django.utils import timezone
         today = today or timezone.localdate()
         if self.status not in (self.Status.CONFIRMED, self.Status.IN_PROGRESS) or self.event_date > today:
             return None
-        if self.last_day < today and not self.has_outstanding_equipment():
+        if (self.last_day < today and not self.has_outstanding_equipment()
+                and settings.CLIENT_PROFILE.auto_complete_events):
             target = self.Status.COMPLETED
         else:
             target = self.Status.IN_PROGRESS
