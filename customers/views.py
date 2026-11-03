@@ -13,6 +13,7 @@ from django.views.generic import CreateView, DetailView, ListView, UpdateView
 
 from billing.models import Invoice, Quotation
 from core.activity import log_model_activity
+from core.client import reword, term
 from core.deletion import confirm_and_delete, count_label
 from core.pagination import paginate
 
@@ -74,7 +75,7 @@ def customer_history(customer, user):
 
     if user.has_perm('events.view_event'):
         for event in customer.events.all():
-            add(event.created_at, 'Event', 'bi-calendar-event', f'Booked {event.event_type} for {event.event_date:%d %b %Y}',
+            add(event.created_at, term('Event'), 'bi-calendar-event', f'Booked {event.event_type} for {event.event_date:%d %b %Y}',
                 event.get_absolute_url(), event.get_status_display())
 
     if user.has_perm('billing.view_quotation'):
@@ -111,7 +112,8 @@ class CustomerCreateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
     form_class = CustomerForm
     permission_required = 'customers.add_customer'
     template_name = 'customers/customer_form.html'
-    success_message = 'Customer "%(name)s" added.'
+    def get_success_message(self, cleaned_data):
+        return f'{term("Customer")} "{cleaned_data["name"]}" added.'
 
     def form_valid(self, form):
         form.instance.created_by = self.request.user
@@ -134,7 +136,8 @@ class CustomerUpdateView(LoginRequiredMixin, PermissionRequiredMixin, SuccessMes
     form_class = CustomerForm
     permission_required = 'customers.change_customer'
     template_name = 'customers/customer_form.html'
-    success_message = 'Customer "%(name)s" updated.'
+    def get_success_message(self, cleaned_data):
+        return f'{term("Customer")} "{cleaned_data["name"]}" updated.'
 
     def form_valid(self, form):
         response = super().form_valid(form)
@@ -150,7 +153,7 @@ def customer_delete(request, pk):
         request, customer,
         cancel_url=customer.get_absolute_url(),
         success_url=reverse('customers:list'),
-        blockers=[count_label(customer.events.count(), 'event')],
+        blockers=[count_label(customer.events.count(), term('event'), term('events'))],
         also_deleted=[count_label(customer.communication_logs.count(), 'communication log entry', 'communication log entries')],
-        hint='Delete or reassign their events first. Events with quotations or invoices are kept for the financial record.',
+        hint=reword('Delete or reassign their events first. Events with quotations or invoices are kept for the financial record.'),
     )

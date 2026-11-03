@@ -2,7 +2,7 @@
 {% block title %}{{ object.name }}{% endblock %}
 {% load humanize %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'customers:list' %}">Customers</a><span class="sep">/</span><span class="current">{{ object.name }}</span></nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'customers:list' %}">{{ T.Customers }}</a><span class="sep">/</span><span class="current">{{ object.name }}</span></nav>
 {% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -45,24 +45,24 @@
     <div class="col-lg-8">
         <div class="card p-3 mb-3">
             <div class="d-flex justify-content-between align-items-center mb-2">
-                <h6 class="mb-0">Events ({{ events.count|intcomma }})</h6>
+                <h6 class="mb-0">{{ T.Events }} ({{ events.count|intcomma }})</h6>
                 {% if perms.events.add_event %}
-                <a href="{% url 'events:create' %}?customer={{ object.pk }}" class="btn btn-sm btn-primary">New Event</a>
+                <a href="{% url 'events:create' %}?customer={{ object.pk }}" class="btn btn-sm btn-primary">New {{ T.Event }}</a>
                 {% endif %}
             </div>
             <div class="table-responsive">
                 <table class="table table-sm align-middle">
-                    <thead><tr><th>Date</th><th>Type</th><th>Venue</th><th>Status</th></tr></thead>
+                    <thead><tr><th>Date</th><th>Type</th>{% if not HIDDEN_EVENT_FIELDS.venue %}<th>Venue</th>{% endif %}<th>Status</th></tr></thead>
                     <tbody>
                     {% for event in events %}
                         <tr>
                             <td><a href="{% url 'events:detail' event.pk %}">{{ event.event_date }}</a></td>
                             <td>{{ event.event_type }}</td>
-                            <td>{{ event.venue }}</td>
+                            {% if not HIDDEN_EVENT_FIELDS.venue %}<td>{{ event.venue }}</td>{% endif %}
                             <td><span class="badge bg-secondary badge-status">{{ event.get_status_display }}</span></td>
                         </tr>
                     {% empty %}
-                        <tr><td colspan="4" class="text-center text-muted py-3">No events yet.</td></tr>
+                        <tr><td colspan="4" class="text-center text-muted py-3">No {{ T.events }} yet.</td></tr>
                     {% endfor %}
                     </tbody>
                 </table>
@@ -96,7 +96,7 @@
                     </div>
                 </li>
             {% empty %}
-                <li class="list-group-item px-0 small text-muted">Nothing recorded for this customer yet.</li>
+                <li class="list-group-item px-0 small text-muted">Nothing recorded for this {{ T.customer }} yet.</li>
             {% endfor %}
             </ul>
             {% include "partials/_pagination.html" with page_obj=timeline_page page_param="timeline_page" %}

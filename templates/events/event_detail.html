@@ -2,7 +2,7 @@
 {% load humanize %}
 {% block title %}{{ object }}{% endblock %}
 {% block breadcrumbs %}
-<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">Events</a><span class="sep">/</span><span class="current">{{ object.event_type }} — {{ object.customer.name }}</span></nav>
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><a href="{% url 'events:list' %}">{{ T.Events }}</a><span class="sep">/</span><span class="current">{{ object.event_type }} — {{ object.customer.name }}</span></nav>
 {% endblock %}
 {% block content %}
 <div class="d-flex justify-content-between align-items-center mb-3">
@@ -69,9 +69,11 @@
         {% if perms.billing.add_quotation %}<a href="{% url 'billing:quotation_create' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-file-earmark-plus me-1"></i>New quotation</a>{% endif %}
         {% for inv in invoices %}{% if inv.balance_due > 0 and inv.status != 'cancelled' and perms.billing.add_payment %}<a href="{% url 'billing:invoice_detail' inv.pk %}#record-payment" class="btn btn-sm btn-outline-primary"><i class="bi bi-cash me-1"></i>Record payment ({{ inv.number }})</a>{% endif %}{% endfor %}
         {% if perms.staffing.add_eventassignment %}<a href="{% url 'staffing:assign' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-person-plus me-1"></i>Assign staff</a>{% endif %}
+        {% if FEATURES.inventory %}
         {% if perms.inventory.add_equipmentissue %}<a href="{% url 'inventory:issue_create' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-box-arrow-right me-1"></i>Issue equipment</a>{% endif %}
         <a href="{% url 'events:job' object.pk %}" class="btn btn-sm btn-outline-primary"><i class="bi bi-phone me-1"></i>Job sheet</a>
         <a href="{% url 'events:packing_list' object.pk %}" class="btn btn-sm btn-outline-primary" target="_blank"><i class="bi bi-printer me-1"></i>Packing list</a>
+        {% endif %}
         {% if perms.comms.add_communicationlog %}<a href="{% url 'comms:log_create' object.customer.pk %}?event={{ object.pk }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-journal-plus me-1"></i>Log contact</a>{% endif %}
     </div>
 </div>
@@ -79,12 +81,12 @@
 <div class="row g-3">
     <div class="col-lg-4">
         <div class="card p-3 mb-3">
-            <h6>Event details</h6>
+            <h6>{{ T.Event }} details</h6>
             <dl class="row mb-0 small">
                 <dt class="col-5">Date</dt><dd class="col-7">{{ object.event_date }}{% if object.end_date %} – {{ object.end_date }}{% endif %}</dd>
-                <dt class="col-5">Venue</dt><dd class="col-7">{{ object.venue }}</dd>
-                <dt class="col-5">Guests</dt><dd class="col-7">{{ object.guest_count|default:"—"|intcomma }}</dd>
-                <dt class="col-5">Customer</dt><dd class="col-7"><a href="{% url 'customers:detail' object.customer.pk %}">{{ object.customer.name }}</a></dd>
+                {% if not HIDDEN_EVENT_FIELDS.venue %}<dt class="col-5">Venue</dt><dd class="col-7">{{ object.venue|default:"—" }}</dd>{% endif %}
+                {% if not HIDDEN_EVENT_FIELDS.guest_count %}<dt class="col-5">Guests</dt><dd class="col-7">{{ object.guest_count|default:"—"|intcomma }}</dd>{% endif %}
+                <dt class="col-5">{{ T.Customer }}</dt><dd class="col-7"><a href="{% url 'customers:detail' object.customer.pk %}">{{ object.customer.name }}</a></dd>
             </dl>
             {% if object.notes %}<hr><p class="small text-muted mb-0">{{ object.notes }}</p>{% endif %}
         </div>
@@ -108,7 +110,7 @@
         </div>
         {% if perms.comms.view_communicationlog %}
         <div class="card p-3 mt-3">
-            <h6 class="mb-2">Communication about this event</h6>
+            <h6 class="mb-2">Communication about this {{ T.event }}</h6>
             <ul class="list-group list-group-flush">
             {% for log in comms_page %}
                 <li class="list-group-item px-0 small">
@@ -116,7 +118,7 @@
                     <div class="text-muted">{{ log.message|truncatewords:20 }}</div>
                 </li>
             {% empty %}
-                <li class="list-group-item px-0 small text-muted">Nothing logged for this event yet.</li>
+                <li class="list-group-item px-0 small text-muted">Nothing logged for this {{ T.event }} yet.</li>
             {% endfor %}
             </ul>
             {% include "partials/_pagination.html" with page_obj=comms_page page_param="comms_page" %}
@@ -172,6 +174,32 @@
                 </tbody>
             </table>
         </div>
+        {% if subscriptions is not None %}
+        <div class="card p-3 mb-3" id="renewals">
+            <div class="d-flex justify-content-between align-items-center mb-2">
+                <h6 class="mb-0">Renewals</h6>
+                {% if perms.subscriptions.add_subscription %}
+                <a href="{% url 'subscriptions:create' %}?event={{ object.pk }}" class="btn btn-sm btn-outline-primary">Add renewal</a>
+                {% endif %}
+            </div>
+            <table class="table table-sm">
+                <thead><tr><th>Renewal</th><th>Every</th><th>Amount</th><th>Next due</th></tr></thead>
+                <tbody>
+                {% for sub in subscriptions %}
+                    <tr{% if not sub.is_active %} class="text-muted"{% endif %}>
+                        <td><a href="{% url 'subscriptions:detail' sub.pk %}">{{ sub.name }}</a>{% if not sub.is_active %} (stopped){% endif %}</td>
+                        <td>{{ sub.get_interval_display }}</td>
+                        <td>{{ CURRENCY }} {{ sub.amount|floatformat:0|intcomma }}</td>
+                        <td>{{ sub.next_due_date|date:"j M Y" }}</td>
+                    </tr>
+                {% empty %}
+                    <tr><td colspan="4" class="text-center text-muted py-2">No hosting, domain or maintenance renewals yet.</td></tr>
+                {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+        {% if FEATURES.inventory %}
         <div class="card p-3" id="equipment">
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <h6 class="mb-0">Equipment issued</h6>
@@ -196,6 +224,7 @@
                 </tbody>
             </table>
         </div>
+        {% endif %}
     </div>
 </div>
 {% endblock %}

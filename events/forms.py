@@ -1,5 +1,6 @@
 from django import forms
 
+from core.client import event_field_hidden, terms
 from core.forms import BootstrapModelForm
 from core.phone import to_international
 from customers.models import Customer
@@ -27,6 +28,20 @@ class EventForm(BootstrapModelForm):
 
     def __init__(self, *args, allow_new_customer=False, **kwargs):
         super().__init__(*args, **kwargs)
+        words = terms()
+        for name in ('venue', 'guest_count', 'end_date'):
+            if event_field_hidden(name):
+                del self.fields[name]
+        self.fields['customer'].label = words['Customer']
+        self.fields['event_type'].label = f"{words['Event']} type"
+        self.fields['event_type'].help_text = words['event_type_help']
+        self.fields['event_date'].label = words['event_date']
+        if 'end_date' in self.fields:
+            self.fields['end_date'].label = words['end_date']
+            self.fields['end_date'].help_text = words['end_date_help']
+        if 'new_customer_name' in self.fields:
+            for suffix in ('name', 'phone', 'email'):
+                self.fields[f'new_customer_{suffix}'].label = f"New {words['customer']} {suffix}"
         self.allow_new_customer = allow_new_customer
         if allow_new_customer:
             self.fields['customer'].required = False
@@ -41,7 +56,8 @@ class EventForm(BootstrapModelForm):
         name = (cleaned.get('new_customer_name') or '').strip()
         phone = (cleaned.get('new_customer_phone') or '').strip()
         if not name or not phone:
-            self.add_error('customer', 'Pick an existing customer, or enter the new customer\'s name and phone.')
+            words = terms()
+            self.add_error('customer', f"Pick an existing {words['customer']}, or enter the new {words['customer']}'s name and phone.")
             return cleaned
         normalized = to_international(phone)
         for existing in Customer.objects.only('pk', 'name', 'phone'):

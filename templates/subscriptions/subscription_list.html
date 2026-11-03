@@ -1,0 +1,45 @@
+{% extends "base.html" %}
+{% load humanize %}
+{% block title %}Renewals{% endblock %}
+{% block breadcrumbs %}
+<nav class="breadcrumb-trail"><a href="{% url 'dashboard' %}">Dashboard</a><span class="sep">/</span><span class="current">Renewals</span></nav>
+{% endblock %}
+{% block content %}
+{% if perms.subscriptions.add_subscription %}{% url 'subscriptions:create' as add_url %}{% endif %}
+<div class="d-flex justify-content-between align-items-center mb-1">
+    <h3 class="mb-0">Renewals</h3>
+    {% if add_url %}<a href="{{ add_url }}" class="btn btn-primary btn-sm"><i class="bi bi-plus-lg me-1"></i>New renewal</a>{% endif %}
+</div>
+<p class="text-muted small mb-3" style="max-width: 760px;">
+    Charges that repeat, such as hosting, domains and maintenance retainers. Each one raises its own invoice a set
+    number of days before it's due, on the {{ T.event }} it belongs to. Active renewals bring in about
+    <strong>{{ CURRENCY }} {{ yearly_total|floatformat:0|intcomma }}</strong> a year before tax.
+</p>
+<div class="card p-3">
+    <div class="d-flex gap-1 flex-wrap mb-3">
+        {% for key, label in filters %}
+        <a href="?show={{ key }}" class="btn btn-sm {% if key == current %}btn-primary{% else %}btn-outline-secondary{% endif %}">{{ label }}</a>
+        {% endfor %}
+    </div>
+    <div class="table-responsive">
+        <table class="table align-middle">
+            <thead><tr><th>Renewal</th><th>{{ T.Customer }}</th><th>Every</th><th>Amount</th><th>Next due</th><th>Status</th></tr></thead>
+            <tbody>
+            {% for sub in page_obj %}
+                <tr>
+                    <td><a href="{% url 'subscriptions:detail' sub.pk %}">{{ sub.name }}</a><div class="small text-muted">{{ sub.event.event_type }}</div></td>
+                    <td>{{ sub.event.customer.name }}</td>
+                    <td>{{ sub.get_interval_display }}</td>
+                    <td>{{ CURRENCY }} {{ sub.amount|floatformat:0|intcomma }}</td>
+                    <td>{{ sub.next_due_date|date:"j M Y" }}{% if sub.is_active and sub.next_due_date < today %} <span class="badge bg-danger">late</span>{% endif %}</td>
+                    <td>{% if sub.is_active %}Active{% else %}<span class="text-muted">Stopped</span>{% endif %}</td>
+                </tr>
+            {% empty %}
+                {% include "partials/_empty_row.html" with colspan=6 noun="renewals" empty_text="Add hosting, domain or maintenance charges and they'll invoice themselves." action_url=add_url action_label="Add a renewal" %}
+            {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% include "partials/_pagination.html" %}
+</div>
+{% endblock %}

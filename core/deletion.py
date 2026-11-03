@@ -3,7 +3,7 @@ from django.db import transaction
 from django.db.models import ProtectedError
 from django.shortcuts import redirect, render
 
-from .activity import log_activity
+from .activity import display_name, log_activity
 
 
 def confirm_and_delete(request, obj, *, cancel_url, success_url, blockers=(), also_deleted=(), hint='', after_delete=None):
@@ -20,7 +20,7 @@ def confirm_and_delete(request, obj, *, cancel_url, success_url, blockers=(), al
     """
     blockers = [b for b in blockers if b]
     also_deleted = [a for a in also_deleted if a]
-    verbose_name = obj._meta.verbose_name
+    verbose_name = display_name(obj)
     label = str(obj)
 
     if request.method == 'POST' and not blockers:

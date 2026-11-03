@@ -31,11 +31,11 @@
     {% if perms.events.view_event %}
     <div class="col-sm-6 col-lg-4">
         <a href="{% url 'reports:event_summary' %}" class="text-decoration-none">
-            <div class="card p-3 h-100"><i class="bi bi-calendar-check fs-3 text-success"></i><h6 class="mt-2 mb-1">Event Summary</h6><p class="small text-muted mb-0">Events by status over a period.</p></div>
+            <div class="card p-3 h-100"><i class="bi bi-calendar-check fs-3 text-success"></i><h6 class="mt-2 mb-1">{{ T.Event }} Summary</h6><p class="small text-muted mb-0">{{ T.Events }} by status over a period.</p></div>
         </a>
     </div>
     {% endif %}
-    {% if perms.inventory.view_equipmentitem %}
+    {% if FEATURES.inventory and perms.inventory.view_equipmentitem %}
     <div class="col-sm-6 col-lg-4">
         <a href="{% url 'reports:inventory_summary' %}" class="text-decoration-none">
             <div class="card p-3 h-100"><i class="bi bi-box-seam fs-3 text-secondary"></i><h6 class="mt-2 mb-1">Inventory Summary</h6><p class="small text-muted mb-0">Owned, issued, and available equipment.</p></div>

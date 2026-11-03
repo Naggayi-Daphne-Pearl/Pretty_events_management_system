@@ -7,7 +7,7 @@
 <div class="d-flex justify-content-between align-items-center mb-3">
     <div>
         <h3 class="mb-0">Activity Log</h3>
-        <p class="text-muted small mb-0">Who did what, and when — every customer, event, quotation, invoice, payment, inventory, staff, and communication record created or updated, plus roles, permissions, and staff logins. Each business record also shows its own "created by" line on its detail page.</p>
+        <p class="text-muted small mb-0">Who did what, and when — every {{ T.customer }}, {{ T.event }}, quotation, invoice, payment,{% if FEATURES.inventory %} inventory,{% endif %}{% if FEATURES.subscriptions %} renewal,{% endif %} staff, and communication record created or updated, plus roles, permissions, and staff logins. Each business record also shows its own "created by" line on its detail page.</p>
     </div>
     <a href="{% url 'activity_log_export' %}?start={{ start|urlencode }}&end={{ end|urlencode }}&q={{ q|urlencode }}" class="btn btn-outline-secondary btn-sm"><i class="bi bi-download me-1"></i>Export CSV</a>
 </div>

@@ -1,5 +1,6 @@
 from django import forms
 
+from core.client import reword
 from core.forms import BootstrapModelForm
 
 from .models import CommunicationLog
@@ -17,4 +18,4 @@ class CommunicationLogForm(BootstrapModelForm):
         super().__init__(*args, **kwargs)
         # Only this customer's own events make sense here.
         self.fields['event'].queryset = customer.events.order_by('-event_date')
-        self.fields['event'].empty_label = 'Not about a specific event'
+        self.fields['event'].empty_label = reword('Not about a specific event')

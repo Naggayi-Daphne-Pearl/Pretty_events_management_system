@@ -14,6 +14,7 @@ BUSINESS_DATA = [
     'billing.MobileMoneyTransaction',
     'finance.IncomeRecord',
     'finance.ExpenseRecord',
+    'subscriptions.Subscription',  # before invoices: it lists the invoices it raised
     'billing.Receipt',
     'billing.Payment',
     'billing.InvoiceLineItem',

@@ -4,7 +4,7 @@
     <table class="table align-middle" id="line-items-table">
         <thead>
             <tr>
-                <th style="width:220px;">Inventory item</th>
+                {% if FEATURES.inventory %}<th style="width:220px;">Inventory item</th>{% endif %}
                 <th>Description <span class="text-danger">*</span></th>
                 <th style="width:110px;">Qty <span class="text-danger">*</span></th>
                 <th style="width:160px;">Unit Price <span class="text-danger">*</span></th>
@@ -14,8 +14,8 @@
         <tbody>
         {% for lform in formset %}
             <tr>
-                <td>{{ lform.id }}{{ lform.equipment_item }}</td>
-                <td>{{ lform.description }}{% if lform.description.errors %}<div class="text-danger small">{{ lform.description.errors }}</div>{% endif %}</td>
+                {% if FEATURES.inventory %}<td>{{ lform.id }}{{ lform.equipment_item }}</td>{% endif %}
+                <td>{% if not FEATURES.inventory %}{{ lform.id }}{% endif %}{{ lform.description }}{% if lform.description.errors %}<div class="text-danger small">{{ lform.description.errors }}</div>{% endif %}</td>
                 <td>{{ lform.quantity }}<div class="text-warning small stock-warning" hidden></div></td>
                 <td>{{ lform.unit_price }}</td>
                 <td class="text-center">
@@ -29,15 +29,15 @@
 </div>
 <div class="d-flex flex-wrap align-items-center gap-2 mt-2">
     <button type="button" id="add-line-btn" class="btn btn-sm btn-outline-secondary"><i class="bi bi-plus-lg me-1"></i>Add Line</button>
-    <span class="text-muted small">Quick add (not from inventory):</span>
-    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Labor">+ Labor</button>
-    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Delivery &amp; setup">+ Delivery/Setup</button>
-    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="Miscellaneous">+ Miscellaneous</button>
+    <span class="text-muted small">Quick add{% if FEATURES.inventory %} (not from inventory){% endif %}:</span>
+    {% for desc in QUICK_ADD_LINES %}
+    <button type="button" class="btn btn-sm btn-outline-secondary quick-add-btn" data-desc="{{ desc }}">+ {{ desc }}</button>
+    {% endfor %}
 </div>
 <div id="removed-lines-holder" class="d-none"></div>
 
 <template id="empty-row-template"><tr>
-    <td>{{ formset.empty_form.equipment_item }}</td>
+    {% if FEATURES.inventory %}<td>{{ formset.empty_form.equipment_item }}</td>{% endif %}
     <td>{{ formset.empty_form.description }}</td>
     <td>{{ formset.empty_form.quantity }}<div class="text-warning small stock-warning" hidden></div></td>
     <td>{{ formset.empty_form.unit_price }}</td>

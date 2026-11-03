@@ -6,6 +6,7 @@ from django.urls import reverse
 from django.views.generic import DetailView, ListView
 
 from core.activity import log_activity
+from core.client import reword, term
 from core.accounts import send_staff_invite
 from core.deletion import confirm_and_delete, count_label
 from core.forms import StaffAccountCreationForm, StaffAccountUpdateForm
@@ -57,7 +58,7 @@ def staff_create(request):
     can_manage_login = request.user.is_superuser
     if request.method == 'POST':
         form = StaffMemberForm(request.POST)
-        login_form = StaffAccountCreationForm(request.POST, prefix='login') if can_manage_login else None
+        login_form = StaffAccountCreationForm(request.POST, prefix='login', use_required_attribute=False) if can_manage_login else None
         wants_login = can_manage_login and request.POST.get('create_login')
 
         if form.is_valid() and (not wants_login or (login_form and login_form.is_valid())):
@@ -69,7 +70,7 @@ def staff_create(request):
             return redirect('staffing:detail', pk=staff_member.pk)
     else:
         form = StaffMemberForm()
-        login_form = StaffAccountCreationForm(prefix='login') if can_manage_login else None
+        login_form = StaffAccountCreationForm(prefix='login', use_required_attribute=False) if can_manage_login else None
 
     return render(request, 'staffing/staff_form.html', {
         'form': form, 'login_form': login_form, 'can_manage_login': can_manage_login,
@@ -94,7 +95,7 @@ def staff_update(request, pk):
             if linked_user:
                 login_form = StaffAccountUpdateForm(request.POST, instance=linked_user, prefix='login')
             elif wants_login:
-                login_form = StaffAccountCreationForm(request.POST, prefix='login')
+                login_form = StaffAccountCreationForm(request.POST, prefix='login', use_required_attribute=False)
 
         if form.is_valid() and (login_form is None or login_form.is_valid()):
             staff_member = form.save()
@@ -115,7 +116,7 @@ def staff_update(request, pk):
         if can_manage_login:
             login_form = (
                 StaffAccountUpdateForm(instance=linked_user, prefix='login') if linked_user
-                else StaffAccountCreationForm(prefix='login')
+                else StaffAccountCreationForm(prefix='login', use_required_attribute=False)
             )
 
     return render(request, 'staffing/staff_form.html', {
@@ -137,9 +138,9 @@ def assign_staff(request, event_pk):
             assignment.save()
             log_activity(
                 request, 'event_assignment.created',
-                f'Assigned "{assignment.staff_member}" to event "{event}"',
+                f'Assigned "{assignment.staff_member}" to {term("event")} "{event}"',
             )
-            messages.success(request, f'{assignment.staff_member} assigned to this event.')
+            messages.success(request, f'{assignment.staff_member} assigned to this {term("event")}.')
             return redirect('events:detail', pk=event.pk)
     else:
         form = EventAssignmentForm()
@@ -156,7 +157,7 @@ def staff_delete(request, pk):
     """
     staff_member = get_object_or_404(StaffMember.objects.select_related('user'), pk=pk)
     user = staff_member.user
-    blockers = [count_label(staff_member.assignments.count(), 'event assignment')]
+    blockers = [count_label(staff_member.assignments.count(), f'{term("event")} assignment')]
     also_deleted = []
     after_delete = None
 
@@ -192,6 +193,6 @@ def staff_delete(request, pk):
         blockers=blockers,
         also_deleted=also_deleted,
         after_delete=after_delete,
-        hint='Staff who have worked events are kept so event history stays accurate. To take them off the team, '
-             'edit them and untick "Is active".',
+        hint=reword('Staff who have worked events are kept so event history stays accurate. To take them off the team, '
+                    'edit them and untick "Is active".'),
     )

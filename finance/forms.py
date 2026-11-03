@@ -30,6 +30,11 @@ class IncomeRecordForm(OpenPeriodFormMixin, BootstrapModelForm):
         super().__init__(*args, **kwargs)
         self.fields['deposit_account'].empty_label = 'Cash on Hand (default)'
         self.fields['income_account'].empty_label = 'Other Income (default)'
+        # The model's help text names the events chart's 4000 account; use this business's name for it.
+        from accounting.models import Account
+        services = Account.objects.filter(code='4000').values_list('name', flat=True).first()
+        if services:
+            self.fields['income_account'].help_text = f'Leave blank for Other Income (or {services} for invoice payments).'
 
 
 class ExpenseRecordForm(OpenPeriodFormMixin, BootstrapModelForm):

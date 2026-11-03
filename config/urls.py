@@ -65,4 +65,7 @@ urlpatterns = [
     path('communication/', include('comms.urls')),
     path('reports/', include('reports.urls')),
     path('accounting/', include('accounting.urls')),
+    path('renewals/', include('subscriptions.urls')),
 ]
+
+handler500 = 'core.errors.server_error'

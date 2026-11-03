@@ -9,6 +9,7 @@ from events.models import Event
 from finance.models import ExpenseCategory, ExpenseRecord, IncomeRecord
 from inventory.models import EquipmentCategory, EquipmentIssue, EquipmentItem, EquipmentReturn
 from staffing.models import EventAssignment, StaffMember
+from subscriptions.models import Subscription
 
 from core.models import RoleDefault
 
@@ -33,7 +34,7 @@ def starter_roles():
         office += list(perms_for(model))
     for model in (StaffMember, EventAssignment):
         office += list(perms_for(model))
-    office += list(perms_for(CommunicationLog))
+    office += list(perms_for(CommunicationLog)) + list(perms_for(Subscription))
     office += list(perms_for(TaxGroup, VIEW_ONLY))
     for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
         office += list(perms_for(model, VIEW_ONLY))
@@ -52,13 +53,14 @@ def starter_roles():
     accountant += list(perms_for(TaxGroup))
     for model in (IncomeRecord, ExpenseRecord, ExpenseCategory):
         accountant += list(perms_for(model))
-    for model in (Customer, Event, Quotation, Invoice, Payment, Receipt):
+    for model in (Customer, Event, Quotation, Invoice, Payment, Receipt, Subscription):
         accountant += list(perms_for(model, VIEW_ONLY))
 
     return {
         # Admin/Owner: everything in the business apps.
         'Admin': list(Permission.objects.select_related('content_type').filter(content_type__app_label__in=[
             'customers', 'events', 'billing', 'inventory', 'finance', 'staffing', 'comms', 'accounting',
+            'subscriptions',
         ])),
         'Office Staff': office,
         'Field Staff': field,

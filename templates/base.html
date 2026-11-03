@@ -5,12 +5,12 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}{{ COMPANY_NAME }}{% endblock %} · {{ COMPANY_NAME }}</title>
-    <link rel="icon" type="image/png" href="{% static COMPANY_LOGO_STATIC_PATH %}">
-    <link rel="apple-touch-icon" href="{% static 'branding/icons/apple-touch-icon.png' %}">
+    <link rel="icon" type="image/png" href="{% static COMPANY_ICONS_STATIC_DIR|add:'/icon-192.png' %}">
+    <link rel="apple-touch-icon" href="{% static COMPANY_ICONS_STATIC_DIR|add:'/apple-touch-icon.png' %}">
     <link rel="manifest" href="{% url 'manifest' %}">
-    <meta name="theme-color" content="#2B3490">
+    <meta name="theme-color" content="{{ THEME_COLOR }}">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-title" content="Pretty Events">
+    <meta name="apple-mobile-web-app-title" content="{{ COMPANY_NAME }}">
     <script>
         // Theme follows the device's light/dark setting unless the user picked one in the
         // avatar menu (saved per browser). Runs before the page paints, so no flash.
@@ -51,18 +51,11 @@
             --blur: 0px;
             --card-shadow: 0 1px 3px rgba(15,20,45,0.05);
 
-            /* Brand, from the logo: navy (PRETTY) leads, orange (EVENTS / centre tent)
-               accents, sky blue (side tents) for small touches. *-text variants are the
-               shades that stay readable as text on this theme's background. */
-            --primary: #2B3490;
-            --primary-hover: #222a78;
-            --primary-text: #2B3490;
-            --primary-soft: rgba(43,52,144,0.08);
-            --on-primary: #ffffff;
-            --accent: #E8681F;
-            --accent-text: #B9500F;
-            --accent-soft: rgba(232,104,31,0.18);
-            --sky: #00A8E8;
+            /* Brand colours come from the client profile (config/clients/): primary leads,
+               accent for links and highlights, sky for small touches. *-text variants
+               are the shades that stay readable as text on this theme's background. */
+            {% for name, value in THEME_LIGHT.items %}--{{ name }}: {{ value }};
+            {% endfor %}
             --text-1: rgba(15,20,45,0.92);
             --text-2: rgba(15,20,45,0.64);
             --text-3: rgba(15,20,45,0.58);
@@ -86,15 +79,8 @@
             --border: rgba(255,255,255,0.12);
 
             --card-shadow: none;
-            --primary: #3D47C2;
-            --primary-hover: #4954d6;
-            --primary-text: #A9B0FF;
-            --primary-soft: rgba(140,150,255,0.16);
-            --on-primary: #ffffff;
-            --accent: #F27A36;
-            --accent-text: #F79A5E;
-            --accent-soft: rgba(242,122,54,0.24);
-            --sky: #3CC4F5;
+            {% for name, value in THEME_DARK.items %}--{{ name }}: {{ value }};
+            {% endfor %}
             --text-1: rgba(255,255,255,0.94);
             --text-2: rgba(255,255,255,0.94);
             --text-3: rgba(255,255,255,0.94);

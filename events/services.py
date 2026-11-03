@@ -1,5 +1,6 @@
 from django.utils import timezone
 
+from core.client import term
 from core.models import ActivityLog
 
 from .models import Event
@@ -12,7 +13,7 @@ def sync_event_status(event, today=None):
         ActivityLog.objects.create(
             actor=None,
             action='event.status_auto',
-            description=f'Event "{event}" moved to {event.get_status_display()} automatically (event date)',
+            description=f'{term("Event")} "{event}" moved to {event.get_status_display()} automatically ({term("event")} date)',
         )
     return new_status
 

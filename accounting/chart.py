@@ -1,10 +1,13 @@
 """
-Starter chart of accounts for an events & tent-hire company. Seeded once
+Starter chart of accounts, worded for an events & tent-hire company; a client profile
+can rename accounts for its own business (Client.account_names, config/clients/). Seeded once
 (`manage.py setup_chart_of_accounts`, also run on deploy); accountants can then
 add, rename, re-code and deactivate accounts freely. Accounts with a system_key
 are the ones the app posts to automatically, found by key, not by code or name,
 so renaming or re-coding them is safe.
 """
+from django.conf import settings
+
 from .models import Account
 
 A, L, E, I, X = (Account.Type.ASSET, Account.Type.LIABILITY, Account.Type.EQUITY,
@@ -54,7 +57,9 @@ def ensure_chart_of_accounts():
     """Create any missing default accounts. Never modifies accounts that already exist
     (an accountant may have renamed them), so it's safe to run on every deploy."""
     created = 0
+    names = settings.CLIENT_PROFILE.account_names
     for code, name, account_type, detail, key in DEFAULT_CHART:
+        name = names.get(code, name)
         if key and Account.objects.filter(system_key=key).exists():
             continue
         if not key and Account.objects.filter(code=code).exists():

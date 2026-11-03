@@ -6,9 +6,9 @@
 {% block doc_number %}{{ invoice.number }}{% endblock %}
 {% block doc_details %}
 <p class="details"><b>Date:</b> {{ invoice.issue_date|date:"d M Y" }}{% if invoice.due_date %} &nbsp; <b>Due:</b> {{ invoice.due_date|date:"d M Y" }}{% endif %}</p>
-<p class="details"><b>Event date:</b> {{ invoice.event.event_date|date:"d M Y" }}{% if invoice.event.end_date %} to {{ invoice.event.end_date|date:"d M Y" }}{% endif %}</p>
+{% include "pdf/_event_dates.html" with event=invoice.event %}
 <p class="details"><b>For:</b> {{ invoice.event.event_type }}{% if invoice.event.guest_count %} ({{ invoice.event.guest_count|intcomma }} guests){% endif %}</p>
-<p class="details"><b>Venue:</b> {{ invoice.event.venue }}</p>
+{% if invoice.event.venue %}<p class="details"><b>Venue:</b> {{ invoice.event.venue }}</p>{% endif %}
 {% endblock %}
 {% block client_details %}{% include "pdf/_client_block.html" with customer=invoice.event.customer %}{% endblock %}
 {% block body %}

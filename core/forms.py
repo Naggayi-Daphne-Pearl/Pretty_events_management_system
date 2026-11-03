@@ -14,11 +14,22 @@ User = get_user_model()
 
 
 class BootstrapFieldsMixin:
-    """Adds Bootstrap form-control/form-select/form-check classes to every field automatically."""
+    """
+    Adds Bootstrap form-control/form-select/form-check classes to every field automatically,
+    and puts labels and help text in the business's own words ("Role on event" reads
+    "Role on project" for a web studio; see core.client.reword).
+    """
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
+        from .client import reword
         for field in self.fields.values():
+            if field.label:
+                field.label = reword(field.label)
+            if field.help_text:
+                field.help_text = reword(field.help_text)
+            if isinstance(getattr(field, 'empty_label', None), str):
+                field.empty_label = reword(field.empty_label)
             widget = field.widget
             if isinstance(widget, (forms.CheckboxInput, forms.CheckboxSelectMultiple, forms.RadioSelect)):
                 # CheckboxSelectMultiple/RadioSelect subclass ChoiceWidget directly (not

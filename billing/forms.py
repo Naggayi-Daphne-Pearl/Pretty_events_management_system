@@ -5,6 +5,7 @@ from django.db.models import Q
 from django.forms import inlineformset_factory
 
 from accounting.locks import OpenPeriodFormMixin
+from core.client import feature_enabled
 from core.forms import BootstrapFieldsMixin, BootstrapModelForm
 
 from .models import Invoice, InvoiceLineItem, Payment, Quotation, QuotationLineItem, TaxGroup
@@ -18,10 +19,14 @@ class TaxChoiceMixin:
     was issued with.
     """
 
+    @staticmethod
+    def tax_queryset(current=None):
+        """Active tax groups, plus the one already chosen even if it has since been retired."""
+        return TaxGroup.objects.filter(Q(is_active=True) | Q(pk=current)).order_by('name')
+
     def setup_tax_field(self):
         field = self.fields['tax_group']
-        current = self.instance.tax_group_id
-        field.queryset = TaxGroup.objects.filter(Q(is_active=True) | Q(pk=current)).order_by('name')
+        field.queryset = self.tax_queryset(self.instance.tax_group_id)
         field.empty_label = 'No tax'
         field.required = False
         field.help_text = 'Added on top of the line items. Manage taxes under Finance > Taxes.'
@@ -56,8 +61,15 @@ class LineItemFormMixin:
     """
     A row removed in the browser posts none of its fields. Report it as unchanged,
     so together with BaseLineItemFormSet it is skipped rather than failing as a
-    blank, required row.
+    blank, required row. Without the inventory module there's no item to pick.
     """
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if feature_enabled('inventory'):
+            self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
+        else:
+            del self.fields['equipment_item']
 
     def has_changed(self):
         if self.is_bound and not any(self.add_prefix(name) in self.data for name in self.fields):
@@ -93,10 +105,6 @@ class QuotationLineItemForm(LineItemFormMixin, BootstrapModelForm):
         model = QuotationLineItem
         fields = ['equipment_item', 'description', 'quantity', 'unit_price']
         labels = {'equipment_item': 'Inventory item'}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
 # min_num=1 only makes the editor start with one blank row; BaseLineItemFormSet
@@ -134,10 +142,6 @@ class InvoiceLineItemForm(LineItemFormMixin, BootstrapModelForm):
         model = InvoiceLineItem
         fields = ['equipment_item', 'description', 'quantity', 'unit_price']
         labels = {'equipment_item': 'Inventory item'}
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.fields['equipment_item'].empty_label = '— Not from inventory (labor, misc., etc.) —'
 
 
 class BaseInvoiceLineItemFormSet(BaseLineItemFormSet):

@@ -34,7 +34,7 @@
                                 <input type="checkbox" class="form-check-input perm-checkbox perm-group-{{ group.app_label }}"
                                        name="permissions" value="{{ perm.pk }}" id="perm-{{ perm.pk }}"
                                        {% if perm.pk|stringformat:"s" in selected_permission_ids %}checked{% endif %}>
-                                <label class="form-check-label small" for="perm-{{ perm.pk }}">{{ perm.name }}</label>
+                                <label class="form-check-label small" for="perm-{{ perm.pk }}">{{ perm.label|default:perm.name }}</label>
                             </div>
                         {% endfor %}
                     </div>

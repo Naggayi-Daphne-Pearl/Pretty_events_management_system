@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Something Went Wrong · Pretty Events</title>
+<title>Something Went Wrong · {{ name|default:"Business Manager" }}</title>
 <!--
     Deliberately self-contained, not extending the main site layout: a 500
     means something already broke, so this page must not depend on context
-    processors or other app state that might be part of the problem.
+    processors or other app state that might be part of the problem. Only the
+    business name and colours are passed in (core.views.server_error).
 -->
 <style>
     body {
@@ -16,15 +17,15 @@
         background: #0d0c10; color: rgba(255,255,255,0.94);
     }
     .box { text-align: center; max-width: 440px; padding: 32px; }
-    .code { font-size: 4.5rem; font-weight: 700; color: #F27A36; line-height: 1; margin-bottom: 8px; }
+    .code { font-size: 4.5rem; font-weight: 700; color: {{ accent|default:"#F27A36" }}; line-height: 1; margin-bottom: 8px; }
     h1 { font-size: 1.4rem; margin: 0 0 12px; }
     p { color: rgba(255,255,255,0.72); margin: 0 0 24px; }
     .btn {
         border: 0; cursor: pointer; font: inherit; margin: 4px;
         display: inline-block; padding: 10px 20px; border-radius: 10px; text-decoration: none;
-        background: #3D47C2; color: #ffffff; font-weight: 600;
+        background: {{ primary|default:"#3D47C2" }}; color: #ffffff; font-weight: 600;
     }
-    .btn-secondary { background: transparent; color: #A9B0FF; border: 1px solid #A9B0FF; }
+    .btn-secondary { background: transparent; color: {{ primary_text|default:'#A9B0FF' }}; border: 1px solid {{ primary_text|default:'#A9B0FF' }}; }
 </style>
 </head>
 <body>
@@ -33,7 +34,7 @@
     <h1>Something went wrong on our end</h1>
     <p>This wasn't caused by anything you did, and the details have been logged for whoever manages this system. Please try again in a moment. If it keeps happening, let them know what you were doing.</p>
     <button type="button" class="btn" onclick="location.reload()">Try again</button>
-    <a class="btn btn-secondary" href="/">Back to Pretty Events</a>
+    <a class="btn btn-secondary" href="/">Back to {{ name|default:"the dashboard" }}</a>
 </div>
 </body>
 </html>

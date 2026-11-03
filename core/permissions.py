@@ -14,7 +14,10 @@ MANAGEABLE_APPS = OrderedDict([
     ('staffing', 'Staff'),
     ('comms', 'Communication'),
     ('accounting', 'Accounting'),
+    ('subscriptions', 'Renewals'),
 ])
+# Apps that only exist for an optional module (core.client), hidden while it's off.
+APP_FEATURES = {'inventory': 'inventory', 'subscriptions': 'subscriptions'}
 
 # Line items are only ever edited inline through their parent (quotation/invoice)
 # formset, never permission-checked on their own — hide them from the checklist.
@@ -45,17 +48,24 @@ def grouped_permissions():
         action = perm.codename.split('_', 1)[0]
         return ACTION_ORDER.get(action, 99)
 
+    from .client import feature_enabled, reword, terms
+    words = terms()
     groups = []
     for app_label, app_display in MANAGEABLE_APPS.items():
         models = by_app.get(app_label) or {}
-        if not models:
+        if not models or (app_label in APP_FEATURES and not feature_enabled(APP_FEATURES[app_label])):
             continue
+        app_display = {'customers': words['Customers'], 'events': words['Events']}.get(app_label, app_display)
         model_groups = []
         for model, perms in models.items():
             perms.sort(key=sort_key)
+            for perm in perms:
+                perm.label = reword(perm.name)
             model_groups.append({
                 'model': model,
-                'display_name': perms[0].content_type.name.title() if perms else model,
+                'display_name': {'event': words['Event'], 'customer': words['Customer'],
+                                 'eventassignment': f"{words['Event']} assignment"}.get(
+                    model, perms[0].content_type.name.title() if perms else model),
                 'permissions': perms,
             })
         groups.append({'app_label': app_label, 'display_name': app_display, 'models': model_groups})
