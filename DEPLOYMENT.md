@@ -7,6 +7,11 @@ Two supported deployment routes, using the same Dockerfile either way:
 - **Option B — VPS + docker-compose + Nginx**: full control, more manual
   maintenance (SSL renewal, backups, patching), similar or lower raw cost.
 
+The same code runs more than one business. Each business is its own deployment with
+its own database, picked by the `CLIENT` variable (profiles live in `config/clients/`).
+Pretty Events is the default; Harrah Designs is set up in
+[Another business on Railway: Harrah Designs](#another-business-on-railway-harrah-designs).
+
 ---
 
 ## Option A: Railway (current production setup)
@@ -119,6 +124,113 @@ includes $5 of usage credit). For this app's expected traffic (internal
 staff use, not high public traffic): roughly **$5-15/month total** for the
 web service + Postgres combined. Watch actual usage in the dashboard for
 the first month to confirm.
+
+---
+
+## Another business on Railway: Harrah Designs
+
+Harrah Designs (web design studio) runs the same code as Pretty Events, in its own
+Railway project with its own Postgres database. Nothing is shared between the two: separate
+logins, customers, invoices and settings. What makes it Harrah is one variable,
+`CLIENT=harrah_designs`, which loads `config/clients/harrah_designs.py`: the name, logo and
+red theme, "Projects" and "Clients" instead of "Events" and "Customers", Renewals switched
+on, Inventory switched off, no venue or guest count, and its own account names.
+
+### 1. Project, service and database
+
+1. **New Project → Deploy from GitHub repo →** `Pretty_events_management_system`. Railway
+   builds from the `Dockerfile`, as for Pretty Events.
+2. **+ New → Database → PostgreSQL** in the same project.
+3. Web service → **Settings → Source → Branch**: `main` once the multi-client work is
+   merged. To try Harrah before merging, point it at `feature/multi-client-config`
+   instead. Pretty Events keeps deploying from `main` either way.
+
+### 2. Variables on the Harrah web service
+
+Web service → **Variables**:
+
+| Variable | Value |
+|---|---|
+| `CLIENT` | `harrah_designs` |
+| `SECRET_KEY` | a new long random string (not Pretty Events' one): `python -c "import secrets; print(secrets.token_urlsafe(50))"` |
+| `DEBUG` | `False` |
+| `DJANGO_SETTINGS_MODULE` | `config.settings.production` |
+| `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` (**Add Reference** → the Postgres service in *this* project) |
+| `TIME_ZONE` | `Africa/Kampala` |
+| `EMAIL_ENABLED` | `False` for now (see step 6) |
+
+Check `DATABASE_URL` points at Harrah's own Postgres, never Pretty Events'. Otherwise the
+two businesses would share one set of records.
+
+A misspelt `CLIENT` stops the app at start-up with
+`No client profile config/clients/<name>.py`, visible in the deploy log.
+
+### 3. Domain
+
+1. Web service → **Settings → Networking → Generate Domain**, then **Deployments →
+   latest → ⋮ → Redeploy** (the container only sees `RAILWAY_PUBLIC_DOMAIN` after a
+   restart, see Option A step 4).
+2. Custom domain (for example `app.harrahdesigns.com`): **Settings → Networking → Custom
+   Domain**, add the CNAME record Railway shows at Harrah's DNS provider, then set
+   `ALLOWED_HOSTS=app.harrahdesigns.com` and
+   `CSRF_TRUSTED_ORIGINS=https://app.harrahdesigns.com` and redeploy.
+
+### 4. First deploy and admin login
+
+The first deploy runs `entrypoint.sh` as usual: migrations, static files, starter roles and
+Harrah's chart of accounts (with its own account names). Then, in the web service's
+**Console**:
+
+```bash
+DJANGO_SUPERUSER_PASSWORD='YourStrongPasswordHere' python manage.py createsuperuser --username admin --email you@example.com --noinput
+```
+
+Log in at `/login/`. You should see the Harrah logo, and **Projects**, **Clients** and
+**Billing → Renewals** in the menu, with no Inventory.
+
+### 5. Business details on documents
+
+Quotations, invoices and receipts print the legal name, address, phone numbers, emails
+and TIN from `config/clients/harrah_designs.py`. Lines left empty are left off the PDF.
+Fill in the real details there (the file has a TODO), commit and push. Railway redeploys
+by itself.
+
+### 6. Email (when Harrah has a mailbox)
+
+Use Harrah's own mail account. Copying Pretty Events' settings would send Harrah's
+quotations from Pretty Events' address. Railway blocks SMTP on trial and hobby plans, so
+send through Brevo's API: create an API key in Brevo, verify Harrah's sender domain, and set
+
+| Variable | Value |
+|---|---|
+| `BREVO_API_KEY` | `xkeysib-...` |
+| `DEFAULT_FROM_EMAIL` | `Harrah Designs <info@harrahdesigns.com>` (Harrah's real address) |
+| `EMAIL_ENABLED` | `True` |
+
+The SMTP alternative is in `.env.example`.
+
+### 7. Renewals and the daily jobs
+
+Renewal invoices (hosting, domains, retainers) are raised by the daily jobs, which run on
+the first visit of each day (`core/daily.py`). Each renewal is invoiced a set number of days
+before it falls due (14 by default), so a day or two without visitors only delays an invoice
+until someone opens the app. The cron commands in Option A step 8 cover event and invoice
+statuses only, not renewals.
+
+### 8. Pretty Events after the merge
+
+Merging the multi-client work into `main` redeploys Pretty Events too. Its first start
+applies two migrations (venue becomes optional; empty renewals tables are created). Its
+screens and documents stay the same. Set `CLIENT=pretty_events` on the Pretty Events web
+service as well. It is the default, but setting it means a code change can never switch
+the live site to another profile.
+
+### Adding a further business later
+
+1. Copy `config/clients/harrah_designs.py` to `config/clients/<slug>.py` and change it.
+2. Add `assets/clients/<slug>/logo.png`, `logo-dark.png` and `icons/` (the same files
+   Harrah has).
+3. Commit, push, and follow steps 1–4 above with `CLIENT=<slug>`.
 
 ---
 
